@@ -1,0 +1,94 @@
+Account Segment,Account Name,Opportunity Name,Close Date,Deal Type,Amount,Products (Rollup),Competitor 1,Competitor 2,Primary Outcome Reason,Outcome Sub Reason,Lost Opportunity Details,First Win Date,Tenure (years)
+Enterprise,TechVision Analytics,Renewal - Enterprise Annual 2024,10/31/2024,Renewal,"$125,000.00","Business Intelligence Platform
+Analytics Dashboard
+Data Warehouse Integration
+Advanced Reporting
+Custom Dashboards",Tableau,Power BI,Pricing & Budget,Cost Reduction,"Customer cited budget constraints following Q3 cost-cutting initiative. Despite strong product adoption (78% daily active users), CFO mandated 30% reduction in SaaS spending. Attempted to negotiate discount but procurement had firm budget ceiling. Lost to Tableau due to existing enterprise agreement.",10/15/2022,2.0
+Commercial,DataFlow Systems,Renewal - ACCT-2847 - Commercial Plan 2024,10/28/2024,Renewal,"$48,000.00","ETL Platform
+Data Pipeline Management
+Real-time Sync",Fivetran,Airbyte,Product Fit,Missing Features,"Customer needed real-time CDC capabilities which our platform doesn't support in their tier. Engineering team evaluated upgrade to Enterprise but timeline was 6+ months. Competitor offered native CDC out of box. Customer was otherwise satisfied with support and reliability.",3/12/2023,1.7
+SMB,CloudSync Technologies,New Business - SMB Quarterly 2024,10/25/2024,New,"$12,500.00","Cloud Storage API
+File Sync Service",Dropbox Business,Box,Poor Onboarding Experience,,"CSM transition during onboarding created confusion. Customer struggled with API integration, support response time averaged 48 hours vs promised 24. After 3 weeks of implementation delays, switched to Dropbox due to simpler setup and existing familiarity.",9/1/2024,0.2
+Mid-Market,RetailMetrics Inc,Renewal - ACCT-5621 - Mid-Market 2024,10/22/2024,Renewal,"$89,000.00","E-commerce Analytics
+Customer Segmentation
+Marketing Attribution
+ROI Dashboard",Mixpanel,Amplitude,Low Product Usage,Poor Adoption,"Only 3 of 12 licensed users actively using platform. Marketing team preferred Google Analytics for simplicity. Attempted QBR to drive adoption but stakeholder turnover meant loss of internal champion. Product team found UI too complex for their needs.",1/8/2022,2.8
+Enterprise,FinServe Solutions,Renewal - Enterprise Multi-Year 2024,10/20/2024,Renewal,"$245,000.00","Compliance Management
+Audit Trail Platform
+Risk Assessment Tools
+Regulatory Reporting",MetricStream,LogicGate,Competitive Displacement,Better Features,"Competitor launched AI-powered compliance automation which became must-have for customer. Our roadmap had similar features but 12-month timeline. Customer required SOC2 automated evidence collection immediately for upcoming audit. Price difference was minimal, feature gap was critical.",4/22/2021,3.5
+Commercial,MarketingHub Pro,Renewal - ACCT-8834 - Commercial Annual 2024,10/18/2024,Renewal,"$52,000.00","Marketing Automation
+Email Campaigns
+Lead Scoring
+CRM Integration",HubSpot,Marketo,Product Quality & Experience,Performance Issues,"Platform experienced 3 major outages in Q2 impacting critical campaigns. Despite SLA credits, customer lost confidence in reliability. Support escalations increased 200%. Migration to HubSpot was planned over 6 months to avoid disruption to ongoing campaigns.",11/30/2022,1.9
+SMB,StartupLaunch Ventures,Renewal - SMB Annual 2024,10/15/2024,Renewal,"$18,500.00","Project Management
+Team Collaboration
+Task Tracking",Asana,Monday.com,Financial Distress,Company Downsizing,"Startup went through Series A down-round and laid off 40% of staff. Remaining team consolidated to free tools. CFO prioritized runway extension over productivity tools. Customer acknowledged value but survival took priority. Offered 50% discount but was declined.",6/15/2023,1.3
+Mid-Market,HealthTech Innovations,Renewal - ACCT-3912 - Mid-Market Plan 2024,10/12/2024,Renewal,"$67,000.00","Patient Data Platform
+HIPAA Compliance Module
+Clinical Analytics",Epic Systems,Cerner,Integration Challenges,Technical Limitations,"Customer's primary EHR system (Epic) released native analytics module making our integration redundant. Our API couldn't support required HL7 FHIR standards in their configuration. Engineering estimated 4-month custom development. Customer needed solution immediately for regulatory deadline.",8/7/2022,2.2
+Enterprise,GlobalManufacture Corp,Renewal - Enterprise Plan 2024,10/10/2024,Renewal,"$180,000.00","Supply Chain Visibility
+Inventory Optimization
+Demand Forecasting
+Supplier Management",SAP,Oracle,Consolidation,Platform Consolidation,"Parent company mandated ERP consolidation to SAP across all subsidiaries. Despite strong ROI metrics and user satisfaction, corporate IT strategy took precedence. 18-month migration timeline. Offered discounted bundle with complementary products but procurement was locked into SAP ecosystem.",2/14/2021,3.7
+Commercial,SalesForce Accelerator,Renewal - ACCT-7745 - Commercial 2024,10/8/2024,Renewal,"$41,000.00","Sales Enablement
+Content Management
+Training Platform",Seismic,Highspot,Change in Leadership,New Stakeholder,"VP Sales who championed our platform left company. Replacement had existing relationship with Seismic from previous company. Despite positive metrics (32% increase in deal velocity), new leader wanted familiar tools. Transition happened within 45 days of their start date.",5/20/2023,1.4
+SMB,DevTools Startup,Renewal - SMB Quarterly 2024,10/5/2024,Renewal,"$9,800.00","CI/CD Platform
+Code Repository
+Build Automation",GitHub Actions,GitLab,Feature Gaps,Missing Capabilities,"Customer needed advanced security scanning and compliance features only available in Enterprise tier. Upgrade would triple their costs. GitHub Actions provided required features at similar price point. Strong developer preference for GitHub ecosystem also influenced decision.",7/12/2024,0.3
+Mid-Market,InsureTech Partners,Renewal - ACCT-4567 - Mid-Market Annual 2024,10/3/2024,Renewal,"$95,000.00","Claims Processing
+Document Management
+Workflow Automation
+Customer Portal",Guidewire,Duck Creek,Pricing & Budget,Too Expensive,"Annual renewal increased 28% due to user growth and new pricing model. Customer requested flat pricing but our model was usage-based. Competitor offered 3-year lock with no price increase. Customer's board required cost predictability for financial planning.",12/1/2021,2.8
+Enterprise,EduTech University,Renewal - Enterprise Education 2024,10/1/2024,Renewal,"$156,000.00","Learning Management System
+Student Analytics
+Course Management
+Mobile App",Canvas,Blackboard,Poor Customer Success,Lack of Support,"Dedicated CSM left company and was not replaced for 4 months. Customer raised concerns about lack of proactive engagement and strategic guidance. Multiple feature requests went unacknowledged. Renewal conversation happened too late. Moved to Canvas which offered dedicated support team.",9/10/2021,3.1
+Commercial,LogisticsFlow Inc,Renewal - ACCT-6623 - Commercial Plan 2024,09/28/2024,Renewal,"$58,000.00","Route Optimization
+Fleet Management
+Delivery Tracking
+Driver Mobile App",Samsara,Geotab,Product Quality & Experience,Mobile App Issues,"Driver-facing mobile app had persistent bugs affecting delivery completion workflows. Despite 5 patches, issues continued impacting operations. Customer escalated to executive team. Competitor's native mobile platform was more stable. Customer couldn't afford operational disruptions.",4/15/2023,1.5
+SMB,ContentCreative Agency,Renewal - SMB Annual 2024,09/25/2024,Renewal,"$15,600.00","Digital Asset Management
+Brand Guidelines
+Creative Workflow",Bynder,Brandfolder,Low Product Usage,Wrong Product Fit,"Agency realized they needed full creative project management, not just DAM. Our platform didn't cover their expanded requirements. Consolidated to Monday.com which handled both DAM and project management. Acknowledged our DAM was superior but preferred single platform.",11/8/2023,0.9
+Mid-Market,FinancialPlanning Solutions,Renewal - ACCT-5534 - Mid-Market 2024,09/22/2024,Renewal,"$71,000.00","Financial Planning
+Forecasting & Budgeting
+Variance Analysis
+Multi-entity Consolidation",Adaptive Insights,Planful,Integration Challenges,ERP Compatibility,"Customer migrated from NetSuite to Microsoft Dynamics 365. Our Dynamics connector was beta with limited functionality. Needed real-time GL sync which wasn't supported. Competitor had mature Dynamics integration with proven implementations. Customer couldn't wait for our roadmap.",6/30/2022,2.2
+Enterprise,CyberSecurity Enterprises,Renewal - Enterprise Multi-Year 2024,09/20/2024,Renewal,"$198,000.00","SIEM Platform
+Threat Detection
+Incident Response
+Security Analytics",Splunk,Datadog,Competitive Displacement,AI/ML Features,"Competitor released AI-powered threat detection significantly reducing false positives. Our ML capabilities were 18 months behind on roadmap. Customer's security team overwhelmed by alerts needed immediate solution. Pricing was comparable but technology gap was insurmountable.",3/15/2021,3.5
+Commercial,HRTech Innovations,Renewal - ACCT-8891 - Commercial Plan 2024,09/18/2024,Renewal,"$44,500.00","Applicant Tracking
+Onboarding Automation
+Employee Records
+Performance Management",Greenhouse,Lever,Change in Requirements,Merger Activity,"Customer acquired by larger company with existing HR stack (Workday). Corporate IT mandated platform consolidation within 90 days. Strong user satisfaction and ROI but M&A drove decision. No opportunity to compete as decision was made at parent company level.",10/5/2022,1.9
+SMB,DesignStudio Collective,Renewal - SMB Quarterly 2024,09/15/2024,Renewal,"$11,200.00","Design Collaboration
+Feedback Management
+Version Control
+Client Portal",Figma,InVision,Product Fit,Feature Limitations,"Studio needed advanced prototyping and handoff features which our platform lacked. Figma became industry standard for their design workflow. Team collaboration features were good but core design tools weren't competitive. Customer wanted single platform for entire design process.",8/1/2024,0.2
+Mid-Market,RealEstate PropTech,Renewal - ACCT-7712 - Mid-Market Annual 2024,09/12/2024,Renewal,"$82,000.00","Property Management
+Tenant Portal
+Maintenance Tracking
+Lease Management",AppFolio,Buildium,Poor Onboarding Experience,Implementation Delays,"Data migration from legacy system took 4 months vs promised 6 weeks. Multiple data quality issues required manual cleanup. Customer lost trust in our ability to deliver. Support tickets averaged 72-hour response during critical migration period. Relationship never recovered.",1/20/2023,1.7
+Enterprise,MediaStreaming Network,Renewal - Enterprise Annual 2024,09/10/2024,Renewal,"$225,000.00","Content Delivery Network
+Video Transcoding
+Analytics & Insights
+DRM Protection",Cloudflare,Akamai,Pricing & Budget,Cost Optimization,"Customer re-evaluated CDN costs during contract renewal. Competitor offered 35% cost savings with comparable performance. Our pricing model based on bandwidth didn't scale favorably for their growing traffic. Attempted custom pricing but couldn't match competitor economics.",5/8/2020,4.3
+Commercial,CustomerSuccess Platform,Renewal - ACCT-9456 - Commercial 2024,09/8/2024,Renewal,"$49,000.00","Customer Health Scoring
+Churn Prediction
+Playbook Automation
+NPS Surveys",Gainsight,ChurnZero,Low Product Usage,Internal Champion Left,"Primary user and internal champion (VP Customer Success) left for competitor. New leadership questioned platform value and ROI. Utilization dropped from 85% to 23% over 3 months. Attempted executive alignment meeting but new VP already evaluating alternatives.",7/25/2023,1.1
+SMB,FoodTech Delivery,Renewal - SMB Annual 2024,09/5/2024,Renewal,"$16,800.00","Order Management
+Kitchen Display System
+Delivery Dispatch
+Customer App",Toast,Square,Financial Distress,Reduced Revenue,"Restaurant industry downturn post-pandemic. Customer's revenue dropped 40% with reduced delivery volume. Needed to cut costs across all vendors. Moved to lower-cost competitor with basic features. Acknowledged our platform was superior but survival was priority.",3/18/2023,1.5
+Mid-Market,LegalTech Attorneys,Renewal - ACCT-6634 - Mid-Market Plan 2024,09/3/2024,Renewal,"$73,500.00","Case Management
+Document Automation
+Billing & Time Tracking
+Client Portal",Clio,MyCase,Product Quality & Experience,UX Complexity,"Attorneys found platform too complex for day-to-day use. Training requirements were high with steep learning curve. Support tickets indicated recurring confusion with workflows. Competitor offered simpler interface better suited for small law firms. Productivity actually decreased despite powerful features.",11/12/2022,1.8
+Enterprise,AutoTech Manufacturers,Renewal - Enterprise Multi-Year 2024,09/1/2024,Renewal,"$215,000.00","PLM Platform
+CAD Integration
+Requirements Management
+Change Control",Siemens Teamcenter,PTC Windchill,Consolidation,Enterprise Standardization,"Corporate engineering mandate to standardize on Siemens PLM across all divisions globally. Local engineering team preferred our platform but corporate IT strategy won. 24-month migration with significant change management. Decision made 2 levels above our stakeholders.",6/20/2020,4.2

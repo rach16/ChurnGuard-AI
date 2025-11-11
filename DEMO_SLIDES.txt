@@ -1,0 +1,83 @@
+CHURNGUARD AI - DEMO DAY SLIDES
+Copy each slide section into Google Slides
+=====================================
+
+SLIDE 1: TITLE
+--------------
+ChurnGuard AI
+Multi-Agent RAG for Customer Churn Prevention
+
+Rachana Banik
+AIE8 Cohort 8 - November 2025
+
+
+SLIDE 2: THE PROBLEM
+--------------------
+The Problem
+
+SaaS companies lose 5-7% revenue monthly to churn
+
+CSMs are reactive:
+• Data scattered across 5+ tools
+• Alerts come too late
+• No playbook for what works
+
+A $1M ARR company loses $50-70K/month
+
+
+SLIDE 3: THE SOLUTION
+---------------------
+ChurnGuard AI Solution
+
+🤖 Multi-Agent System predicts churn 7-30 days early
+
+🔍 Advanced RAG retrieves proven retention playbooks
+
+⚡ Integrates: Salesforce, Stripe, Mixpanel, Intercom
+
+📋 Auto-generates personalized interventions
+
+Built with: LangGraph • OpenAI • Qdrant • FastAPI • Next.js
+
+
+SLIDE 4: ARCHITECTURE
+---------------------
+How It Works
+
+Monitoring Agents
+    ↓
+Detect risk signals from all data sources
+    ↓
+RAG Knowledge Engine
+    ↓
+Retrieve proven retention playbooks
+    ↓
+Action Agents
+    ↓
+Generate personalized recommendations
+
+8 Specialized Agents + 5 Retrieval Strategies
+
+
+SLIDE 5: THANK YOU
+------------------
+Thank You!
+
+ChurnGuard AI
+github.com/rachanabanik/AIE8-Cert-Challenge
+
+📧 r.banik16@gmail.com
+💼 linkedin.com/in/rachanabanik
+
+Questions?
+
+
+=====================================
+INSTRUCTIONS:
+1. Go to slides.google.com
+2. Click "Blank"
+3. Copy each slide section above
+4. Paste into slides
+5. Share → "Anyone with link can view"
+6. Copy link for submission
+=====================================
