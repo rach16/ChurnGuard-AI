@@ -1,0 +1,51 @@
+# Churn Risk Analysis: ComplianceHub LLC
+
+## Executive Summary
+ComplianceHub LLC is a SMB customer with $40,309 ARR and 26 months of tenure. Current risk score: 59%.
+
+## Risk Factors
+1. **Primary Concern:** Team not using it
+2. **Feature Adoption:** 35% (Below SMB average of 70%)
+3. **Support Activity:** 5 tickets in last 30 days
+4. **Engagement:** Last interaction 54 days ago
+
+## Detailed Analysis
+
+### Churn Category: Adoption Challenges
+This customer is exhibiting classic signs of adoption challenges. Specifically, they have expressed concerns about: team not using it.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 35%
+- Support ticket volume decreasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For SMB customers, adoption challenges typically requires product education and training.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address team not using it
+
+### Short-term (30 Days)
+1. Increase feature adoption from 35% to 60%
+2. Reduce support tickets by improving documentation
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position ComplianceHub LLC as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar SMB customers with adoption challenges, intervention at this stage has a 74% success rate.
+
+## Historical Context
+Previous SMB customers with similar risk profiles who received provided implementation support showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 59%*
+*Segment: SMB*

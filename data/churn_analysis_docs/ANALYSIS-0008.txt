@@ -1,0 +1,51 @@
+# Churn Risk Analysis: CloudVision Corp
+
+## Executive Summary
+CloudVision Corp is a Enterprise customer with $406,355 ARR and 24 months of tenure. Current risk score: 84%.
+
+## Risk Factors
+1. **Primary Concern:** ROI not clear
+2. **Feature Adoption:** 35% (Below Enterprise average of 70%)
+3. **Support Activity:** 9 tickets in last 30 days
+4. **Engagement:** Last interaction 20 days ago
+
+## Detailed Analysis
+
+### Churn Category: Pricing Concerns
+This customer is exhibiting classic signs of pricing concerns. Specifically, they have expressed concerns about: roi not clear.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 35%
+- Support ticket volume increasing
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For Enterprise customers, pricing concerns typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address roi not clear
+
+### Short-term (30 Days)
+1. Increase feature adoption from 35% to 60%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position CloudVision Corp as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with pricing concerns, intervention at this stage has a 69% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received offered discount for annual commitment showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 84%*
+*Segment: Enterprise*

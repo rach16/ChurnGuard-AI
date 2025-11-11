@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DisasterRecovery LLC
+
+## Executive Summary
+DisasterRecovery LLC is a Enterprise customer with $499,494 ARR and 4 months of tenure. Current risk score: 63%.
+
+## Risk Factors
+1. **Primary Concern:** No training
+2. **Feature Adoption:** 31% (Below Enterprise average of 70%)
+3. **Support Activity:** 13 tickets in last 30 days
+4. **Engagement:** Last interaction 35 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: no training.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 31%
+- Support ticket volume increasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For Enterprise customers, support issues typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address no training
+
+### Short-term (30 Days)
+1. Increase feature adoption from 31% to 56%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DisasterRecovery LLC as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with support issues, intervention at this stage has a 85% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received created custom training program showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 63%*
+*Segment: Enterprise*

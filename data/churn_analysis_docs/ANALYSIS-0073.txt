@@ -1,0 +1,51 @@
+# Churn Risk Analysis: LoadBalance Corp
+
+## Executive Summary
+LoadBalance Corp is a Enterprise customer with $437,596 ARR and 10 months of tenure. Current risk score: 95%.
+
+## Risk Factors
+1. **Primary Concern:** ROI not clear
+2. **Feature Adoption:** 25% (Below Enterprise average of 70%)
+3. **Support Activity:** 6 tickets in last 30 days
+4. **Engagement:** Last interaction 46 days ago
+
+## Detailed Analysis
+
+### Churn Category: Pricing Concerns
+This customer is exhibiting classic signs of pricing concerns. Specifically, they have expressed concerns about: roi not clear.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 25%
+- Support ticket volume stable
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For Enterprise customers, pricing concerns typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address roi not clear
+
+### Short-term (30 Days)
+1. Increase feature adoption from 25% to 50%
+2. Reduce support tickets by improving documentation
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position LoadBalance Corp as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with pricing concerns, intervention at this stage has a 82% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received offered discount for annual commitment showed significant improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 95%*
+*Segment: Enterprise*

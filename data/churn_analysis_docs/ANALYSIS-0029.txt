@@ -1,0 +1,51 @@
+# Churn Risk Analysis: AnalyticsCo LLC
+
+## Executive Summary
+AnalyticsCo LLC is a Enterprise customer with $375,783 ARR and 3 months of tenure. Current risk score: 71%.
+
+## Risk Factors
+1. **Primary Concern:** Unresolved bugs
+2. **Feature Adoption:** 46% (Below Enterprise average of 70%)
+3. **Support Activity:** 4 tickets in last 30 days
+4. **Engagement:** Last interaction 22 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: unresolved bugs.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 46%
+- Support ticket volume decreasing
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For Enterprise customers, support issues typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address unresolved bugs
+
+### Short-term (30 Days)
+1. Increase feature adoption from 46% to 71%
+2. Reduce support tickets by improving documentation
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position AnalyticsCo LLC as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with support issues, intervention at this stage has a 80% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received assigned dedicated success manager showed significant improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 71%*
+*Segment: Enterprise*

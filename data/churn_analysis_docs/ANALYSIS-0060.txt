@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DevOpsHub LLC
+
+## Executive Summary
+DevOpsHub LLC is a Enterprise customer with $465,675 ARR and 31 months of tenure. Current risk score: 82%.
+
+## Risk Factors
+1. **Primary Concern:** Lack of champions
+2. **Feature Adoption:** 45% (Below Enterprise average of 70%)
+3. **Support Activity:** 15 tickets in last 30 days
+4. **Engagement:** Last interaction 19 days ago
+
+## Detailed Analysis
+
+### Churn Category: Adoption Challenges
+This customer is exhibiting classic signs of adoption challenges. Specifically, they have expressed concerns about: lack of champions.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 45%
+- Support ticket volume increasing
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For Enterprise customers, adoption challenges typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address lack of champions
+
+### Short-term (30 Days)
+1. Increase feature adoption from 45% to 70%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DevOpsHub LLC as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with adoption challenges, intervention at this stage has a 74% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received conducted onboarding workshops showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 82%*
+*Segment: Enterprise*

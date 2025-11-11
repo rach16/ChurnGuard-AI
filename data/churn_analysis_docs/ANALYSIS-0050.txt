@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DevOpsHub Corp
+
+## Executive Summary
+DevOpsHub Corp is a Enterprise customer with $358,854 ARR and 29 months of tenure. Current risk score: 79%.
+
+## Risk Factors
+1. **Primary Concern:** Competitor has better features
+2. **Feature Adoption:** 35% (Below Enterprise average of 70%)
+3. **Support Activity:** 6 tickets in last 30 days
+4. **Engagement:** Last interaction 42 days ago
+
+## Detailed Analysis
+
+### Churn Category: Competition
+This customer is exhibiting classic signs of competition. Specifically, they have expressed concerns about: competitor has better features.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 35%
+- Support ticket volume stable
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For Enterprise customers, competition typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address competitor has better features
+
+### Short-term (30 Days)
+1. Increase feature adoption from 35% to 60%
+2. Reduce support tickets by improving documentation
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DevOpsHub Corp as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with competition, intervention at this stage has a 66% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received highlighted unique differentiators showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 79%*
+*Segment: Enterprise*

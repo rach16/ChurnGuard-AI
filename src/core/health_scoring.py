@@ -24,6 +24,7 @@ class CustomerHealthScorer:
         self.churn_data_path = churn_data_path
         self.df = None
         self.churn_patterns = {}
+        self._customer_cache = None  # Cache for synthetic customers
         self._load_data()
         self._analyze_patterns()
 
@@ -72,13 +73,24 @@ class CustomerHealthScorer:
 
         logger.info(f"Analyzed churn patterns: {len(reason_counts)} unique churn reasons")
 
-    def generate_synthetic_active_customers(self, num_customers: int = 20) -> List[Dict]:
+    def generate_synthetic_active_customers(self, num_customers: int = 20, use_cache: bool = True) -> List[Dict]:
         """
         Generate synthetic active customers based on patterns in churned data
         These represent customers who haven't churned yet but may be at risk
+
+        Args:
+            num_customers: Number of customers to generate
+            use_cache: If True, use cached customers for consistency across requests
         """
         if self.df is None:
             return []
+
+        # Return cached customers if available and requested
+        if use_cache and self._customer_cache is not None:
+            return self._customer_cache[:num_customers]
+
+        # Set seed for reproducibility
+        np.random.seed(42)
 
         synthetic_customers = []
 
@@ -171,6 +183,10 @@ class CustomerHealthScorer:
 
         # Sort by risk score (highest first)
         synthetic_customers.sort(key=lambda x: x['risk_score'], reverse=True)
+
+        # Cache the customers for consistency
+        if use_cache:
+            self._customer_cache = synthetic_customers
 
         logger.info(f"Generated {num_customers} synthetic active customers")
         return synthetic_customers

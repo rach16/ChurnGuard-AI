@@ -18,6 +18,7 @@ import uvicorn
 sys.path.append(str(Path(__file__).parent.parent))
 
 from core.health_scoring import CustomerHealthScorer
+from core.rag_helper import get_rag_retriever
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -35,14 +36,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global health scorer
+# Global health scorer and RAG retriever
 health_scorer: Optional[CustomerHealthScorer] = None
+rag_retriever = None
 
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize health scorer on startup"""
-    global health_scorer
+    """Initialize health scorer and RAG retriever on startup"""
+    global health_scorer, rag_retriever
 
     print("🚀 Initializing Customer Health Scorer...")
 
@@ -54,6 +56,13 @@ async def startup_event():
 
     except Exception as e:
         print(f"❌ Failed to initialize health scorer: {e}")
+
+    # Initialize RAG retriever
+    print("🔮 Initializing RAG retriever...")
+    try:
+        rag_retriever = get_rag_retriever()
+    except Exception as e:
+        print(f"⚠️  RAG initialization skipped: {e}")
 
 
 class HealthResponse(BaseModel):
@@ -342,6 +351,21 @@ async def multi_agent_analyze(request: MultiAgentRequest):
    - Highlight underutilized features that solve their challenges
    - Develop success metrics dashboard tailored to their goals""")
 
+    # Retrieve RAG context if available
+    rag_context_text = ""
+    if rag_retriever and rag_retriever.is_available():
+        try:
+            # Build RAG query based on customer profile
+            rag_query = f"{segment} customer with {risk_reason}, {feature_adoption*100:.0f}% adoption, {support_tickets} support tickets"
+
+            # Retrieve relevant context
+            context_docs = rag_retriever.retrieve_context(rag_query, k=3)
+
+            if context_docs:
+                rag_context_text = rag_retriever.format_context_for_prompt(context_docs, max_docs=3)
+        except Exception as e:
+            print(f"⚠️  RAG retrieval failed: {e}")
+
     # Build comprehensive response
     insights_text = "\n".join([f"- {insight}" for insight in insights]) if insights else "- Customer metrics within normal range"
     recommendations_text = "\n\n".join([f"{i+1}. {rec}" for i, rec in enumerate(recommendations)])
@@ -412,6 +436,10 @@ async def multi_agent_analyze(request: MultiAgentRequest):
 - Progress review and strategy adjustment
 - Expansion conversation (if metrics improve)
 - Long-term partnership planning
+
+---
+
+{rag_context_text}
 
 ---
 

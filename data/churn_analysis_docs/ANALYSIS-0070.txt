@@ -1,0 +1,51 @@
+# Churn Risk Analysis: CacheMaster Inc
+
+## Executive Summary
+CacheMaster Inc is a Commercial customer with $50,273 ARR and 34 months of tenure. Current risk score: 62%.
+
+## Risk Factors
+1. **Primary Concern:** Too complex
+2. **Feature Adoption:** 55% (Below Commercial average of 70%)
+3. **Support Activity:** 8 tickets in last 30 days
+4. **Engagement:** Last interaction 11 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This customer is exhibiting classic signs of product fit. Specifically, they have expressed concerns about: too complex.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 55%
+- Support ticket volume stable
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For Commercial customers, product fit typically requires focused customer success efforts.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address too complex
+
+### Short-term (30 Days)
+1. Increase feature adoption from 55% to 80%
+2. Reduce support tickets by improving documentation
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position CacheMaster Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Commercial customers with product fit, intervention at this stage has a 66% success rate.
+
+## Historical Context
+Previous Commercial customers with similar risk profiles who received provided api access for customization showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 62%*
+*Segment: Commercial*

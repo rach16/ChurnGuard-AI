@@ -1,0 +1,51 @@
+# Churn Risk Analysis: CodeCraft Inc
+
+## Executive Summary
+CodeCraft Inc is a Enterprise customer with $186,499 ARR and 30 months of tenure. Current risk score: 80%.
+
+## Risk Factors
+1. **Primary Concern:** Poor documentation
+2. **Feature Adoption:** 51% (Below Enterprise average of 70%)
+3. **Support Activity:** 15 tickets in last 30 days
+4. **Engagement:** Last interaction 16 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: poor documentation.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 51%
+- Support ticket volume increasing
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For Enterprise customers, support issues typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address poor documentation
+
+### Short-term (30 Days)
+1. Increase feature adoption from 51% to 76%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position CodeCraft Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with support issues, intervention at this stage has a 82% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received improved response sla showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 80%*
+*Segment: Enterprise*

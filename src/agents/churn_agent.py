@@ -12,8 +12,8 @@ import logging
 
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
-from langchain.schema import Document
-from langchain.tools import Tool
+from langchain_core.documents import Document
+from langchain_core.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Add parent directory to path for imports

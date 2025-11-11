@@ -1,0 +1,51 @@
+# Churn Risk Analysis: TechFlow Corp
+
+## Executive Summary
+TechFlow Corp is a Enterprise customer with $444,833 ARR and 28 months of tenure. Current risk score: 91%.
+
+## Risk Factors
+1. **Primary Concern:** Competitor cheaper
+2. **Feature Adoption:** 39% (Below Enterprise average of 70%)
+3. **Support Activity:** 12 tickets in last 30 days
+4. **Engagement:** Last interaction 59 days ago
+
+## Detailed Analysis
+
+### Churn Category: Competition
+This customer is exhibiting classic signs of competition. Specifically, they have expressed concerns about: competitor cheaper.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 39%
+- Support ticket volume increasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For Enterprise customers, competition typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address competitor cheaper
+
+### Short-term (30 Days)
+1. Increase feature adoption from 39% to 64%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position TechFlow Corp as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with competition, intervention at this stage has a 84% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received added requested features quickly showed significant improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 91%*
+*Segment: Enterprise*

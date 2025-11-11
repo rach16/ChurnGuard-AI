@@ -1,0 +1,51 @@
+# Churn Risk Analysis: AIForge Inc
+
+## Executive Summary
+AIForge Inc is a SMB customer with $58,957 ARR and 8 months of tenure. Current risk score: 66%.
+
+## Risk Factors
+1. **Primary Concern:** Too complex
+2. **Feature Adoption:** 26% (Below SMB average of 70%)
+3. **Support Activity:** 9 tickets in last 30 days
+4. **Engagement:** Last interaction 41 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This customer is exhibiting classic signs of product fit. Specifically, they have expressed concerns about: too complex.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 26%
+- Support ticket volume increasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For SMB customers, product fit typically requires product education and training.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address too complex
+
+### Short-term (30 Days)
+1. Increase feature adoption from 26% to 51%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position AIForge Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar SMB customers with product fit, intervention at this stage has a 65% success rate.
+
+## Historical Context
+Previous SMB customers with similar risk profiles who received fast-tracked feature request showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 66%*
+*Segment: SMB*

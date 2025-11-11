@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DisasterRecovery Inc
+
+## Executive Summary
+DisasterRecovery Inc is a SMB customer with $51,314 ARR and 9 months of tenure. Current risk score: 77%.
+
+## Risk Factors
+1. **Primary Concern:** Slow response
+2. **Feature Adoption:** 46% (Below SMB average of 70%)
+3. **Support Activity:** 10 tickets in last 30 days
+4. **Engagement:** Last interaction 54 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: slow response.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 46%
+- Support ticket volume increasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For SMB customers, support issues typically requires product education and training.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address slow response
+
+### Short-term (30 Days)
+1. Increase feature adoption from 46% to 71%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DisasterRecovery Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar SMB customers with support issues, intervention at this stage has a 83% success rate.
+
+## Historical Context
+Previous SMB customers with similar risk profiles who received set up weekly check-ins showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 77%*
+*Segment: SMB*

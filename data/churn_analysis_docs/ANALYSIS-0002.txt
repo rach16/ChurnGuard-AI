@@ -1,0 +1,51 @@
+# Churn Risk Analysis: MonitorPlus LLC
+
+## Executive Summary
+MonitorPlus LLC is a Enterprise customer with $446,452 ARR and 16 months of tenure. Current risk score: 89%.
+
+## Risk Factors
+1. **Primary Concern:** Poor integration
+2. **Feature Adoption:** 37% (Below Enterprise average of 70%)
+3. **Support Activity:** 13 tickets in last 30 days
+4. **Engagement:** Last interaction 41 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This customer is exhibiting classic signs of product fit. Specifically, they have expressed concerns about: poor integration.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 37%
+- Support ticket volume increasing
+- Engagement frequency declining
+
+### Segment-Specific Insights
+For Enterprise customers, product fit typically requires immediate executive intervention.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule executive business review
+2. Assign dedicated technical account manager
+3. Review and address poor integration
+
+### Short-term (30 Days)
+1. Increase feature adoption from 37% to 62%
+2. Reduce support tickets by implementing proactive monitoring
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position MonitorPlus LLC as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar Enterprise customers with product fit, intervention at this stage has a 84% success rate.
+
+## Historical Context
+Previous Enterprise customers with similar risk profiles who received provided api access for customization showed significant improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 89%*
+*Segment: Enterprise*

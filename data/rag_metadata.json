@@ -1,0 +1,33 @@
+{
+  "generated_date": "2025-11-10T21:43:47.727784",
+  "data_files": {
+    "customer_interactions": "customer_interactions.csv",
+    "support_tickets": "support_tickets.csv",
+    "success_stories": "success_stories.csv",
+    "churn_analyses": "churn_analyses.csv",
+    "churned_customers": "churned_customers_cleaned.csv"
+  },
+  "document_collections": {
+    "churn_analysis_docs": "Individual text documents for RAG ingestion"
+  },
+  "statistics": {
+    "total_companies": 30,
+    "segments": [
+      "SMB",
+      "Commercial",
+      "Enterprise"
+    ],
+    "churn_categories": [
+      "Pricing Concerns",
+      "Product Fit",
+      "Support Issues",
+      "Competition",
+      "Adoption Challenges"
+    ]
+  },
+  "usage": {
+    "description": "Synthetic data for ChurnGuard AI RAG system",
+    "recommended_chunk_size": 500,
+    "recommended_overlap": 50
+  }
+}

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import List, Dict, Optional
 import pandas as pd
-from langchain.schema import Document
+from langchain_core.documents import Document
 import logging
 
 logger = logging.getLogger(__name__)

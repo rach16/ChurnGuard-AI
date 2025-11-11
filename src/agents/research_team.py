@@ -10,7 +10,7 @@ import operator
 
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from core.rag_retrievers import ChurnRAGRetriever

@@ -11,12 +11,13 @@ import logging
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_qdrant import QdrantVectorStore
-from langchain.retrievers import ContextualCompressionRetriever, ParentDocumentRetriever
-from langchain.retrievers.multi_query import MultiQueryRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain.storage import InMemoryStore
+from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain_classic.retrievers.parent_document_retriever import ParentDocumentRetriever
+from langchain_classic.retrievers.multi_query import MultiQueryRetriever
+from langchain_classic.retrievers.document_compressors.chain_extract import LLMChainExtractor
+from langchain_classic.storage import InMemoryStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_core.documents import Document
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 

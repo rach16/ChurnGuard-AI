@@ -9,6 +9,7 @@ import {
   User,
   Bot,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface ChatMessage {
   id: string;
@@ -174,11 +175,15 @@ export default function Chatbot({
                 } rounded-2xl px-5 py-4 shadow-sm`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <p className={`text-sm leading-relaxed whitespace-pre-wrap ${
-                        message.role === 'user' ? 'text-white' : 'text-gray-800'
-                      }`}>
-                        {message.content}
-                      </p>
+                      {message.role === 'user' ? (
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-white">
+                          {message.content}
+                        </p>
+                      ) : (
+                        <div className="text-sm leading-relaxed text-gray-800 prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-bold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-strong:text-gray-900 prose-strong:font-semibold">
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        </div>
+                      )}
                       <p className={`text-xs mt-2 ${
                         message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                       }`}>

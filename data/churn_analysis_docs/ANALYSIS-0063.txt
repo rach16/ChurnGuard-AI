@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DevTools Inc
+
+## Executive Summary
+DevTools Inc is a SMB customer with $29,527 ARR and 31 months of tenure. Current risk score: 50%.
+
+## Risk Factors
+1. **Primary Concern:** Too expensive
+2. **Feature Adoption:** 49% (Below SMB average of 70%)
+3. **Support Activity:** 8 tickets in last 30 days
+4. **Engagement:** Last interaction 22 days ago
+
+## Detailed Analysis
+
+### Churn Category: Pricing Concerns
+This customer is exhibiting classic signs of pricing concerns. Specifically, they have expressed concerns about: too expensive.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 49%
+- Support ticket volume stable
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For SMB customers, pricing concerns typically requires product education and training.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address too expensive
+
+### Short-term (30 Days)
+1. Increase feature adoption from 49% to 74%
+2. Reduce support tickets by improving documentation
+3. Establish regular bi-weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DevTools Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar SMB customers with pricing concerns, intervention at this stage has a 83% success rate.
+
+## Historical Context
+Previous SMB customers with similar risk profiles who received created custom pricing tier showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 50%*
+*Segment: SMB*

@@ -1,0 +1,51 @@
+# Churn Risk Analysis: DataBridge Inc
+
+## Executive Summary
+DataBridge Inc is a SMB customer with $49,426 ARR and 10 months of tenure. Current risk score: 76%.
+
+## Risk Factors
+1. **Primary Concern:** Doesn't scale
+2. **Feature Adoption:** 27% (Below SMB average of 70%)
+3. **Support Activity:** 4 tickets in last 30 days
+4. **Engagement:** Last interaction 30 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This customer is exhibiting classic signs of product fit. Specifically, they have expressed concerns about: doesn't scale.
+
+### Behavioral Patterns
+- Feature adoption has plateaued at 27%
+- Support ticket volume decreasing
+- Engagement frequency stable
+
+### Segment-Specific Insights
+For SMB customers, product fit typically requires product education and training.
+
+## Recommended Actions
+
+### Immediate (Next 7 Days)
+1. Schedule customer success call
+2. Prioritize support tickets
+3. Review and address doesn't scale
+
+### Short-term (30 Days)
+1. Increase feature adoption from 27% to 52%
+2. Reduce support tickets by improving documentation
+3. Establish regular weekly check-in cadence
+
+### Long-term (90 Days)
+1. Position DataBridge Inc as reference customer
+2. Explore expansion opportunities
+3. Build executive relationships
+
+## Success Probability
+Based on similar SMB customers with product fit, intervention at this stage has a 83% success rate.
+
+## Historical Context
+Previous SMB customers with similar risk profiles who received simplified workflow with automation showed moderate improvement in retention metrics.
+
+---
+*Analysis Date: 2025-11-10*
+*Risk Score: 76%*
+*Segment: SMB*
