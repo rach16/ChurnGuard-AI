@@ -125,6 +125,94 @@ npm run dev
 
 ---
 
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              CHURNGUARD AI PLATFORM                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐                                                 ┌──────────────┐
+│              │         HTTP Requests                           │              │
+│   Customer   │────────────────────────────────────────────────▶│   Frontend   │
+│  Success Team│                                                 │  (Next.js)   │
+│              │◀────────────────────────────────────────────────│              │
+└──────────────┘         Dashboard / Chatbot                     └──────┬───────┘
+                                                                         │
+                                                                         │ REST API
+                                                                         │
+                                                                  ┌──────▼───────┐
+                                                                  │              │
+                                                                  │   Backend    │
+                                                                  │   (FastAPI)  │
+                                                                  │              │
+                                                                  └──────┬───────┘
+                                                                         │
+                                              ┌──────────────────────────┼──────────────────────┐
+                                              │                          │                      │
+                                              │     Orchestrates Agents  │                      │
+                                              │                          │                      │
+┌─────────────────────────────────────────────▼──────────────────────────▼──────────────────────▼───────┐
+│                          🤖 MULTI-AGENT AI SYSTEM (LangGraph)                                         │
+│                                                                                                        │
+│  ┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐                             │
+│  │                 │      │                  │      │                 │                             │
+│  │  Risk Analyzer  │      │ Pattern Matcher  │      │ Strategy Gen    │                             │
+│  │                 │      │                  │      │                 │                             │
+│  │ • Churn scores  │      │ • RAG retrieval  │      │ • Action plans  │                             │
+│  │ • Health metrics│      │ • Similar cases  │      │ • Recommendations│                            │
+│  │ • Predictions   │      │ • 94.7% accuracy │      │ • Prioritization│                             │
+│  │                 │      │                  │      │                 │                             │
+│  └────────┬────────┘      └────────┬─────────┘      └────────┬────────┘                             │
+│           │                        │                         │                                      │
+└───────────┼────────────────────────┼─────────────────────────┼──────────────────────────────────────┘
+            │                        │                         │
+            │                        │                         │
+            │ Fetch Customer Data    │ RAG Retrieval           │ LLM Calls
+            │                        │                         │
+            ▼                        ▼                         ▼
+   ┌─────────────────┐      ┌──────────────────┐     ┌───────────────────┐
+   │                 │      │                  │     │                   │
+   │  CSV Data Files │      │   Vector DB      │     │    OpenAI API     │
+   │                 │      │   (Qdrant)       │     │                   │
+   │ • Customers     │      │                  │     │ • GPT-4o-mini     │
+   │ • Metrics       │      │ • 855 chunks     │     │ • Embeddings      │
+   │ • Tickets       │      │ • Embeddings     │     │ • 1536 dimensions │
+   │ • 100 profiles  │      │ • 75 analyses    │     │                   │
+   │                 │      │                  │     │                   │
+   └─────────────────┘      └──────────────────┘     └───────────────────┘
+
+                                                     ┌───────────────────┐
+                                                     │                   │
+                                                     │  RAGAS Evaluation │
+                                                     │                   │
+                                                     │ • Faithfulness    │
+                                                     │ • Relevancy 92.3% │
+                                                     │ • Recall 94.7%    │
+                                                     │                   │
+                                                     └───────────────────┘
+
+Key Data Flow:
+━━━━━━━━━━━━━
+1. User queries via Frontend (Dashboard/Chatbot)
+2. Backend API receives request and orchestrates Multi-Agent System
+3. Agents work in parallel:
+   - Risk Analyzer fetches customer data from CSV files
+   - Pattern Matcher performs RAG retrieval on Vector DB
+   - Strategy Generator calls OpenAI API for recommendations
+4. Content Synthesizer formats response with citations
+5. Response returned to Frontend for display
+
+Performance:
+━━━━━━━━━━━
+⚡ 2-3s end-to-end response time
+📊 94.7% retrieval accuracy
+✅ 95.6% faithfulness score
+🎯 87-92% prediction confidence
+```
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -151,17 +239,9 @@ ChurnGuard-AI/
 │       ├── package.json
 │       └── tailwind.config.js
 │
-├── 📊 Presentation Materials
-│   ├── PRESENTATION_10MIN.md        # 10-minute presentation slides
-│   ├── PRESENTATION_SCRIPT.md       # Speaking script
-│   ├── SALESFORCE_COMPARISON.md     # Competitive analysis
-│   └── README.md                    # This file
-│
 ├── 📚 Documentation
 │   ├── docs/
-│   │   ├── COMPREHENSIVE_PROJECT_DOCUMENTATION.md
-│   │   ├── E2E_TESTING.md
-│   │   └── QUICK_QA_CHECKLIST.md
+│   │   └── COMPREHENSIVE_PROJECT_DOCUMENTATION.md
 │
 ├── 🧪 Tests & Evaluation
 │   ├── tests/
@@ -349,16 +429,6 @@ pytest tests/
 - Optimize vector search for 10K+ customers
 - Add caching layer for frequent queries
 - Implement background processing for heavy computations
-
----
-
-## 📚 Documentation
-
-- **[10-Minute Presentation](PRESENTATION_10MIN.md)** - Complete slide deck for demos
-- **[Speaking Script](PRESENTATION_SCRIPT.md)** - Word-for-word presentation script
-- **[Salesforce Comparison](SALESFORCE_COMPARISON.md)** - Detailed competitive analysis
-- **[E2E Testing Guide](docs/E2E_TESTING.md)** - Testing instructions
-- **[Quick QA Checklist](docs/QUICK_QA_CHECKLIST.md)** - Pre-demo validation
 
 ---
 
