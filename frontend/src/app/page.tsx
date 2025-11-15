@@ -276,113 +276,85 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <main className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-xl border-b border-gray-200/80 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-50">
+        <div className="max-w-[1400px] mx-auto px-8 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <motion.div
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-lg"
-              >
-                <Shield className="w-7 h-7 text-white" />
-              </motion.div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  ChurnGuard AI
-                </h1>
-                <p className="text-xs text-gray-500 font-medium">Proactive Customer Success Intelligence</p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">ChurnGuard AI</h1>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              {/* Navigation */}
+              <nav className="flex items-center gap-1">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setActiveTab('analyze')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'analyze'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  AI Analysis
+                </button>
                 <Link
                   href="/analytics"
-                  className="text-sm px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                 >
-                  <BarChart3 className="w-4 h-4" />
                   Analytics
                 </Link>
-              </motion.div>
-
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Link
                   href="/integrations"
-                  className="text-sm px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg font-medium flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                 >
-                  <Zap className="w-4 h-4" />
                   Integrations
                 </Link>
-              </motion.div>
-
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Link
                   href="/evaluations"
-                  className="text-sm px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:shadow font-medium flex items-center gap-2"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
                 >
-                  <Target className="w-4 h-4" />
                   Metrics
                 </Link>
-              </motion.div>
+              </nav>
 
-              <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl shadow-sm">
-                <motion.div
-                  animate={{ scale: backendStatus === 'online' ? [1, 1.2, 1] : 1 }}
-                  transition={{ repeat: backendStatus === 'online' ? Infinity : 0, duration: 2 }}
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    backendStatus === 'online' ? 'bg-green-500' :
-                    backendStatus === 'offline' ? 'bg-red-500' :
-                    'bg-yellow-500'
-                  }`}
-                />
-                <span className="text-xs text-gray-700 font-semibold">
+              <div className="h-6 w-px bg-gray-200"></div>
+
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  backendStatus === 'online' ? 'bg-green-500' :
+                  backendStatus === 'offline' ? 'bg-red-500' :
+                  'bg-yellow-500'
+                }`} />
+                <span className="text-xs text-gray-600 font-medium">
                   {backendStatus === 'online' ? 'Live' :
                    backendStatus === 'offline' ? 'Offline' :
-                   'Checking...'}
+                   'Connecting...'}
                 </span>
               </div>
             </div>
           </div>
-
-          {/* Navigation Tabs */}
-          <div className="flex gap-2 mt-4">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab('dashboard')}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200'
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Dashboard
-              </div>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveTab('analyze')}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all ${
-                activeTab === 'analyze'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-200'
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                AI Analysis
-              </div>
-            </motion.button>
-          </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1400px] mx-auto px-8 py-6">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
             <motion.div
@@ -391,27 +363,28 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
+              {/* Page Title */}
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">Customer Health Overview</h2>
+                <p className="text-sm text-gray-600 mt-1">Monitor at-risk accounts and take proactive action</p>
+              </div>
+
               {/* Alert Banner */}
               {dashboardStats && dashboardStats.critical_risk_count > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-6 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <Bell className="w-6 h-6 animate-bounce" />
-                    <div>
-                      <p className="font-bold">Critical Alert: {dashboardStats.critical_risk_count} customers need immediate attention</p>
-                      <p className="text-sm opacity-90">High churn risk detected - Review and take action now</p>
-                    </div>
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+                  <div className="flex-shrink-0 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5">
+                    <AlertTriangle className="w-3 h-3 text-white" />
                   </div>
-                  <button className="px-4 py-2 bg-white text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-colors">
-                    View All
-                  </button>
-                </motion.div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-900">
+                      {dashboardStats.critical_risk_count} {dashboardStats.critical_risk_count === 1 ? 'customer needs' : 'customers need'} immediate attention
+                    </p>
+                    <p className="text-xs text-red-700 mt-0.5">High churn risk detected - Review and take action</p>
+                  </div>
+                </div>
               )}
 
-              {/* Hero Stats */}
+              {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {dashboardLoading ? (
                   <>
@@ -422,165 +395,105 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                      transition={{ delay: 0.1 }}
-                      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 transition-all cursor-pointer relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                      <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="bg-red-100 p-3 rounded-xl group-hover:scale-110 transition-transform">
-                            <AlertTriangle className="w-6 h-6 text-red-600" />
-                          </div>
-                          <span className="text-xs font-bold text-red-600 bg-red-100 px-3 py-1.5 rounded-full">
-                            URGENT
-                          </span>
+                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
+                          <AlertTriangle className="w-5 h-5 text-red-500" />
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 mb-1">{dashboardStats?.total_at_risk || 0}</p>
-                        <p className="text-sm font-medium text-gray-600">At-Risk Customers</p>
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-red-600 font-semibold flex items-center gap-1">
-                            <Activity className="w-3 h-3" />
-                            {dashboardStats?.critical_risk_count || 0} critical cases
-                          </p>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 font-medium">At-Risk Customers</p>
+                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">{dashboardStats?.total_at_risk || 0}</p>
                         </div>
                       </div>
-                    </motion.div>
+                      {dashboardStats && dashboardStats.critical_risk_count > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <p className="text-xs text-red-500 font-medium">
+                            {dashboardStats.critical_risk_count} critical {dashboardStats.critical_risk_count === 1 ? 'case' : 'cases'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                      transition={{ delay: 0.2 }}
-                      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 transition-all cursor-pointer relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                      <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="bg-orange-100 p-3 rounded-xl group-hover:scale-110 transition-transform">
-                            <DollarSign className="w-6 h-6 text-orange-600" />
-                          </div>
-                          <span className="text-xs font-bold text-orange-600 bg-orange-100 px-3 py-1.5 rounded-full">
-                            AT RISK
-                          </span>
+                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
+                          <DollarSign className="w-5 h-5 text-orange-500" />
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 mb-1">
-                          ${dashboardStats ? (dashboardStats.total_arr_at_risk / 1000).toFixed(0) : 0}K
-                        </p>
-                        <p className="text-sm font-medium text-gray-600">ARR at Risk</p>
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            Across {dashboardStats?.total_at_risk || 0} accounts
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 font-medium">ARR at Risk</p>
+                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
+                            ${dashboardStats ? (dashboardStats.total_arr_at_risk / 1000).toFixed(0) : 0}K
                           </p>
                         </div>
                       </div>
-                    </motion.div>
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-600 font-medium">
+                          Across {dashboardStats?.total_at_risk || 0} accounts
+                        </p>
+                      </div>
+                    </div>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                      transition={{ delay: 0.3 }}
-                      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 transition-all cursor-pointer relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                      <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="bg-green-100 p-3 rounded-xl group-hover:scale-110 transition-transform">
-                            <Target className="w-6 h-6 text-green-600" />
-                          </div>
-                          <span className="text-xs font-bold text-green-600 bg-green-100 px-3 py-1.5 rounded-full">
-                            ACCURATE
-                          </span>
+                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                          <Target className="w-5 h-5 text-green-600" />
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 mb-1">
-                          {dashboardStats ? (dashboardStats.prediction_accuracy * 100).toFixed(1) : 0}%
-                        </p>
-                        <p className="text-sm font-medium text-gray-600">Prediction Accuracy</p>
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Industry leading
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 font-medium">Prediction Accuracy</p>
+                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
+                            {dashboardStats ? (dashboardStats.prediction_accuracy * 100).toFixed(1) : 0}%
                           </p>
                         </div>
                       </div>
-                    </motion.div>
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-green-600 font-medium">Industry leading</p>
+                      </div>
+                    </div>
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                      transition={{ delay: 0.4 }}
-                      className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl p-6 border border-gray-100 transition-all cursor-pointer relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                      <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="bg-blue-100 p-3 rounded-xl group-hover:scale-110 transition-transform">
-                            <Clock className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <span className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-full">
-                            AVG
-                          </span>
+                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-blue-500" />
                         </div>
-                        <p className="text-3xl font-bold text-gray-900 mb-1">
-                          {dashboardStats ? Math.round(dashboardStats.avg_days_to_churn) : 0}d
-                        </p>
-                        <p className="text-sm font-medium text-gray-600">Early Warning Time</p>
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-blue-600 font-semibold flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3" />
-                            7-30 day window
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600 font-medium">Early Warning Time</p>
+                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
+                            {dashboardStats ? Math.round(dashboardStats.avg_days_to_churn) : 0}d
                           </p>
                         </div>
                       </div>
-                    </motion.div>
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-blue-500 font-medium">7-30 day window</p>
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
 
-              {/* At-Risk Customers Queue */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
-              >
-                <div className="bg-gradient-to-r from-red-50 via-orange-50 to-amber-50 px-6 py-5 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-1">
-                        <Target className="w-6 h-6 text-red-600" />
-                        Priority Queue - Immediate Action Required
-                      </h2>
-                      <p className="text-sm text-gray-600 font-medium">
-                        AI-predicted churn risks ranked by urgency and revenue impact
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="p-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-                      >
-                        <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleExport}
-                        className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export CSV
-                      </motion.button>
-                    </div>
+              {/* At-Risk Customers List */}
+              <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 overflow-hidden shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200/60 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-800">At-Risk Customers</h3>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {atRiskCustomers.length} customers requiring attention
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="p-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                      onClick={handleExport}
+                      className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Export
+                    </button>
                   </div>
                 </div>
 
@@ -592,198 +505,101 @@ export default function Home() {
                       <SkeletonCustomer />
                     </>
                   ) : atRiskCustomers.length === 0 ? (
-                    <div className="p-16 text-center">
-                      <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CheckCircle2 className="w-10 h-10 text-green-600" />
+                    <div className="p-12 text-center">
+                      <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle2 className="w-8 h-8 text-green-600" />
                       </div>
-                      <p className="text-lg font-bold text-gray-900 mb-2">All Clear!</p>
-                      <p className="text-gray-600">No at-risk customers detected at this time</p>
+                      <p className="text-lg font-bold text-gray-900 mb-1">All Clear!</p>
+                      <p className="text-gray-600">No at-risk customers detected</p>
                     </div>
                   ) : (
-                    atRiskCustomers.map((customer, idx) => (
-                    <motion.div
+                    atRiskCustomers.map((customer) => (
+                    <div
                       key={customer.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + idx * 0.05 }}
-                      whileHover={{ backgroundColor: '#f9fafb' }}
-                      className="p-6 transition-colors cursor-pointer group"
+                      className="p-5 hover:bg-gray-50/50 transition-colors cursor-pointer"
                     >
-                      <div className="flex items-start justify-between gap-6">
-                        <div className="flex-1">
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="flex-1 min-w-0">
+                          {/* Customer Header */}
                           <div className="flex items-center gap-3 mb-3">
-                            <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                            <h4 className="text-sm font-semibold text-gray-800 truncate">
                               {customer.name}
-                            </h3>
-                            <motion.span
-                              whileHover={{ scale: 1.05 }}
-                              className={`px-3 py-1.5 rounded-full text-xs font-bold ${getRiskColor(customer.risk_score)} border`}
-                            >
+                            </h4>
+                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${getRiskColor(customer.risk_score)}`}>
                               {customer.risk_score}% Risk
-                            </motion.span>
-                            <span className="px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-lg text-xs font-semibold">
+                            </span>
+                            <span className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
                               {customer.segment}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-xl border border-blue-100">
-                              <p className="text-xs text-gray-600 mb-1 font-medium">Annual Revenue</p>
-                              <p className="text-lg font-bold text-gray-900">
+                          {/* Metrics Grid */}
+                          <div className="grid grid-cols-3 gap-4 mb-3">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Annual Revenue</p>
+                              <p className="text-sm font-semibold text-gray-900">
                                 ${customer.arr.toLocaleString()}
                               </p>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-50 to-red-50 p-3 rounded-xl border border-orange-100">
-                              <p className="text-xs text-gray-600 mb-1 font-medium">Predicted Churn</p>
-                              <p className="text-lg font-bold text-orange-600 flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {customer.days_until_churn}d
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Days to Churn</p>
+                              <p className="text-sm font-semibold text-orange-600">
+                                {customer.days_until_churn} days
                               </p>
                             </div>
-                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-3 rounded-xl border border-purple-100">
-                              <p className="text-xs text-gray-600 mb-1 font-medium">Primary Risk</p>
-                              <p className="text-sm font-bold text-gray-700">{customer.risk_reason}</p>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Risk Reason</p>
+                              <p className="text-sm font-medium text-gray-900 truncate">{customer.risk_reason}</p>
                             </div>
                           </div>
 
+                          {/* Actions */}
                           <div className="flex items-center gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
+                            <button
                               onClick={() => handleViewRecommendations(customer)}
-                              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold flex items-center gap-2 group"
-                              title="Get AI-powered analysis and retention strategies for this customer"
+                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                              title="Get AI-powered analysis"
                             >
-                              <Sparkles className="w-4 h-4" />
-                              Analyze with AI
-                              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
+                              <Sparkles className="w-3.5 h-3.5" />
+                              Analyze
+                            </button>
+                            <button
                               onClick={() => router.push(`/customer/${customer.id}`)}
-                              className="px-5 py-2.5 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-gray-300 hover:shadow transition-all font-semibold"
+                              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors"
                             >
                               View Details
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.02 }}
-                              whileTap={{ scale: 0.98 }}
+                            </button>
+                            <button
                               onClick={() => {
                                 const task = `Follow up with ${customer.name}\nPriority: ${customer.risk_score >= 80 ? 'Critical' : 'High'}\nDue: ${customer.days_until_churn} days\nAction: Address ${customer.risk_reason}`;
                                 navigator.clipboard.writeText(task);
-                                showToast('✓ Task copied to clipboard!');
+                                showToast('✓ Task copied!');
                               }}
-                              className="px-5 py-2.5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 text-green-700 rounded-xl hover:border-green-300 transition-all font-semibold flex items-center gap-2"
-                              title="Copy task details to clipboard"
+                              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+                              title="Create task"
                             >
-                              <CheckCircle2 className="w-4 h-4" />
+                              <CheckCircle2 className="w-3.5 h-3.5" />
                               Create Task
-                            </motion.button>
+                            </button>
                           </div>
                         </div>
 
+                        {/* Risk Score Badge */}
                         <div className="flex-shrink-0">
-                          <motion.div
-                            whileHover={{ scale: 1.1, rotate: 360 }}
-                            transition={{ duration: 0.6 }}
-                            className="relative"
-                          >
-                            <div className={`w-24 h-24 rounded-full ${getRiskBadgeColor(customer.risk_score)} bg-opacity-10 flex items-center justify-center border-4 ${getRiskBadgeColor(customer.risk_score)} border-opacity-30 shadow-lg`}>
-                              <span className={`text-3xl font-bold ${customer.risk_score >= 80 ? 'text-red-600' : customer.risk_score >= 60 ? 'text-orange-600' : 'text-yellow-600'}`}>
-                                {Math.round(customer.risk_score)}
-                              </span>
-                            </div>
-                          </motion.div>
-                          <p className="text-xs text-gray-500 text-center mt-2 font-semibold">Risk Score</p>
+                          <div className={`w-16 h-16 rounded-lg ${getRiskBadgeColor(customer.risk_score)} bg-opacity-10 flex flex-col items-center justify-center border ${getRiskBadgeColor(customer.risk_score)} border-opacity-20`}>
+                            <span className={`text-xl font-bold ${customer.risk_score >= 80 ? 'text-red-600' : customer.risk_score >= 60 ? 'text-orange-600' : 'text-yellow-600'}`}>
+                              {Math.round(customer.risk_score)}
+                            </span>
+                            <span className="text-[10px] text-gray-600 font-medium mt-0.5">RISK</span>
+                          </div>
                         </div>
                       </div>
-
-                      {/* Risk trend indicator */}
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8 + idx * 0.05 }}
-                        className="mt-4 pt-4 border-t border-gray-100"
-                      >
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-500 font-medium">Trend:</span>
-                          {customer.trend === 'increasing' && (
-                            <span className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-3 py-1 rounded-full">
-                              <TrendingDown className="w-3 h-3" />
-                              Increasing risk - Intervention needed
-                            </span>
-                          )}
-                          {customer.trend === 'stable' && (
-                            <span className="flex items-center gap-1 text-orange-600 font-bold bg-orange-50 px-3 py-1 rounded-full">
-                              <Activity className="w-3 h-3" />
-                              Stable - Monitor closely
-                            </span>
-                          )}
-                          {customer.trend === 'decreasing' && (
-                            <span className="flex items-center gap-1 text-green-600 font-bold bg-green-50 px-3 py-1 rounded-full">
-                              <TrendingUp className="w-3 h-3" />
-                              Decreasing - Strategies working
-                            </span>
-                          )}
-                        </div>
-                      </motion.div>
-                    </motion.div>
+                    </div>
                     ))
                   )}
                 </div>
-              </motion.div>
-
-              {/* Bottom Feature Cards */}
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                  transition={{ delay: 0.9 }}
-                  className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all group cursor-pointer"
-                >
-                  <div className="bg-gradient-to-br from-blue-100 to-blue-50 w-14 h-14 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Target className="w-7 h-7 text-blue-600" />
-                  </div>
-                  <h3 className="font-bold text-gray-900 mb-2 text-lg">Predictive Intelligence</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    AI-powered risk scoring predicts churn 7-30 days early with 94.7% accuracy
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                  transition={{ delay: 1.0 }}
-                  className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all group cursor-pointer"
-                >
-                  <div className="bg-gradient-to-br from-green-100 to-green-50 w-14 h-14 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Sparkles className="w-7 h-7 text-green-600" />
-                  </div>
-                  <h3 className="font-bold text-gray-900 mb-2 text-lg">Smart Playbooks</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Context-aware retention strategies retrieved from proven successful interventions
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
-                  transition={{ delay: 1.1 }}
-                  className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all group cursor-pointer"
-                >
-                  <div className="bg-gradient-to-br from-purple-100 to-purple-50 w-14 h-14 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                    <Zap className="w-7 h-7 text-purple-600" />
-                  </div>
-                  <h3 className="font-bold text-gray-900 mb-2 text-lg">Proactive Alerts</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    Real-time monitoring with automated CSM task creation and Slack notifications
-                  </p>
-                </motion.div>
               </div>
+
             </motion.div>
           ) : (
             /* AI Chatbot Tab */

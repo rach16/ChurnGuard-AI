@@ -637,6 +637,151 @@ async def calculate_customer_health(request: CustomerHealthRequest):
         )
 
 
+@app.get("/customer/{customer_id}/detailed-analysis")
+async def get_customer_detailed_analysis(customer_id: int):
+    """Get detailed analysis for a specific customer with synthetic historical data"""
+    if not health_scorer:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Health scorer not initialized"
+        )
+
+    try:
+        # Get all customers and find the one requested
+        all_customers = health_scorer.generate_synthetic_active_customers(num_customers=50)
+
+        customer = None
+        for c in all_customers:
+            if c['id'] == customer_id:
+                customer = c
+                break
+
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Generate synthetic historical data
+        import random
+        from datetime import datetime, timedelta
+
+        # Generate engagement timeline (last 90 days)
+        engagement_history = []
+        for i in range(90, 0, -7):  # Weekly data points
+            date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+            # Declining engagement for high-risk customers
+            base_engagement = 0.8 if customer['risk_score'] < 50 else 0.4
+            variation = random.uniform(-0.1, 0.1)
+            engagement = max(0.1, min(1.0, base_engagement + variation - (customer['risk_score'] / 500)))
+            engagement_history.append({
+                "date": date,
+                "engagement_score": round(engagement, 2)
+            })
+
+        # Generate support ticket history
+        support_tickets = []
+        num_tickets = customer['support_tickets_30d']
+        for i in range(num_tickets):
+            days_ago = random.randint(1, 30)
+            ticket_date = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+            ticket_types = ["Technical Issue", "Feature Request", "Billing Question", "Integration Help", "Performance Issue"]
+            statuses = ["Resolved", "Open", "In Progress"]
+            support_tickets.append({
+                "date": ticket_date,
+                "type": random.choice(ticket_types),
+                "status": random.choice(statuses),
+                "priority": "High" if customer['risk_score'] > 70 else "Medium"
+            })
+
+        # Generate feature usage data
+        features = ["Dashboard", "Analytics", "Reports", "Integrations", "API", "Mobile App", "Automation", "Collaboration"]
+        feature_usage = []
+        for feature in features:
+            usage_rate = customer['feature_adoption_rate'] + random.uniform(-0.2, 0.2)
+            usage_rate = max(0.0, min(1.0, usage_rate))
+            feature_usage.append({
+                "feature": feature,
+                "usage_rate": round(usage_rate, 2),
+                "last_used": (datetime.now() - timedelta(days=random.randint(1, customer['last_engagement_days']))).strftime("%Y-%m-%d")
+            })
+
+        # Generate contact interactions
+        interactions = []
+        interaction_types = ["Email", "Call", "Meeting", "Support Ticket", "Webinar Attendance"]
+        for i in range(random.randint(5, 15)):
+            days_ago = random.randint(1, 90)
+            interactions.append({
+                "date": (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d"),
+                "type": random.choice(interaction_types),
+                "sentiment": "Positive" if customer['risk_score'] < 50 else random.choice(["Neutral", "Negative", "Neutral"]),
+                "notes": "Customer expressed satisfaction" if customer['risk_score'] < 50 else "Raised concerns about " + customer['risk_reason'].lower()
+            })
+        interactions.sort(key=lambda x: x['date'], reverse=True)
+
+        # Generate predictions
+        predictions = {
+            "churn_probability": round(customer['risk_score'] / 100, 2),
+            "days_until_churn": customer['days_until_churn'],
+            "confidence_interval": {
+                "lower": max(0, customer['days_until_churn'] - 7),
+                "upper": customer['days_until_churn'] + 14
+            },
+            "contributing_factors": [
+                {"factor": "Engagement Score", "impact": "High" if customer['risk_score'] > 70 else "Medium", "weight": 0.35},
+                {"factor": "Support Tickets", "impact": "High" if customer['support_tickets_30d'] > 5 else "Low", "weight": 0.20},
+                {"factor": "Feature Adoption", "impact": "Medium" if customer['feature_adoption_rate'] < 0.5 else "Low", "weight": 0.25},
+                {"factor": "Tenure", "impact": "High" if customer['tenure_years'] < 1 else "Low", "weight": 0.20}
+            ]
+        }
+
+        # Recommended actions
+        recommended_actions = [
+            {
+                "priority": "Critical" if customer['risk_score'] >= 80 else "High" if customer['risk_score'] >= 60 else "Medium",
+                "action": f"Schedule executive call to address {customer['risk_reason'].lower()}",
+                "deadline": (datetime.now() + timedelta(days=7 if customer['risk_score'] >= 80 else 14)).strftime("%Y-%m-%d"),
+                "owner": "Customer Success Manager"
+            },
+            {
+                "priority": "High",
+                "action": "Conduct product training session",
+                "deadline": (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d"),
+                "owner": "Customer Success Team"
+            },
+            {
+                "priority": "Medium",
+                "action": "Share success stories from similar customers",
+                "deadline": (datetime.now() + timedelta(days=21)).strftime("%Y-%m-%d"),
+                "owner": "Account Manager"
+            }
+        ]
+
+        return {
+            "customer": customer,
+            "analysis": {
+                "engagement_history": engagement_history,
+                "support_tickets": support_tickets,
+                "feature_usage": feature_usage,
+                "interactions": interactions[:10],  # Last 10 interactions
+                "predictions": predictions,
+                "recommended_actions": recommended_actions
+            },
+            "health_indicators": {
+                "engagement": "Poor" if customer['risk_score'] > 70 else "Fair" if customer['risk_score'] > 50 else "Good",
+                "product_usage": "Low" if customer['feature_adoption_rate'] < 0.4 else "Medium" if customer['feature_adoption_rate'] < 0.7 else "High",
+                "support_health": "At Risk" if customer['support_tickets_30d'] > 5 else "Normal",
+                "relationship_strength": "Weak" if customer['last_engagement_days'] > 30 else "Moderate" if customer['last_engagement_days'] > 14 else "Strong"
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting customer detailed analysis: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate detailed analysis: {str(e)}"
+        )
+
+
 @app.get("/")
 async def root():
     """Root endpoint with API information"""
@@ -653,7 +798,8 @@ async def root():
             "evaluation": "/evaluation-results - RAGAS evaluation metrics",
             "at_risk_customers": "/at-risk-customers - Get at-risk customer list",
             "dashboard_stats": "/dashboard-stats - Dashboard statistics",
-            "calculate_health": "/calculate-health - Calculate customer health score"
+            "calculate_health": "/calculate-health - Calculate customer health score",
+            "customer_analysis": "/customer/{customer_id}/detailed-analysis - Get detailed customer analysis"
         },
         "features": [
             "Multi-Agent System (Research Team + Writing Team)",

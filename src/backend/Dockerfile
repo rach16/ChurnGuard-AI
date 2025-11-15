@@ -38,8 +38,8 @@ ENV UV_CACHE_DIR=/tmp/uv-cache
 # Copy project files for dependency installation
 COPY pyproject.toml ./
 COPY README.md ./
-# Note: If you have uv.lock, copy it here too
-# COPY uv.lock ./
+# Copy uv.lock for reproducible builds (if it exists)
+COPY uv.lock* ./
 
 # Install dependencies using uv (much faster than pip)
 RUN uv sync --no-dev --no-install-project || uv pip install --system -e .
