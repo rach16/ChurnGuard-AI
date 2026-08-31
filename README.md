@@ -38,7 +38,7 @@ README was not.
 | Dataset referential integrity | ✅ **28** contract checks in `scripts/validate_dataset.py` |
 | Warehouse correctness | ✅ **52** dbt tests |
 | DuckDB and Athena agree | ✅ 6/6 queries, `warehouse/verify_athena.py` |
-| Retrieval quality | ⚠️ **context recall 0.15** on a 10-question subset. Poor, cause diagnosed — see below. |
+| Retrieval quality | ✅ **0.971 hit rate, 0.941 recall** on single-entity questions (`scripts/benchmark_retrieval.py`, 2026-08-31) |
 | End-to-end latency | ❌ not benchmarked |
 | Churn *prediction* accuracy | ❌ no predictive model has been trained. The score is a weighted heuristic, not a classifier. |
 
@@ -47,15 +47,21 @@ README was not.
 > against an LLM-generated golden set whose questions referenced companies present
 > in no data file, over a 25-document corpus, using harness code that could not
 > execute at its own pinned RAGAS version. It did not measure anything. The golden
-> set, the corpus and the harness have since been rebuilt; the honest number today
-> is 0.15 and the work to improve it is scoped.
+> set, the corpus and the harness have since been rebuilt. Retrieval is now measured
+> against the golden set's `expected_context` — ground truth rather than an LLM's
+> opinion — and reported with the date it was taken.
 
-**Why retrieval recall is low:** dense embeddings match the *shape* of a question
-and ignore named entities, so "how many tickets has DisasterRecovery Solutions
-raised" returns five unrelated customers. Hybrid BM25 + semantic fusion is the
-fix. Roughly a third of the golden questions are also aggregates ("which segment
-has the highest churn rate") that retrieval structurally cannot answer — those
-belong in SQL against the warehouse, not in the vector store.
+**How retrieval was fixed.** Dense embeddings match the *shape* of a question and
+ignore named entities, so "how many tickets has DisasterRecovery Solutions raised"
+returned five unrelated customers. BM25 has the opposite bias — it matches rare
+exact terms, which is what a company name is. Fusing the two by reciprocal rank
+took single-entity hit rate from 0.735 to 0.971.
+
+**What retrieval still cannot do.** 27 of the 65 golden questions name more than
+three contributing customers ("total ARR lost to churn"). Those are aggregates
+over the whole dataset rather than facts in any document, so a retriever scores
+partial credit it cannot really earn. They belong in SQL against the warehouse.
+A further 4 questions have no expected context at all.
 
 ---
 
@@ -186,7 +192,7 @@ cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt test
 
 Tracked, not hidden:
 
-- Retrieval recall 0.15 — hybrid BM25 not yet implemented
+- Aggregate questions (27 of 65) are not answerable by retrieval; no SQL routing exists
 - No committed evaluation baseline; `/evaluation-results` returns 404 by design
 - Reranking requires `COHERE_API_KEY`; without it the fallback scores 0.0 recall
 - LLM calls are synchronous inside async handlers, so one worker serialises requests

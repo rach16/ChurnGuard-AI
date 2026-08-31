@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `394b428` · 18 commits since fork.
+Last updated 2026-08-31 · `main` @ `4156d55` · 19 commits since fork.
 
 ## In flight
 
@@ -25,7 +25,8 @@ Nothing. Phase 2.5 landed; 2.2w is next and not started.
 | **1.4** | Gold layer to S3 + Athena | `27f9d81` | 4 tables in Glue; 6/6 queries agree across engines |
 | **5.0** | README rewrite + 7 ADRs | `3d208a3` | README 469→198 lines; 7 stale claims removed |
 | **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 |
-| **2.1** | Async unblocked; data baked into image | `2278cee` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. |
+| **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. |
+| **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. |
 
 ## Current metrics
 
@@ -76,7 +77,6 @@ is a weighted heuristic.
 | # | Item | Effort | Cost | Depends on |
 |---|---|---|---|---|
 | 2.2w | Write Terraform (ECR, VPC, ECS, ALB) | 2d | $0 | 2.1 |
-| 2.5 | ~~Split runtime deps from eval/notebook/viz~~ done | — | $0 | — |
 | 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w |
 | 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 |
 | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 (free tier) | 2.2 |

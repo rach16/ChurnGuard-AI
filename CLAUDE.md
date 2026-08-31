@@ -63,6 +63,13 @@ Update `.claude/STATUS.md` whenever any of these happens:
 | A scope decision is made | Add to Deferred or Rejected **with the reason**. Do not delete these sections. |
 | A gap is found or closed | Update Known gaps |
 
+The README carries measured numbers too. When a metric changes, check whether
+README.md repeats it — STATUS.md being current is not sufficient.
+
+Never anchor an edit to STATUS.md on a commit hash. Resolve the hash from
+`git log --grep` at write time; a hardcoded one silently matches nothing and the
+row is dropped without an error.
+
 Superseded facts stay visible, struck through. The history of what a number used
 to be is the point — a figure that silently changes cannot be audited.
 
