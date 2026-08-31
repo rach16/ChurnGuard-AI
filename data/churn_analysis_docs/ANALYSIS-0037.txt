@@ -1,51 +1,47 @@
-# Churn Risk Analysis: CloudScale Inc
+# Churn Risk Analysis: MicroServe Solutions
 
 ## Executive Summary
-CloudScale Inc is a SMB customer with $44,281 ARR and 18 months of tenure. Current risk score: 77%.
+MicroServe Solutions (CUST-0071) is a Enterprise customer in Financial Services with $314,600 ARR and 46 months of tenure. Current risk score: 59%. Status: ACTIVE - at risk.
 
 ## Risk Factors
-1. **Primary Concern:** Doesn't scale
-2. **Feature Adoption:** 38% (Below SMB average of 70%)
-3. **Support Activity:** 12 tickets in last 30 days
-4. **Engagement:** Last interaction 10 days ago
+1. **Primary Concern:** Poor documentation
+2. **Feature Adoption:** 37% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 3 tickets per 30 days
+4. **Engagement:** last interaction 29 days ago
 
 ## Detailed Analysis
 
-### Churn Category: Product Fit
-This customer is exhibiting classic signs of product fit. Specifically, they have expressed concerns about: doesn't scale.
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: poor documentation.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 38%
-- Support ticket volume increasing
-- Engagement frequency stable
+### Behavioural Patterns
+- Feature adoption plateaued at 37%
+- Support volume steady
+- Engagement stable
 
-### Segment-Specific Insights
-For SMB customers, product fit typically requires product education and training.
+### Segment-Specific Insight
+For Enterprise accounts, support issues typically calls for executive intervention.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule customer success call
-2. Prioritize support tickets
-3. Review and address doesn't scale
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address poor documentation directly
+3. Assign a dedicated technical account manager
 
-### Short-term (30 Days)
-1. Increase feature adoption from 38% to 63%
-2. Reduce support tickets by implementing proactive monitoring
-3. Establish regular weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 37% toward 62%
+2. Reduce support load by better documentation
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position CloudScale Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar SMB customers with product fit, intervention at this stage has a 82% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous SMB customers with similar risk profiles who received fast-tracked feature request showed significant improvement in retention metrics.
+Comparable Enterprise accounts that received assigned dedicated success manager showed significant improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 77%*
-*Segment: SMB*
+*Customer ID: CUST-0071*
+*Risk Score: 59%*
+*Segment: Enterprise*

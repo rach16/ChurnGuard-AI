@@ -1,0 +1,47 @@
+# Churn Risk Analysis: LoadBalance Solutions
+
+## Executive Summary
+LoadBalance Solutions (CUST-0188) is a SMB customer in Healthcare with $31,500 ARR and 26 months of tenure. Current risk score: 49%. Status: CHURNED on 2025-08-18.
+
+## Risk Factors
+1. **Primary Concern:** Poor documentation
+2. **Feature Adoption:** 47% (below the SMB benchmark of 70%)
+3. **Support Activity:** 9 tickets per 30 days
+4. **Engagement:** last interaction 23 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: poor documentation.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 47%
+- Support volume rising
+- Engagement stable
+
+### Segment-Specific Insight
+For SMB accounts, support issues typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address poor documentation directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 47% toward 72%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received set up weekly check-ins showed significant improvement in retention metrics.
+
+---
+*Customer ID: CUST-0188*
+*Risk Score: 49%*
+*Segment: SMB*

@@ -1,0 +1,47 @@
+# Churn Risk Analysis: LogStream Technologies
+
+## Executive Summary
+LogStream Technologies (CUST-0144) is a Commercial customer in Public Sector with $149,800 ARR and 29 months of tenure. Current risk score: 73%. Status: CHURNED on 2025-12-23.
+
+## Risk Factors
+1. **Primary Concern:** Better pricing elsewhere
+2. **Feature Adoption:** 24% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 6 tickets per 30 days
+4. **Engagement:** last interaction 57 days ago
+
+## Detailed Analysis
+
+### Churn Category: Pricing Concerns
+This account shows the classic pattern of pricing concerns, specifically: better pricing elsewhere.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 24%
+- Support volume steady
+- Engagement declining
+
+### Segment-Specific Insight
+For Commercial accounts, pricing concerns typically calls for focused customer success effort.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address better pricing elsewhere directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 24% toward 49%
+2. Reduce support load by better documentation
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Commercial accounts that received provided credits for referrals showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0144*
+*Risk Score: 73%*
+*Segment: Commercial*

@@ -1,0 +1,47 @@
+# Churn Risk Analysis: DevOpsHub LLC
+
+## Executive Summary
+DevOpsHub LLC (CUST-0158) is a SMB customer in Technology with $36,300 ARR and 47 months of tenure. Current risk score: 100%. Status: CHURNED on 2025-12-09.
+
+## Risk Factors
+1. **Primary Concern:** Too complex
+2. **Feature Adoption:** 0% (below the SMB benchmark of 70%)
+3. **Support Activity:** 7 tickets per 30 days
+4. **Engagement:** last interaction 48 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: too complex.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 0%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For SMB accounts, product fit typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address too complex directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 0% toward 25%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received provided api access for customization showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0158*
+*Risk Score: 100%*
+*Segment: SMB*

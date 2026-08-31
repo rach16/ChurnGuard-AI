@@ -1,51 +1,47 @@
-# Churn Risk Analysis: WorkflowPro Inc
+# Churn Risk Analysis: ScaleSystems Technologies
 
 ## Executive Summary
-WorkflowPro Inc is a Enterprise customer with $221,585 ARR and 34 months of tenure. Current risk score: 63%.
+ScaleSystems Technologies (CUST-0089) is a SMB customer in Logistics with $28,500 ARR and 43 months of tenure. Current risk score: 69%. Status: ACTIVE - at risk.
 
 ## Risk Factors
-1. **Primary Concern:** Lack of champions
-2. **Feature Adoption:** 53% (Below Enterprise average of 70%)
-3. **Support Activity:** 3 tickets in last 30 days
-4. **Engagement:** Last interaction 34 days ago
+1. **Primary Concern:** Missing features
+2. **Feature Adoption:** 28% (below the SMB benchmark of 70%)
+3. **Support Activity:** 7 tickets per 30 days
+4. **Engagement:** last interaction 23 days ago
 
 ## Detailed Analysis
 
-### Churn Category: Adoption Challenges
-This customer is exhibiting classic signs of adoption challenges. Specifically, they have expressed concerns about: lack of champions.
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: missing features.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 53%
-- Support ticket volume decreasing
-- Engagement frequency declining
+### Behavioural Patterns
+- Feature adoption plateaued at 28%
+- Support volume rising
+- Engagement stable
 
-### Segment-Specific Insights
-For Enterprise customers, adoption challenges typically requires immediate executive intervention.
+### Segment-Specific Insight
+For SMB accounts, product fit typically calls for product education and training.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule executive business review
-2. Assign dedicated technical account manager
-3. Review and address lack of champions
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address missing features directly
+3. Prioritise open support tickets
 
-### Short-term (30 Days)
-1. Increase feature adoption from 53% to 78%
-2. Reduce support tickets by improving documentation
-3. Establish regular bi-weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 28% toward 53%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position WorkflowPro Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar Enterprise customers with adoption challenges, intervention at this stage has a 83% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous Enterprise customers with similar risk profiles who received simplified user interface showed significant improvement in retention metrics.
+Comparable SMB accounts that received provided api access for customization showed moderate improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 63%*
-*Segment: Enterprise*
+*Customer ID: CUST-0089*
+*Risk Score: 69%*
+*Segment: SMB*

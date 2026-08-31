@@ -1,0 +1,47 @@
+# Churn Risk Analysis: DataSync Corp
+
+## Executive Summary
+DataSync Corp (CUST-0186) is a Enterprise customer in Energy with $191,300 ARR and 24 months of tenure. Current risk score: 93%. Status: CHURNED on 2026-03-03.
+
+## Risk Factors
+1. **Primary Concern:** Slow response
+2. **Feature Adoption:** 6% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 12 tickets per 30 days
+4. **Engagement:** last interaction 61 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: slow response.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 6%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For Enterprise accounts, support issues typically calls for executive intervention.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address slow response directly
+3. Assign a dedicated technical account manager
+
+### Short-term (30 days)
+1. Lift feature adoption from 6% toward 31%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Enterprise accounts that received set up weekly check-ins showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0186*
+*Risk Score: 93%*
+*Segment: Enterprise*

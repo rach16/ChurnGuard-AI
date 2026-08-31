@@ -1,0 +1,47 @@
+# Churn Risk Analysis: SecureNet Technologies
+
+## Executive Summary
+SecureNet Technologies (CUST-0170) is a Enterprise customer in Retail with $197,100 ARR and 12 months of tenure. Current risk score: 74%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Slow response
+2. **Feature Adoption:** 24% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 27 tickets per 30 days
+4. **Engagement:** last interaction 29 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: slow response.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 24%
+- Support volume rising
+- Engagement stable
+
+### Segment-Specific Insight
+For Enterprise accounts, support issues typically calls for executive intervention.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address slow response directly
+3. Assign a dedicated technical account manager
+
+### Short-term (30 days)
+1. Lift feature adoption from 24% toward 49%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Enterprise accounts that received assigned dedicated success manager showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0170*
+*Risk Score: 74%*
+*Segment: Enterprise*

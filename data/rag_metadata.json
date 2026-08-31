@@ -1,17 +1,23 @@
 {
-  "generated_date": "2025-11-10T21:43:47.727784",
+  "generated_by": "scripts/generate_synthetic_rag_data.py",
+  "as_of_date": "2026-06-30",
+  "seed": 42,
+  "grain": "customers.csv is the dimension; all other files reference customer_id",
   "data_files": {
+    "customers": "customers.csv",
+    "engagement_snapshots": "engagement_snapshots.csv",
     "customer_interactions": "customer_interactions.csv",
     "support_tickets": "support_tickets.csv",
     "success_stories": "success_stories.csv",
-    "churn_analyses": "churn_analyses.csv",
-    "churned_customers": "churned_customers_cleaned.csv"
+    "churn_analyses": "churn_analyses.csv"
   },
   "document_collections": {
-    "churn_analysis_docs": "Individual text documents for RAG ingestion"
+    "churn_analysis_docs": "One text file per churn analysis, for RAG ingestion"
   },
   "statistics": {
-    "total_companies": 30,
+    "total_customers": 200,
+    "churned_customers": 71,
+    "churn_rate": 0.355,
     "segments": [
       "SMB",
       "Commercial",
@@ -23,10 +29,17 @@
       "Support Issues",
       "Competition",
       "Adoption Challenges"
-    ]
+    ],
+    "row_counts": {
+      "engagement_snapshots": 15840,
+      "customer_interactions": 2953,
+      "support_tickets": 1311,
+      "success_stories": 60,
+      "churn_analyses": 111
+    }
   },
   "usage": {
-    "description": "Synthetic data for ChurnGuard AI RAG system",
+    "description": "Synthetic B2B SaaS churn dataset for ChurnGuard AI",
     "recommended_chunk_size": 500,
     "recommended_overlap": 50
   }

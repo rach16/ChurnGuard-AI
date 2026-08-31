@@ -1,0 +1,47 @@
+# Churn Risk Analysis: DataBridge LLC
+
+## Executive Summary
+DataBridge LLC (CUST-0185) is a Enterprise customer in Logistics with $139,100 ARR and 46 months of tenure. Current risk score: 96%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Poor documentation
+2. **Feature Adoption:** 3% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 9 tickets per 30 days
+4. **Engagement:** last interaction 55 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: poor documentation.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 3%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For Enterprise accounts, support issues typically calls for executive intervention.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address poor documentation directly
+3. Assign a dedicated technical account manager
+
+### Short-term (30 days)
+1. Lift feature adoption from 3% toward 28%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Enterprise accounts that received assigned dedicated success manager showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0185*
+*Risk Score: 96%*
+*Segment: Enterprise*

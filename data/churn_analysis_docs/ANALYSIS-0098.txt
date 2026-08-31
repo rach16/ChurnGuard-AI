@@ -1,0 +1,47 @@
+# Churn Risk Analysis: ContainerOps Group
+
+## Executive Summary
+ContainerOps Group (CUST-0177) is a SMB customer in Public Sector with $52,000 ARR and 11 months of tenure. Current risk score: 77%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Competitor cheaper
+2. **Feature Adoption:** 21% (below the SMB benchmark of 70%)
+3. **Support Activity:** 24 tickets per 30 days
+4. **Engagement:** last interaction 23 days ago
+
+## Detailed Analysis
+
+### Churn Category: Competition
+This account shows the classic pattern of competition, specifically: competitor cheaper.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 21%
+- Support volume rising
+- Engagement stable
+
+### Segment-Specific Insight
+For SMB accounts, competition typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address competitor cheaper directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 21% toward 46%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received improved product based on feedback showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0177*
+*Risk Score: 77%*
+*Segment: SMB*

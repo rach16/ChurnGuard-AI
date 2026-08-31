@@ -1,0 +1,47 @@
+# Churn Risk Analysis: SecurityFirst Inc
+
+## Executive Summary
+SecurityFirst Inc (CUST-0168) is a SMB customer in Energy with $58,600 ARR and 6 months of tenure. Current risk score: 71%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** ROI not clear
+2. **Feature Adoption:** 26% (below the SMB benchmark of 70%)
+3. **Support Activity:** 30 tickets per 30 days
+4. **Engagement:** last interaction 74 days ago
+
+## Detailed Analysis
+
+### Churn Category: Pricing Concerns
+This account shows the classic pattern of pricing concerns, specifically: roi not clear.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 26%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For SMB accounts, pricing concerns typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address roi not clear directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 26% toward 51%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received demonstrated roi with detailed analytics showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0168*
+*Risk Score: 71%*
+*Segment: SMB*
