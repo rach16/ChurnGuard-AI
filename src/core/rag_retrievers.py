@@ -25,6 +25,18 @@ logger = logging.getLogger(__name__)
 # Dimensionality of text-embedding-3-small, used when creating collections.
 EMBEDDING_DIM = 1536
 
+# Reciprocal rank fusion constant. 60 is the value from the original RRF paper and
+# is deliberately large relative to typical result depth, so it damps the difference
+# between ranks 1 and 2 and stops either retriever dominating on its top hit alone.
+RRF_K = 60
+
+# Weight given to semantic search in hybrid retrieval, the remainder going to BM25.
+# Swept over the golden set: pure BM25 scored 0.971 single-entity hit rate and 0.941
+# recall, pure semantic 0.794 and 0.574, and anything above 0.5 collapsed to the
+# pure-semantic numbers. 0.25 ties the BM25 optimum while retaining a semantic
+# contribution for paraphrased queries that share no keywords with the corpus.
+DEFAULT_SEMANTIC_WEIGHT = 0.25
+
 # Cohere reranking
 try:
     from langchain_cohere import CohereRerank
@@ -79,6 +91,10 @@ class ChurnRAGRetriever:
         # Vector store (will be initialized after loading documents)
         self.vector_store = None
         self.documents = []
+
+        # BM25 index, built lazily on first hybrid query.
+        self._bm25_index = None
+        self._bm25_corpus: List[Document] = []
 
     @staticmethod
     def _make_client(qdrant_url: str) -> QdrantClient:
@@ -349,6 +365,77 @@ class ChurnRAGRetriever:
         
         return self.naive_retrieval(query, k=k, filters=filters if filters else None)
     
+    def hybrid_retrieval(self, query: str, k: int = 5,
+                         semantic_weight: float = DEFAULT_SEMANTIC_WEIGHT) -> List[Document]:
+        """
+        BM25 keyword search fused with dense semantic search.
+
+        Dense embeddings match the *shape* of a question and are weak on names: asking
+        how many tickets "DisasterRecovery Solutions" raised returns customers with
+        similar ticket profiles, because the question embeds as "a question about
+        support volume" and the company name barely moves the vector.
+
+        BM25 has the opposite bias -- it matches rare exact terms, and a company name
+        is exactly that. Fusing the two covers both failure modes.
+
+        Combined with reciprocal rank fusion rather than by blending scores, since
+        BM25 and cosine similarity are not on comparable scales and normalising them
+        introduces a tuning parameter that has to be re-fit whenever the corpus moves.
+
+        Args:
+            query: Search query
+            k: Number of documents to return
+            semantic_weight: 0.0 pure BM25, 1.0 pure semantic. Default 0.25 -- see
+                DEFAULT_SEMANTIC_WEIGHT for why it is weighted toward keywords.
+        """
+        if not self._bm25_index:
+            self._build_bm25_index()
+
+        # Over-fetch from each retriever so fusion has room to reorder.
+        depth = max(k * 4, 20)
+
+        semantic_docs = self.vector_store.similarity_search(query, k=depth)
+        keyword_docs = self._bm25_search(query, k=depth)
+
+        # Reciprocal rank fusion: a document's score is the sum over rankings of
+        # 1/(RRF_K + rank). Documents both retrievers like rise above those either
+        # ranks first alone.
+        scores: Dict[str, float] = {}
+        best_doc: Dict[str, Document] = {}
+
+        for docs, weight in ((semantic_docs, semantic_weight),
+                             (keyword_docs, 1.0 - semantic_weight)):
+            for rank, doc in enumerate(docs, start=1):
+                key = doc.metadata.get("doc_id") or doc.page_content[:120]
+                scores[key] = scores.get(key, 0.0) + weight / (RRF_K + rank)
+                best_doc.setdefault(key, doc)
+
+        ordered = sorted(scores, key=scores.get, reverse=True)
+        return [best_doc[key] for key in ordered[:k]]
+
+    def _build_bm25_index(self) -> None:
+        """Tokenise the corpus once for BM25. Cheap, in-memory, no API calls."""
+        from rank_bm25 import BM25Okapi
+
+        if not self.documents:
+            raise RuntimeError("No documents loaded; call load_and_process_documents first")
+
+        self._bm25_corpus = self.documents
+        tokenised = [self._tokenise(d.page_content) for d in self._bm25_corpus]
+        self._bm25_index = BM25Okapi(tokenised)
+        logger.info(f"✓ BM25 index built over {len(tokenised)} documents")
+
+    @staticmethod
+    def _tokenise(text: str) -> List[str]:
+        """Lowercase alphanumeric tokens. Keeps company names as single tokens."""
+        import re
+        return re.findall(r"[a-z0-9]+", text.lower())
+
+    def _bm25_search(self, query: str, k: int) -> List[Document]:
+        scores = self._bm25_index.get_scores(self._tokenise(query))
+        top = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
+        return [self._bm25_corpus[i] for i in top if scores[i] > 0]
+
     def rerank_retrieval(self, query: str, k: int = 5) -> List[Document]:
         """
         Reranking retrieval using Cohere Rerank
