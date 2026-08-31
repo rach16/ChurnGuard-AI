@@ -38,6 +38,14 @@ interface ChatMessage {
   response?: ResponseType;
 }
 
+// $2234K reads as noise. Scale the unit to the magnitude so the number is legible
+// at a glance, which is the only job a dashboard tile has.
+function formatMoney(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
 export default function Home() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -422,7 +430,7 @@ export default function Home() {
                         <div className="flex-1">
                           <p className="text-xs text-gray-600 font-medium">ARR at Risk</p>
                           <p className="text-2xl font-semibold text-gray-800 mt-0.5">
-                            ${dashboardStats ? (dashboardStats.total_arr_at_risk / 1000).toFixed(0) : 0}K
+                            {dashboardStats ? formatMoney(dashboardStats.total_arr_at_risk) : '$0'}
                           </p>
                         </div>
                       </div>
@@ -446,7 +454,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-green-600 font-medium">Industry leading</p>
+                        <p className="text-xs text-gray-500 font-medium">of all accounts to date</p>
                       </div>
                     </div>
 
@@ -463,7 +471,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-blue-500 font-medium">7-30 day window</p>
+                        <p className="text-xs text-gray-500 font-medium">mean across at-risk accounts</p>
                       </div>
                     </div>
                   </>
