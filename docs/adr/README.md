@@ -13,3 +13,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0005](0005-scoring-in-both-python-and-sql.md) | Keep scoring in both Python and SQL, enforce parity | Accepted |
 | [0006](0006-duckdb-locally-athena-for-portability.md) | DuckDB locally, Athena for portability | Accepted |
 | [0007](0007-retract-the-94-7-percent-claim.md) | Retract the 94.7% accuracy claim publicly | Accepted |
+| [0008](0008-predict-churn-date-with-survival-analysis.md) | Predict a churn date with survival analysis | Accepted |
