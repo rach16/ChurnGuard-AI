@@ -1,0 +1,47 @@
+# Churn Risk Analysis: MetricsDash Inc
+
+## Executive Summary
+MetricsDash Inc (CUST-0176) is a SMB customer in Energy with $18,400 ARR and 18 months of tenure. Current risk score: 77%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Lack of champions
+2. **Feature Adoption:** 21% (below the SMB benchmark of 70%)
+3. **Support Activity:** 15 tickets per 30 days
+4. **Engagement:** last interaction 42 days ago
+
+## Detailed Analysis
+
+### Churn Category: Adoption Challenges
+This account shows the classic pattern of adoption challenges, specifically: lack of champions.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 21%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For SMB accounts, adoption challenges typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address lack of champions directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 21% toward 46%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received provided implementation support showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0176*
+*Risk Score: 77%*
+*Segment: SMB*

@@ -1,51 +1,47 @@
-# Churn Risk Analysis: LoadBalance Inc
+# Churn Risk Analysis: BackupCloud Corp
 
 ## Executive Summary
-LoadBalance Inc is a SMB customer with $35,460 ARR and 13 months of tenure. Current risk score: 75%.
+BackupCloud Corp (CUST-0064) is a SMB customer in Retail with $18,800 ARR and 6 months of tenure. Current risk score: 41%. Status: CHURNED on 2026-05-25.
 
 ## Risk Factors
-1. **Primary Concern:** Better pricing elsewhere
-2. **Feature Adoption:** 38% (Below SMB average of 70%)
-3. **Support Activity:** 13 tickets in last 30 days
-4. **Engagement:** Last interaction 55 days ago
+1. **Primary Concern:** Too hard to onboard
+2. **Feature Adoption:** 54% (below the SMB benchmark of 70%)
+3. **Support Activity:** 25 tickets per 30 days
+4. **Engagement:** last interaction 21 days ago
 
 ## Detailed Analysis
 
-### Churn Category: Pricing Concerns
-This customer is exhibiting classic signs of pricing concerns. Specifically, they have expressed concerns about: better pricing elsewhere.
+### Churn Category: Adoption Challenges
+This account shows the classic pattern of adoption challenges, specifically: too hard to onboard.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 38%
-- Support ticket volume increasing
-- Engagement frequency declining
+### Behavioural Patterns
+- Feature adoption plateaued at 54%
+- Support volume rising
+- Engagement stable
 
-### Segment-Specific Insights
-For SMB customers, pricing concerns typically requires product education and training.
+### Segment-Specific Insight
+For SMB accounts, adoption challenges typically calls for product education and training.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule customer success call
-2. Prioritize support tickets
-3. Review and address better pricing elsewhere
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address too hard to onboard directly
+3. Prioritise open support tickets
 
-### Short-term (30 Days)
-1. Increase feature adoption from 38% to 63%
-2. Reduce support tickets by implementing proactive monitoring
-3. Establish regular bi-weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 54% toward 79%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position LoadBalance Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar SMB customers with pricing concerns, intervention at this stage has a 85% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous SMB customers with similar risk profiles who received created custom pricing tier showed moderate improvement in retention metrics.
+Comparable SMB accounts that received provided implementation support showed significant improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 75%*
+*Customer ID: CUST-0064*
+*Risk Score: 41%*
 *Segment: SMB*

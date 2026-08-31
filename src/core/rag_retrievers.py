@@ -22,6 +22,9 @@ from qdrant_client.models import Distance, VectorParams
 # Initialize logger
 logger = logging.getLogger(__name__)
 
+# Dimensionality of text-embedding-3-small, used when creating collections.
+EMBEDDING_DIM = 1536
+
 # Cohere reranking
 try:
     from langchain_cohere import CohereRerank
@@ -49,34 +52,79 @@ class ChurnRAGRetriever:
     
     def __init__(
         self,
-        collection_name: str = "customer_churn",
+        collection_name: str = "churn_corpus",
         qdrant_url: Optional[str] = None
     ):
         """Initialize the retriever with Qdrant connection"""
         self.collection_name = collection_name
         self.qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
-        
+
         logger.info(f"Initializing Churn RAG Retriever with Qdrant at {self.qdrant_url}")
-        
+
         # Initialize embeddings
         self.embeddings = OpenAIEmbeddings(
             model="text-embedding-3-small",
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
-        
+
         # Initialize LLM for query generation and compression
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
-        
-        # Initialize Qdrant client
-        self.client = QdrantClient(url=self.qdrant_url)
-        
+
+        self.client = self._make_client(self.qdrant_url)
+
         # Vector store (will be initialized after loading documents)
         self.vector_store = None
         self.documents = []
+
+    @staticmethod
+    def _make_client(qdrant_url: str) -> QdrantClient:
+        """Build a Qdrant client.
+
+        Accepts a server URL, ':memory:' for an ephemeral in-process store, or
+        'local:<path>' for an embedded on-disk one. The non-server modes let the
+        evaluation suite and CI run without a Qdrant container.
+        """
+        if qdrant_url == ":memory:":
+            logger.info("Using in-memory Qdrant (no server)")
+            return QdrantClient(location=":memory:")
+
+        if qdrant_url.startswith("local:"):
+            path = qdrant_url.split(":", 1)[1]
+            logger.info(f"Using embedded Qdrant at {path}")
+            return QdrantClient(path=path)
+
+        client = QdrantClient(url=qdrant_url)
+        try:
+            client.get_collections()
+        except Exception as e:
+            raise RuntimeError(
+                f"Cannot reach Qdrant at {qdrant_url}: {e}\n"
+                "Start it with 'docker compose up -d qdrant', or set "
+                "QDRANT_URL=:memory: to run without a server."
+            ) from e
+        return client
+
+    def _reset_collection(self):
+        """Drop and recreate the collection, then bind a vector store to it."""
+        try:
+            self.client.delete_collection(collection_name=self.collection_name)
+            logger.info(f"Deleted existing collection: {self.collection_name}")
+        except Exception:
+            pass
+
+        self.client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
+        )
+        self.vector_store = QdrantVectorStore(
+            client=self.client,
+            collection_name=self.collection_name,
+            embedding=self.embeddings,
+        )
         
         # Parent document storage
         self.parent_store = InMemoryStore()
@@ -92,13 +140,14 @@ class ChurnRAGRetriever:
             data_folder: Path to data folder with CSV files
         """
         logger.info(f"Loading documents from {data_folder}...")
-        
-        # Load churned customer documents using data loader
+
+        # Load the full corpus -- customer profiles, churn analyses, success stories,
+        # support and interaction history -- all carrying customer_id in metadata.
         data_loader = ChurnDataLoader(data_folder)
-        self.documents = data_loader.load_churned_customers_documents()
-        
-        logger.info(f"✓ Loaded {len(self.documents)} customer churn documents")
-        
+        self.documents = data_loader.get_all_documents()
+
+        logger.info(f"✓ Loaded {len(self.documents)} corpus documents")
+
         # Initialize vector store (empty initially - parent retriever will populate it)
         self._init_empty_vector_store()
         
@@ -123,45 +172,14 @@ class ChurnRAGRetriever:
     def _init_empty_vector_store(self):
         """Initialize empty Qdrant vector store for parent retriever"""
         logger.info("Initializing empty Qdrant vector store...")
-        
-        # Check if collection exists, delete if it does
-        try:
-            self.client.delete_collection(collection_name=self.collection_name)
-            logger.info(f"Deleted existing collection: {self.collection_name}")
-        except Exception:
-            pass
-        
-        # Create collection with empty documents to initialize structure
-        # ParentDocumentRetriever will then add documents properly
-        self.vector_store = QdrantVectorStore.from_documents(
-            documents=[],  # Empty - parent retriever will populate
-            embedding=self.embeddings,
-            url=self.qdrant_url,
-            collection_name=self.collection_name,
-        )
-        
+        self._reset_collection()
         logger.info(f"✓ Initialized empty vector store collection: {self.collection_name}")
-    
+
     def _create_vector_store(self):
         """Create Qdrant vector store and index documents (for non-parent retrievers)"""
         logger.info("Creating Qdrant vector store...")
-        
-        # Check if collection exists, recreate if it does
-        try:
-            self.client.delete_collection(collection_name=self.collection_name)
-            logger.info(f"Deleted existing collection: {self.collection_name}")
-        except Exception:
-            pass
-        
-        # Create vector store with documents
-        self.vector_store = QdrantVectorStore.from_documents(
-            documents=self.documents,
-            embedding=self.embeddings,
-            url=self.qdrant_url,
-            collection_name=self.collection_name,
-            force_recreate=True
-        )
-        
+        self._reset_collection()
+        self.vector_store.add_documents(self.documents)
         logger.info(f"✓ Created collection '{self.collection_name}' with {len(self.documents)} documents")
     
     def naive_retrieval(self, query: str, k: int = 5, filters: Optional[Dict] = None) -> List[Document]:

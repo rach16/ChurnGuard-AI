@@ -1,0 +1,47 @@
+# Churn Risk Analysis: InnovateLabs Labs
+
+## Executive Summary
+InnovateLabs Labs (CUST-0183) is a Commercial customer in Healthcare with $139,900 ARR and 9 months of tenure. Current risk score: 28%. Status: CHURNED on 2026-04-02.
+
+## Risk Factors
+1. **Primary Concern:** Too hard to onboard
+2. **Feature Adoption:** 66% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 10 tickets per 30 days
+4. **Engagement:** last interaction 12 days ago
+
+## Detailed Analysis
+
+### Churn Category: Adoption Challenges
+This account shows the classic pattern of adoption challenges, specifically: too hard to onboard.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 66%
+- Support volume rising
+- Engagement stable
+
+### Segment-Specific Insight
+For Commercial accounts, adoption challenges typically calls for focused customer success effort.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address too hard to onboard directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 66% toward 85%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Commercial accounts that received conducted onboarding workshops showed significant improvement in retention metrics.
+
+---
+*Customer ID: CUST-0183*
+*Risk Score: 28%*
+*Segment: Commercial*

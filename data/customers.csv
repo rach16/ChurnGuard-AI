@@ -1,0 +1,201 @@
+customer_id,company_name,segment,industry,region,arr,seats,contract_start_date,contract_end_date,tenure_months,is_churned,churn_date,churn_category,specific_reason,competitor
+CUST-0001,AnalyticsCo LLC,Commercial,Education,EMEA,92400,79,2023-04-17,2025-03-10,39,1,2025-03-10,Competition,Competitor has better features,Vantage Analytics
+CUST-0002,DataBridge Solutions,Commercial,Manufacturing,LATAM,94900,74,2022-11-18,2026-11-05,44,0,,,,
+CUST-0003,DataSync Solutions,SMB,Public Sector,NA-East,58400,29,2023-11-13,2026-08-24,32,0,,,,
+CUST-0004,ScaleSystems LLC,Enterprise,Financial Services,APAC,206100,451,2025-06-05,2027-02-09,13,0,,,,
+CUST-0005,IntegrationHQ Solutions,Commercial,Retail,NA-West,79700,27,2024-10-08,2027-04-05,21,0,,,,
+CUST-0006,AuditPro LLC,Commercial,Public Sector,NA-West,55700,85,2023-06-16,2026-05-20,37,1,2026-05-20,Competition,Better UX elsewhere,
+CUST-0007,DisasterRecovery Solutions,SMB,Technology,NA-East,41000,18,2023-02-16,2027-05-22,41,0,,,,
+CUST-0008,DevTools Inc,Commercial,Retail,EMEA,95700,29,2023-04-17,2025-06-08,39,1,2025-06-08,Support Issues,Unresolved bugs,
+CUST-0009,CacheMaster Labs,Commercial,Healthcare,NA-West,87000,40,2023-04-17,2026-05-25,39,1,2026-05-25,Support Issues,Unresolved bugs,
+CUST-0010,AnalyticsCo Inc,Commercial,Healthcare,NA-West,76400,33,2024-09-08,2026-06-09,22,1,2026-06-09,Pricing Concerns,ROI not clear,NorthStar Cloud
+CUST-0011,CloudScale Group,SMB,Financial Services,NA-East,41700,13,2023-02-16,2026-12-05,41,0,,,,
+CUST-0012,AuditPro Solutions,SMB,Public Sector,NA-East,15600,27,2024-07-10,2026-03-26,24,1,2026-03-26,Competition,Better UX elsewhere,Beacon Systems
+CUST-0013,InnovateLabs LLC,SMB,Financial Services,EMEA,20500,12,2024-05-11,2026-05-25,26,1,2026-05-25,Support Issues,Poor documentation,Kestrel Data
+CUST-0014,CodeCraft Group,Commercial,Education,NA-East,67900,62,2024-02-11,2026-10-28,29,0,,,,
+CUST-0015,DataBridge Corp,Commercial,Education,NA-East,135900,48,2024-02-11,2026-09-23,29,0,,,,
+CUST-0016,APIGateway Inc,SMB,Education,EMEA,23900,7,2023-11-13,2026-11-05,32,0,,,,
+CUST-0017,CloudVision LLC,Enterprise,Healthcare,EMEA,171400,185,2024-11-07,2026-08-13,20,0,,,,
+CUST-0018,CloudScale Corp,SMB,Education,LATAM,19500,6,2023-02-16,2026-09-27,41,0,,,,
+CUST-0019,ComplianceHub Group,Commercial,Healthcare,EMEA,112300,35,2026-04-01,2027-03-07,3,0,,,,
+CUST-0020,BackupCloud Group,Commercial,Education,NA-West,111600,58,2024-09-08,2025-11-01,22,1,2025-11-01,Support Issues,Unresolved bugs,
+CUST-0021,ContainerOps Corp,Enterprise,Energy,NA-West,304500,456,2024-09-08,2027-03-13,22,0,,,,
+CUST-0022,SecurityFirst Systems,Enterprise,Manufacturing,EMEA,189900,151,2025-06-05,2026-09-15,13,0,,,,
+CUST-0023,AIForge Technologies,SMB,Technology,NA-West,45900,17,2026-01-31,2027-02-27,5,0,,,,
+CUST-0024,CloudScale Technologies,Commercial,Retail,LATAM,96500,91,2025-01-06,2026-11-19,18,0,,,,
+CUST-0025,MicroServe LLC,SMB,Energy,LATAM,50800,21,2025-09-03,2027-01-08,10,0,,,,
+CUST-0026,LoadBalance Group,SMB,Media,LATAM,34200,12,2023-05-17,2026-12-03,38,0,,,,
+CUST-0027,ScaleSystems Inc,SMB,Manufacturing,APAC,44700,27,2025-12-02,2026-04-09,7,1,2026-04-09,Adoption Challenges,Team not using it,
+CUST-0028,CacheMaster Inc,SMB,Technology,NA-East,52800,29,2024-07-10,2026-05-30,24,1,2026-05-30,Competition,Competitor cheaper,Apex Platform
+CUST-0029,BackupCloud Technologies,SMB,Technology,NA-West,34400,13,2024-06-10,2027-05-05,25,0,,,,
+CUST-0030,DataBridge Labs,SMB,Technology,LATAM,11300,17,2026-03-02,2026-10-03,4,0,,,,
+CUST-0031,MonitorPlus Technologies,Commercial,Media,APAC,82700,78,2022-10-19,2026-08-24,45,0,,,,
+CUST-0032,SecureNet LLC,SMB,Public Sector,NA-East,60000,16,2024-04-11,2026-08-08,27,0,,,,
+CUST-0033,CodeCraft Solutions,SMB,Technology,NA-West,21900,20,2025-12-02,2026-08-09,7,0,,,,
+CUST-0034,QueueManager Solutions,Commercial,Healthcare,NA-West,146500,33,2023-04-17,2025-12-04,39,1,2025-12-04,Support Issues,Unresolved bugs,Kestrel Data
+CUST-0035,DataSync Inc,Commercial,Technology,NA-East,129600,92,2024-04-11,2026-12-31,27,0,,,,
+CUST-0036,QueueManager Labs,Commercial,Energy,NA-East,93400,66,2024-06-10,2026-05-10,25,1,2026-05-10,Support Issues,Slow response,Apex Platform
+CUST-0037,WorkflowPro Inc,Commercial,Energy,APAC,132600,95,2024-01-12,2027-04-03,30,0,,,,
+CUST-0038,InnovateLabs Corp,SMB,Technology,APAC,26800,20,2025-01-06,2027-05-17,18,0,,,,
+CUST-0039,BackupCloud Solutions,Enterprise,Public Sector,NA-West,134200,418,2025-05-06,2026-04-07,14,1,2026-04-07,Support Issues,Poor documentation,
+CUST-0040,IntegrationHQ LLC,Commercial,Education,NA-West,80600,94,2025-01-06,2026-01-09,18,1,2026-01-09,Pricing Concerns,Too expensive,
+CUST-0041,APIGateway Technologies,Commercial,Media,NA-West,62100,44,2024-06-10,2027-01-02,25,0,,,,
+CUST-0042,DataSync Technologies,SMB,Public Sector,LATAM,24100,8,2023-06-16,2026-02-12,37,1,2026-02-12,Competition,Competitor cheaper,Kestrel Data
+CUST-0043,LoadBalance Technologies,SMB,Media,NA-West,41900,29,2025-05-06,2027-05-09,14,0,,,,
+CUST-0044,InnovateLabs Group,Commercial,Energy,NA-East,132200,71,2026-04-01,2026-05-30,3,1,2026-05-30,Product Fit,Missing features,Beacon Systems
+CUST-0045,AnalyticsCo Technologies,Commercial,Public Sector,APAC,110600,99,2026-01-01,2026-09-28,6,0,,,,
+CUST-0046,DisasterRecovery Group,SMB,Technology,LATAM,13000,28,2023-07-16,2027-01-02,36,0,,,,
+CUST-0047,WorkflowPro Labs,SMB,Retail,NA-East,30400,27,2025-03-07,2026-03-25,16,1,2026-03-25,Product Fit,Too complex,Kestrel Data
+CUST-0048,MetricsDash Solutions,SMB,Technology,NA-West,31300,22,2024-10-08,2026-04-30,21,1,2026-04-30,Product Fit,Doesn't scale,
+CUST-0049,TechFlow Inc,SMB,Energy,EMEA,45000,13,2024-11-07,2026-01-29,20,1,2026-01-29,Support Issues,Poor documentation,Apex Platform
+CUST-0050,SecurityFirst Group,SMB,Manufacturing,LATAM,39400,5,2023-02-16,2026-09-14,41,0,,,,
+CUST-0051,CloudScale Systems,Enterprise,Energy,EMEA,172600,349,2022-09-19,2027-04-21,46,0,,,,
+CUST-0052,DevOpsHub Inc,SMB,Logistics,APAC,44700,14,2023-09-14,2026-10-20,34,0,,,,
+CUST-0053,TechFlow LLC,Commercial,Education,LATAM,132500,20,2024-03-12,2025-10-17,28,1,2025-10-17,Support Issues,Poor documentation,Beacon Systems
+CUST-0054,DevTools Corp,Commercial,Media,LATAM,63100,56,2026-01-01,2026-11-11,6,0,,,,
+CUST-0055,SecureNet Inc,SMB,Public Sector,NA-East,37600,7,2022-08-20,2027-01-05,47,0,,,,
+CUST-0056,TechFlow Corp,SMB,Public Sector,EMEA,30800,20,2025-09-03,2026-12-26,10,0,,,,
+CUST-0057,DataSync Labs,Enterprise,Retail,NA-East,210500,454,2025-01-06,2026-04-29,18,1,2026-04-29,Adoption Challenges,Lack of champions,Kestrel Data
+CUST-0058,CodeCraft Systems,Enterprise,Retail,APAC,315400,226,2023-08-15,2027-04-06,35,0,,,,
+CUST-0059,CloudScale Solutions,SMB,Education,NA-East,25900,20,2023-06-16,2026-11-26,37,0,,,,
+CUST-0060,ContainerOps LLC,Commercial,Retail,LATAM,146500,62,2024-04-11,2026-08-17,27,0,,,,
+CUST-0061,MicroServe Technologies,Enterprise,Retail,NA-East,287800,185,2023-12-13,2027-06-30,31,0,,,,
+CUST-0062,AuditPro Systems,SMB,Energy,LATAM,11800,7,2022-08-20,2026-05-31,47,1,2026-05-31,Adoption Challenges,Too hard to onboard,
+CUST-0063,WorkflowPro Corp,Commercial,Retail,EMEA,140300,25,2024-10-08,2027-03-14,21,0,,,,
+CUST-0064,BackupCloud Corp,SMB,Retail,NA-West,18800,24,2026-01-01,2026-05-25,6,1,2026-05-25,Adoption Challenges,Too hard to onboard,Beacon Systems
+CUST-0065,TechFlow Technologies,Commercial,Financial Services,APAC,140100,89,2023-09-14,2026-12-07,34,0,,,,
+CUST-0066,ContainerOps Systems,SMB,Media,NA-West,60000,20,2023-12-13,2025-08-20,31,1,2025-08-20,Competition,Better UX elsewhere,
+CUST-0067,CacheMaster Solutions,SMB,Financial Services,LATAM,47300,14,2024-06-10,2025-07-30,25,1,2025-07-30,Competition,Competitor cheaper,NorthStar Cloud
+CUST-0068,ScaleSystems Solutions,Commercial,Financial Services,EMEA,128900,24,2024-06-10,2027-06-16,25,0,,,,
+CUST-0069,WorkflowPro Technologies,Commercial,Public Sector,EMEA,103100,54,2025-08-04,2026-10-05,11,0,,,,
+CUST-0070,MicroServe Inc,Enterprise,Energy,NA-East,156300,165,2024-12-07,2026-09-26,19,0,,,,
+CUST-0071,MicroServe Solutions,Enterprise,Financial Services,EMEA,314600,282,2022-09-19,2027-02-17,46,0,,,,
+CUST-0072,AnalyticsCo Labs,SMB,Energy,NA-East,41000,22,2022-09-19,2026-11-26,46,0,,,,
+CUST-0073,DataBridge Systems,SMB,Retail,NA-East,57300,14,2023-01-17,2026-09-27,42,0,,,,
+CUST-0074,MonitorPlus LLC,Enterprise,Education,LATAM,396900,129,2025-09-03,2027-05-02,10,0,,,,
+CUST-0075,CodeCraft LLC,Enterprise,Manufacturing,APAC,277900,170,2022-11-18,2027-02-04,44,0,,,,
+CUST-0076,StreamPro Group,Enterprise,Media,NA-West,487300,484,2025-10-03,2027-02-18,9,0,,,,
+CUST-0077,DataSync LLC,Enterprise,Manufacturing,NA-West,414800,155,2025-11-02,2026-06-06,8,1,2026-06-06,Pricing Concerns,Too expensive,
+CUST-0078,CodeCraft Labs,Commercial,Retail,NA-West,104000,42,2025-03-07,2026-01-24,16,1,2026-01-24,Product Fit,Missing features,
+CUST-0079,CacheMaster Technologies,Enterprise,Media,NA-East,150700,265,2025-08-04,2026-10-27,11,0,,,,
+CUST-0080,AIForge Systems,Commercial,Technology,NA-East,122700,86,2025-12-02,2026-05-14,7,1,2026-05-14,Pricing Concerns,Budget cuts,
+CUST-0081,StreamPro Solutions,Commercial,Healthcare,NA-East,82200,38,2026-03-02,2027-03-14,4,0,,,,
+CUST-0082,TechFlow Systems,SMB,Energy,LATAM,40300,8,2024-11-07,2026-02-23,20,1,2026-02-23,Competition,Better UX elsewhere,Vantage Analytics
+CUST-0083,DisasterRecovery Labs,Enterprise,Education,EMEA,431000,254,2022-11-18,2026-11-23,44,0,,,,
+CUST-0084,BackupCloud Systems,SMB,Healthcare,NA-East,31600,28,2025-10-03,2026-03-08,9,1,2026-03-08,Product Fit,Poor integration,NorthStar Cloud
+CUST-0085,AuditPro Inc,Commercial,Financial Services,EMEA,110000,65,2023-03-18,2027-03-03,40,0,,,,
+CUST-0086,StreamPro LLC,SMB,Logistics,NA-East,48100,23,2023-08-15,2027-05-10,35,0,,,,
+CUST-0087,MonitorPlus Solutions,SMB,Public Sector,NA-East,40400,26,2024-01-12,2027-06-24,30,0,,,,
+CUST-0088,ComplianceHub Corp,Enterprise,Retail,NA-West,326500,255,2024-11-07,2026-08-02,20,0,,,,
+CUST-0089,ScaleSystems Technologies,SMB,Logistics,NA-West,28500,28,2022-12-18,2027-03-19,43,0,,,,
+CUST-0090,StreamPro Technologies,SMB,Media,APAC,43100,20,2023-04-17,2026-01-09,39,1,2026-01-09,Adoption Challenges,Team not using it,Apex Platform
+CUST-0091,DisasterRecovery Technologies,SMB,Media,NA-East,21000,24,2023-08-15,2027-04-25,35,0,,,,
+CUST-0092,ContainerOps Labs,SMB,Financial Services,APAC,47400,10,2025-03-07,2026-02-04,16,1,2026-02-04,Support Issues,Poor documentation,
+CUST-0093,IntegrationHQ Labs,Commercial,Education,NA-East,96000,29,2025-02-05,2026-08-20,17,0,,,,
+CUST-0094,LogStream Labs,Enterprise,Financial Services,EMEA,168700,366,2023-04-17,2027-02-22,39,0,,,,
+CUST-0095,IntegrationHQ Technologies,Commercial,Education,LATAM,57900,59,2022-08-20,2027-05-27,47,0,,,,
+CUST-0096,BackupCloud Inc,Commercial,Logistics,NA-West,73600,38,2025-02-05,2027-01-24,17,0,,,,
+CUST-0097,QueueManager Corp,SMB,Technology,LATAM,32400,23,2025-05-06,2026-03-20,14,1,2026-03-20,Product Fit,Poor integration,Beacon Systems
+CUST-0098,StreamPro Systems,SMB,Financial Services,EMEA,35400,14,2022-12-18,2027-05-28,43,0,,,,
+CUST-0099,DevTools Group,Commercial,Technology,LATAM,145400,25,2026-01-31,2027-03-23,5,0,,,,
+CUST-0100,DisasterRecovery Inc,SMB,Logistics,NA-East,35200,10,2023-04-17,2025-09-13,39,1,2025-09-13,Product Fit,Missing features,
+CUST-0101,IntegrationHQ Systems,Commercial,Logistics,LATAM,55200,100,2023-12-13,2025-10-25,31,1,2025-10-25,Support Issues,No training,Vantage Analytics
+CUST-0102,DevOpsHub Systems,SMB,Technology,NA-West,55800,14,2023-05-17,2025-07-23,38,1,2025-07-23,Adoption Challenges,Team not using it,Meridian Software
+CUST-0103,CacheMaster LLC,Commercial,Retail,LATAM,59300,74,2025-08-04,2026-05-30,11,1,2026-05-30,Competition,Better UX elsewhere,Vantage Analytics
+CUST-0104,LogStream Group,SMB,Retail,NA-East,24800,30,2025-05-06,2026-10-08,14,0,,,,
+CUST-0105,CodeCraft Inc,SMB,Retail,NA-West,19000,27,2023-06-16,2025-12-10,37,1,2025-12-10,Support Issues,Unresolved bugs,NorthStar Cloud
+CUST-0106,CloudScale Inc,Commercial,Energy,NA-West,103400,59,2026-01-31,2026-05-12,5,1,2026-05-12,Competition,Better UX elsewhere,Apex Platform
+CUST-0107,AuditPro Labs,Enterprise,Public Sector,LATAM,267500,132,2025-04-06,2027-02-10,15,0,,,,
+CUST-0108,DevTools LLC,Enterprise,Healthcare,EMEA,133600,132,2023-02-16,2027-04-20,41,0,,,,
+CUST-0109,MonitorPlus Labs,SMB,Financial Services,APAC,12700,21,2023-08-15,2027-01-24,35,0,,,,
+CUST-0110,ContainerOps Solutions,SMB,Retail,NA-East,24300,20,2024-04-11,2026-04-14,27,1,2026-04-14,Pricing Concerns,ROI not clear,NorthStar Cloud
+CUST-0111,CloudVision Corp,Commercial,Public Sector,LATAM,102800,34,2023-10-14,2026-04-17,33,1,2026-04-17,Support Issues,Unresolved bugs,NorthStar Cloud
+CUST-0112,MicroServe Systems,SMB,Technology,LATAM,10800,21,2026-01-01,2027-04-11,6,0,,,,
+CUST-0113,IntegrationHQ Group,Commercial,Healthcare,LATAM,147500,28,2022-07-21,2026-11-02,48,0,,,,
+CUST-0114,LoadBalance Systems,Enterprise,Education,EMEA,201500,58,2023-06-16,2025-03-09,37,1,2025-03-09,Competition,Competitor cheaper,
+CUST-0115,SecurityFirst LLC,SMB,Logistics,LATAM,26900,25,2025-01-06,2026-08-21,18,0,,,,
+CUST-0116,LogStream Corp,SMB,Financial Services,EMEA,20100,30,2022-09-19,2027-03-21,46,0,,,,
+CUST-0117,DevTools Systems,SMB,Manufacturing,EMEA,27800,29,2026-01-31,2026-05-10,5,1,2026-05-10,Adoption Challenges,Too hard to onboard,
+CUST-0118,AIForge Solutions,Commercial,Retail,APAC,119200,67,2024-11-07,2027-01-19,20,0,,,,
+CUST-0119,LogStream Inc,Enterprise,Public Sector,EMEA,228500,90,2023-07-16,2026-10-30,36,0,,,,
+CUST-0120,QueueManager Group,SMB,Financial Services,EMEA,40700,18,2024-10-08,2027-03-15,21,0,,,,
+CUST-0121,AnalyticsCo Group,SMB,Technology,APAC,11700,7,2026-01-01,2026-10-11,6,0,,,,
+CUST-0122,DevOpsHub Corp,SMB,Logistics,EMEA,32200,7,2022-11-18,2027-03-17,44,0,,,,
+CUST-0123,CloudScale LLC,Commercial,Energy,LATAM,88700,91,2023-07-16,2026-11-02,36,0,,,,
+CUST-0124,BackupCloud Labs,SMB,Retail,NA-East,32600,27,2024-12-07,2026-09-30,19,0,,,,
+CUST-0125,DevTools Labs,SMB,Public Sector,EMEA,54600,10,2025-11-02,2027-05-07,8,0,,,,
+CUST-0126,LogStream Systems,Commercial,Manufacturing,APAC,52600,90,2022-08-20,2026-02-18,47,1,2026-02-18,Pricing Concerns,Better pricing elsewhere,Apex Platform
+CUST-0127,MetricsDash Labs,Enterprise,Public Sector,APAC,407700,471,2023-05-17,2027-04-01,38,0,,,,
+CUST-0128,DevTools Technologies,Commercial,Public Sector,LATAM,68200,36,2025-08-04,2026-10-03,11,0,,,,
+CUST-0129,SecureNet Labs,SMB,Manufacturing,EMEA,57400,21,2026-01-01,2026-06-24,6,1,2026-06-24,Product Fit,Doesn't scale,Vantage Analytics
+CUST-0130,QueueManager Systems,SMB,Public Sector,NA-West,39600,23,2022-12-18,2026-09-15,43,0,,,,
+CUST-0131,ComplianceHub Technologies,SMB,Financial Services,NA-East,12300,25,2022-10-19,2026-03-15,45,1,2026-03-15,Adoption Challenges,Team not using it,Kestrel Data
+CUST-0132,StreamPro Inc,Commercial,Media,APAC,74500,71,2023-04-17,2027-06-23,39,0,,,,
+CUST-0133,ComplianceHub Systems,SMB,Retail,EMEA,53100,15,2025-12-02,2026-04-28,7,1,2026-04-28,Competition,Competitor has better features,Kestrel Data
+CUST-0134,WorkflowPro LLC,Enterprise,Energy,NA-West,156400,75,2025-08-04,2026-02-19,11,1,2026-02-19,Product Fit,Poor integration,
+CUST-0135,CloudScale Labs,SMB,Retail,APAC,59800,19,2023-01-17,2026-11-04,42,0,,,,
+CUST-0136,DisasterRecovery LLC,Commercial,Technology,EMEA,54900,56,2024-09-08,2026-11-17,22,0,,,,
+CUST-0137,DisasterRecovery Corp,Commercial,Media,EMEA,126400,66,2022-11-18,2025-01-31,44,1,2025-01-31,Pricing Concerns,Budget cuts,
+CUST-0138,DevOpsHub Group,SMB,Media,LATAM,44000,8,2023-05-17,2027-05-07,38,0,,,,
+CUST-0139,CloudVision Systems,SMB,Public Sector,APAC,35000,6,2025-10-03,2026-03-24,9,1,2026-03-24,Support Issues,Unresolved bugs,
+CUST-0140,ContainerOps Inc,Commercial,Logistics,NA-West,89300,98,2023-10-14,2027-06-08,33,0,,,,
+CUST-0141,WorkflowPro Group,Commercial,Energy,NA-East,86800,34,2024-09-08,2026-02-20,22,1,2026-02-20,Competition,Better UX elsewhere,Beacon Systems
+CUST-0142,ScaleSystems Systems,SMB,Financial Services,LATAM,34000,21,2022-08-20,2025-02-24,47,1,2025-02-24,Adoption Challenges,Lack of champions,Beacon Systems
+CUST-0143,LoadBalance Labs,Commercial,Energy,EMEA,91900,72,2024-04-11,2026-08-08,27,0,,,,
+CUST-0144,LogStream Technologies,Commercial,Public Sector,EMEA,149800,81,2024-02-11,2025-12-23,29,1,2025-12-23,Pricing Concerns,Better pricing elsewhere,Kestrel Data
+CUST-0145,DataSync Group,Enterprise,Manufacturing,EMEA,323200,165,2023-11-13,2025-07-16,32,1,2025-07-16,Support Issues,No training,Kestrel Data
+CUST-0146,ScaleSystems Corp,Commercial,Healthcare,LATAM,117700,68,2022-07-21,2026-12-24,48,0,,,,
+CUST-0147,DisasterRecovery Systems,Enterprise,Healthcare,EMEA,469600,385,2024-03-12,2026-12-24,28,0,,,,
+CUST-0148,APIGateway Group,SMB,Retail,NA-East,40800,23,2023-10-14,2026-12-16,33,0,,,,
+CUST-0149,AIForge LLC,SMB,Logistics,APAC,15000,29,2026-01-01,2027-02-26,6,0,,,,
+CUST-0150,MonitorPlus Inc,SMB,Manufacturing,EMEA,26100,25,2023-05-17,2027-06-28,38,0,,,,
+CUST-0151,DataBridge Group,SMB,Retail,NA-East,59900,17,2025-11-02,2027-02-28,8,0,,,,
+CUST-0152,SecurityFirst Solutions,Commercial,Technology,LATAM,60700,62,2025-05-06,2026-12-29,14,0,,,,
+CUST-0153,QueueManager Technologies,SMB,Manufacturing,NA-East,26500,28,2022-11-18,2026-12-16,44,0,,,,
+CUST-0154,APIGateway Systems,Commercial,Technology,APAC,132700,85,2024-12-07,2026-10-27,19,0,,,,
+CUST-0155,AnalyticsCo Corp,SMB,Education,NA-West,32300,13,2024-03-12,2025-06-19,28,1,2025-06-19,Support Issues,Unresolved bugs,Kestrel Data
+CUST-0156,CloudVision Technologies,Commercial,Media,NA-West,90500,84,2023-04-17,2027-03-25,39,0,,,,
+CUST-0157,AIForge Inc,Enterprise,Manufacturing,NA-West,291300,282,2022-07-21,2025-10-23,48,1,2025-10-23,Support Issues,Poor documentation,Beacon Systems
+CUST-0158,DevOpsHub LLC,SMB,Technology,NA-East,36300,21,2022-08-20,2025-12-09,47,1,2025-12-09,Product Fit,Too complex,Vantage Analytics
+CUST-0159,MetricsDash Technologies,Enterprise,Retail,EMEA,441800,276,2025-09-03,2026-10-14,10,0,,,,
+CUST-0160,MetricsDash Group,SMB,Retail,LATAM,30800,23,2025-03-07,2027-03-19,16,0,,,,
+CUST-0161,AnalyticsCo Solutions,SMB,Technology,NA-East,12300,16,2023-11-13,2026-03-12,32,1,2026-03-12,Support Issues,Slow response,Beacon Systems
+CUST-0162,MetricsDash LLC,Enterprise,Education,EMEA,497100,245,2025-12-02,2027-06-23,7,0,,,,
+CUST-0163,DataBridge Inc,SMB,Logistics,NA-East,18900,22,2024-04-11,2027-06-29,27,0,,,,
+CUST-0164,AuditPro Group,SMB,Public Sector,APAC,36600,12,2025-08-04,2026-04-11,11,1,2026-04-11,Pricing Concerns,ROI not clear,
+CUST-0165,ComplianceHub Labs,SMB,Financial Services,NA-West,20300,8,2024-11-07,2027-06-09,20,0,,,,
+CUST-0166,InnovateLabs Solutions,Commercial,Public Sector,NA-West,125400,27,2023-12-13,2025-11-07,31,1,2025-11-07,Pricing Concerns,Budget cuts,
+CUST-0167,LoadBalance Corp,Enterprise,Manufacturing,EMEA,450500,388,2025-02-05,2026-05-19,17,1,2026-05-19,Adoption Challenges,Lack of champions,Apex Platform
+CUST-0168,SecurityFirst Inc,SMB,Energy,NA-East,58600,25,2026-01-01,2027-05-10,6,0,,,,
+CUST-0169,CodeCraft Technologies,Commercial,Energy,NA-West,134900,58,2023-07-16,2027-05-01,36,0,,,,
+CUST-0170,SecureNet Technologies,Enterprise,Retail,APAC,197100,154,2025-07-05,2027-04-27,12,0,,,,
+CUST-0171,LogStream Solutions,SMB,Technology,LATAM,12000,7,2025-11-02,2026-04-11,8,1,2026-04-11,Product Fit,Missing features,
+CUST-0172,ComplianceHub Solutions,Commercial,Manufacturing,NA-West,146200,35,2022-10-19,2026-08-06,45,0,,,,
+CUST-0173,CloudVision Solutions,Commercial,Logistics,EMEA,88100,88,2023-10-14,2027-05-08,33,0,,,,
+CUST-0174,DevOpsHub Solutions,Commercial,Manufacturing,EMEA,81300,25,2024-09-08,2027-01-09,22,0,,,,
+CUST-0175,MicroServe Corp,Commercial,Media,NA-West,69600,49,2025-02-05,2027-02-28,17,0,,,,
+CUST-0176,MetricsDash Inc,SMB,Energy,APAC,18400,30,2025-01-06,2027-06-23,18,0,,,,
+CUST-0177,ContainerOps Group,SMB,Public Sector,NA-East,52000,7,2025-08-04,2026-08-29,11,0,,,,
+CUST-0178,MonitorPlus Systems,Enterprise,Financial Services,NA-West,302300,241,2022-10-19,2026-01-03,45,1,2026-01-03,Product Fit,Missing features,
+CUST-0179,CodeCraft Corp,Commercial,Financial Services,LATAM,122200,88,2023-01-17,2025-07-31,42,1,2025-07-31,Adoption Challenges,Lack of champions,Vantage Analytics
+CUST-0180,APIGateway LLC,Commercial,Retail,NA-West,69200,87,2022-08-20,2027-04-24,47,0,,,,
+CUST-0181,CloudVision Inc,SMB,Manufacturing,NA-West,25000,7,2024-06-10,2027-05-15,25,0,,,,
+CUST-0182,WorkflowPro Systems,Commercial,Financial Services,NA-West,58300,75,2022-11-18,2024-12-16,44,1,2024-12-16,Adoption Challenges,Too hard to onboard,Kestrel Data
+CUST-0183,InnovateLabs Labs,Commercial,Healthcare,EMEA,139900,92,2025-10-03,2026-04-02,9,1,2026-04-02,Adoption Challenges,Too hard to onboard,NorthStar Cloud
+CUST-0184,APIGateway Solutions,Enterprise,Retail,LATAM,196200,477,2024-08-09,2026-12-30,23,0,,,,
+CUST-0185,DataBridge LLC,Enterprise,Logistics,NA-East,139100,168,2022-09-19,2027-04-12,46,0,,,,
+CUST-0186,DataSync Corp,Enterprise,Energy,APAC,191300,333,2024-07-10,2026-03-03,24,1,2026-03-03,Support Issues,Slow response,Apex Platform
+CUST-0187,AIForge Corp,SMB,Retail,APAC,45600,25,2023-03-18,2025-02-19,40,1,2025-02-19,Product Fit,Missing features,
+CUST-0188,LoadBalance Solutions,SMB,Healthcare,NA-West,31500,22,2024-05-11,2025-08-18,26,1,2025-08-18,Support Issues,Poor documentation,Apex Platform
+CUST-0189,MetricsDash Systems,SMB,Media,APAC,29400,7,2025-11-02,2026-08-05,8,0,,,,
+CUST-0190,MetricsDash Corp,Commercial,Media,EMEA,76800,38,2023-05-17,2025-04-29,38,1,2025-04-29,Product Fit,Poor integration,
+CUST-0191,InnovateLabs Systems,SMB,Technology,NA-West,32900,9,2024-02-11,2027-05-30,29,0,,,,
+CUST-0192,WorkflowPro Solutions,SMB,Education,LATAM,16800,15,2024-03-12,2027-01-17,28,0,,,,
+CUST-0193,LoadBalance LLC,Commercial,Energy,LATAM,128200,61,2022-08-20,2027-06-19,47,0,,,,
+CUST-0194,CacheMaster Group,SMB,Financial Services,APAC,57100,11,2024-03-12,2027-05-07,28,0,,,,
+CUST-0195,ScaleSystems Group,SMB,Retail,EMEA,22100,26,2024-10-08,2027-04-11,21,0,,,,
+CUST-0196,AuditPro Corp,SMB,Public Sector,LATAM,56200,27,2024-01-12,2027-02-20,30,0,,,,
+CUST-0197,LoadBalance Inc,SMB,Healthcare,NA-East,48400,26,2026-01-31,2027-06-21,5,0,,,,
+CUST-0198,StreamPro Labs,Commercial,Healthcare,NA-East,59900,48,2025-06-05,2027-03-07,13,0,,,,
+CUST-0199,BackupCloud LLC,Commercial,Technology,LATAM,65100,23,2023-07-16,2025-10-12,36,1,2025-10-12,Support Issues,No training,Kestrel Data
+CUST-0200,ScaleSystems Labs,SMB,Manufacturing,LATAM,34100,20,2025-11-02,2027-03-20,8,0,,,,

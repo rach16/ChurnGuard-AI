@@ -1,0 +1,47 @@
+# Churn Risk Analysis: ComplianceHub Solutions
+
+## Executive Summary
+ComplianceHub Solutions (CUST-0172) is a Commercial customer in Manufacturing with $146,200 ARR and 45 months of tenure. Current risk score: 100%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Missing features
+2. **Feature Adoption:** 0% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 8 tickets per 30 days
+4. **Engagement:** last interaction 50 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: missing features.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 0%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For Commercial accounts, product fit typically calls for focused customer success effort.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address missing features directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 0% toward 25%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Commercial accounts that received simplified workflow with automation showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0172*
+*Risk Score: 100%*
+*Segment: Commercial*

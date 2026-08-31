@@ -1,0 +1,47 @@
+# Churn Risk Analysis: AIForge Corp
+
+## Executive Summary
+AIForge Corp (CUST-0187) is a SMB customer in Retail with $45,600 ARR and 40 months of tenure. Current risk score: 77%. Status: CHURNED on 2025-02-19.
+
+## Risk Factors
+1. **Primary Concern:** Missing features
+2. **Feature Adoption:** 21% (below the SMB benchmark of 70%)
+3. **Support Activity:** 7 tickets per 30 days
+4. **Engagement:** last interaction 63 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: missing features.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 21%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For SMB accounts, product fit typically calls for product education and training.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address missing features directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 21% toward 46%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable SMB accounts that received fast-tracked feature request showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0187*
+*Risk Score: 77%*
+*Segment: SMB*

@@ -1,51 +1,47 @@
-# Churn Risk Analysis: DevTools Inc
+# Churn Risk Analysis: DevTools Systems
 
 ## Executive Summary
-DevTools Inc is a SMB customer with $29,527 ARR and 31 months of tenure. Current risk score: 50%.
+DevTools Systems (CUST-0117) is a SMB customer in Manufacturing with $27,800 ARR and 5 months of tenure. Current risk score: 45%. Status: CHURNED on 2026-05-10.
 
 ## Risk Factors
-1. **Primary Concern:** Too expensive
-2. **Feature Adoption:** 49% (Below SMB average of 70%)
-3. **Support Activity:** 8 tickets in last 30 days
-4. **Engagement:** Last interaction 22 days ago
+1. **Primary Concern:** Too hard to onboard
+2. **Feature Adoption:** 50% (below the SMB benchmark of 70%)
+3. **Support Activity:** 24 tickets per 30 days
+4. **Engagement:** last interaction 71 days ago
 
 ## Detailed Analysis
 
-### Churn Category: Pricing Concerns
-This customer is exhibiting classic signs of pricing concerns. Specifically, they have expressed concerns about: too expensive.
+### Churn Category: Adoption Challenges
+This account shows the classic pattern of adoption challenges, specifically: too hard to onboard.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 49%
-- Support ticket volume stable
-- Engagement frequency stable
+### Behavioural Patterns
+- Feature adoption plateaued at 50%
+- Support volume rising
+- Engagement declining
 
-### Segment-Specific Insights
-For SMB customers, pricing concerns typically requires product education and training.
+### Segment-Specific Insight
+For SMB accounts, adoption challenges typically calls for product education and training.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule customer success call
-2. Prioritize support tickets
-3. Review and address too expensive
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address too hard to onboard directly
+3. Prioritise open support tickets
 
-### Short-term (30 Days)
-1. Increase feature adoption from 49% to 74%
-2. Reduce support tickets by improving documentation
-3. Establish regular bi-weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 50% toward 75%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position DevTools Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar SMB customers with pricing concerns, intervention at this stage has a 83% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous SMB customers with similar risk profiles who received created custom pricing tier showed moderate improvement in retention metrics.
+Comparable SMB accounts that received provided implementation support showed significant improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 50%*
+*Customer ID: CUST-0117*
+*Risk Score: 45%*
 *Segment: SMB*

@@ -1,0 +1,47 @@
+# Churn Risk Analysis: APIGateway LLC
+
+## Executive Summary
+APIGateway LLC (CUST-0180) is a Commercial customer in Retail with $69,200 ARR and 47 months of tenure. Current risk score: 100%. Status: ACTIVE - at risk.
+
+## Risk Factors
+1. **Primary Concern:** Unresolved bugs
+2. **Feature Adoption:** 0% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 7 tickets per 30 days
+4. **Engagement:** last interaction 37 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: unresolved bugs.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 0%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For Commercial accounts, support issues typically calls for focused customer success effort.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address unresolved bugs directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 0% toward 25%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Commercial accounts that received assigned dedicated success manager showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0180*
+*Risk Score: 100%*
+*Segment: Commercial*

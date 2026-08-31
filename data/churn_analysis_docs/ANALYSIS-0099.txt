@@ -1,0 +1,47 @@
+# Churn Risk Analysis: MonitorPlus Systems
+
+## Executive Summary
+MonitorPlus Systems (CUST-0178) is a Enterprise customer in Financial Services with $302,300 ARR and 45 months of tenure. Current risk score: 51%. Status: CHURNED on 2026-01-03.
+
+## Risk Factors
+1. **Primary Concern:** Missing features
+2. **Feature Adoption:** 45% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 4 tickets per 30 days
+4. **Engagement:** last interaction 70 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: missing features.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 45%
+- Support volume steady
+- Engagement declining
+
+### Segment-Specific Insight
+For Enterprise accounts, product fit typically calls for executive intervention.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address missing features directly
+3. Assign a dedicated technical account manager
+
+### Short-term (30 days)
+1. Lift feature adoption from 45% toward 70%
+2. Reduce support load by better documentation
+3. Establish a bi-weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Enterprise accounts that received fast-tracked feature request showed significant improvement in retention metrics.
+
+---
+*Customer ID: CUST-0178*
+*Risk Score: 51%*
+*Segment: Enterprise*

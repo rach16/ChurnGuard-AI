@@ -1,0 +1,47 @@
+# Churn Risk Analysis: MetricsDash Corp
+
+## Executive Summary
+MetricsDash Corp (CUST-0190) is a Commercial customer in Media with $76,800 ARR and 38 months of tenure. Current risk score: 86%. Status: CHURNED on 2025-04-29.
+
+## Risk Factors
+1. **Primary Concern:** Poor integration
+2. **Feature Adoption:** 12% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 10 tickets per 30 days
+4. **Engagement:** last interaction 25 days ago
+
+## Detailed Analysis
+
+### Churn Category: Product Fit
+This account shows the classic pattern of product fit, specifically: poor integration.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 12%
+- Support volume rising
+- Engagement stable
+
+### Segment-Specific Insight
+For Commercial accounts, product fit typically calls for focused customer success effort.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address poor integration directly
+3. Prioritise open support tickets
+
+### Short-term (30 days)
+1. Lift feature adoption from 12% toward 37%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Commercial accounts that received provided api access for customization showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0190*
+*Risk Score: 86%*
+*Segment: Commercial*

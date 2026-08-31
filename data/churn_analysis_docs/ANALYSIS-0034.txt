@@ -1,51 +1,47 @@
-# Churn Risk Analysis: CloudScale Inc
+# Churn Risk Analysis: TechFlow Technologies
 
 ## Executive Summary
-CloudScale Inc is a Enterprise customer with $448,924 ARR and 25 months of tenure. Current risk score: 66%.
+TechFlow Technologies (CUST-0065) is a Commercial customer in Financial Services with $140,100 ARR and 34 months of tenure. Current risk score: 69%. Status: ACTIVE - at risk.
 
 ## Risk Factors
-1. **Primary Concern:** Unresolved bugs
-2. **Feature Adoption:** 43% (Below Enterprise average of 70%)
-3. **Support Activity:** 11 tickets in last 30 days
-4. **Engagement:** Last interaction 19 days ago
+1. **Primary Concern:** Team not using it
+2. **Feature Adoption:** 28% (below the Commercial benchmark of 70%)
+3. **Support Activity:** 6 tickets per 30 days
+4. **Engagement:** last interaction 58 days ago
 
 ## Detailed Analysis
 
-### Churn Category: Support Issues
-This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: unresolved bugs.
+### Churn Category: Adoption Challenges
+This account shows the classic pattern of adoption challenges, specifically: team not using it.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 43%
-- Support ticket volume increasing
-- Engagement frequency stable
+### Behavioural Patterns
+- Feature adoption plateaued at 28%
+- Support volume steady
+- Engagement declining
 
-### Segment-Specific Insights
-For Enterprise customers, support issues typically requires immediate executive intervention.
+### Segment-Specific Insight
+For Commercial accounts, adoption challenges typically calls for focused customer success effort.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule executive business review
-2. Assign dedicated technical account manager
-3. Review and address unresolved bugs
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address team not using it directly
+3. Prioritise open support tickets
 
-### Short-term (30 Days)
-1. Increase feature adoption from 43% to 68%
-2. Reduce support tickets by implementing proactive monitoring
-3. Establish regular bi-weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 28% toward 53%
+2. Reduce support load by better documentation
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position CloudScale Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar Enterprise customers with support issues, intervention at this stage has a 80% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous Enterprise customers with similar risk profiles who received improved response sla showed significant improvement in retention metrics.
+Comparable Commercial accounts that received conducted onboarding workshops showed moderate improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 66%*
-*Segment: Enterprise*
+*Customer ID: CUST-0065*
+*Risk Score: 69%*
+*Segment: Commercial*

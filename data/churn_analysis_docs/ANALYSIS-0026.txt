@@ -1,51 +1,47 @@
-# Churn Risk Analysis: CodeCraft Inc
+# Churn Risk Analysis: TechFlow Inc
 
 ## Executive Summary
-CodeCraft Inc is a Enterprise customer with $186,499 ARR and 30 months of tenure. Current risk score: 80%.
+TechFlow Inc (CUST-0049) is a SMB customer in Energy with $45,000 ARR and 20 months of tenure. Current risk score: 59%. Status: CHURNED on 2026-01-29.
 
 ## Risk Factors
 1. **Primary Concern:** Poor documentation
-2. **Feature Adoption:** 51% (Below Enterprise average of 70%)
-3. **Support Activity:** 15 tickets in last 30 days
-4. **Engagement:** Last interaction 16 days ago
+2. **Feature Adoption:** 38% (below the SMB benchmark of 70%)
+3. **Support Activity:** 15 tickets per 30 days
+4. **Engagement:** last interaction 53 days ago
 
 ## Detailed Analysis
 
 ### Churn Category: Support Issues
-This customer is exhibiting classic signs of support issues. Specifically, they have expressed concerns about: poor documentation.
+This account shows the classic pattern of support issues, specifically: poor documentation.
 
-### Behavioral Patterns
-- Feature adoption has plateaued at 51%
-- Support ticket volume increasing
-- Engagement frequency stable
+### Behavioural Patterns
+- Feature adoption plateaued at 38%
+- Support volume rising
+- Engagement declining
 
-### Segment-Specific Insights
-For Enterprise customers, support issues typically requires immediate executive intervention.
+### Segment-Specific Insight
+For SMB accounts, support issues typically calls for product education and training.
 
 ## Recommended Actions
 
-### Immediate (Next 7 Days)
-1. Schedule executive business review
-2. Assign dedicated technical account manager
-3. Review and address poor documentation
+### Immediate (7 days)
+1. Schedule a customer success call
+2. Address poor documentation directly
+3. Prioritise open support tickets
 
-### Short-term (30 Days)
-1. Increase feature adoption from 51% to 76%
-2. Reduce support tickets by implementing proactive monitoring
-3. Establish regular weekly check-in cadence
+### Short-term (30 days)
+1. Lift feature adoption from 38% toward 63%
+2. Reduce support load by proactive monitoring
+3. Establish a bi-weekly check-in cadence
 
-### Long-term (90 Days)
-1. Position CodeCraft Inc as reference customer
-2. Explore expansion opportunities
-3. Build executive relationships
-
-## Success Probability
-Based on similar Enterprise customers with support issues, intervention at this stage has a 82% success rate.
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
 
 ## Historical Context
-Previous Enterprise customers with similar risk profiles who received improved response sla showed moderate improvement in retention metrics.
+Comparable SMB accounts that received improved response sla showed significant improvement in retention metrics.
 
 ---
-*Analysis Date: 2025-11-10*
-*Risk Score: 80%*
-*Segment: Enterprise*
+*Customer ID: CUST-0049*
+*Risk Score: 59%*
+*Segment: SMB*

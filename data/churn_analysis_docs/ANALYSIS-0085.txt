@@ -1,0 +1,47 @@
+# Churn Risk Analysis: AIForge Inc
+
+## Executive Summary
+AIForge Inc (CUST-0157) is a Enterprise customer in Manufacturing with $291,300 ARR and 48 months of tenure. Current risk score: 100%. Status: CHURNED on 2025-10-23.
+
+## Risk Factors
+1. **Primary Concern:** Poor documentation
+2. **Feature Adoption:** 0% (below the Enterprise benchmark of 70%)
+3. **Support Activity:** 8 tickets per 30 days
+4. **Engagement:** last interaction 69 days ago
+
+## Detailed Analysis
+
+### Churn Category: Support Issues
+This account shows the classic pattern of support issues, specifically: poor documentation.
+
+### Behavioural Patterns
+- Feature adoption plateaued at 0%
+- Support volume rising
+- Engagement declining
+
+### Segment-Specific Insight
+For Enterprise accounts, support issues typically calls for executive intervention.
+
+## Recommended Actions
+
+### Immediate (7 days)
+1. Schedule an executive business review
+2. Address poor documentation directly
+3. Assign a dedicated technical account manager
+
+### Short-term (30 days)
+1. Lift feature adoption from 0% toward 25%
+2. Reduce support load by proactive monitoring
+3. Establish a weekly check-in cadence
+
+### Long-term (90 days)
+1. Rebuild executive relationships
+2. Explore expansion once health recovers
+
+## Historical Context
+Comparable Enterprise accounts that received improved response sla showed moderate improvement in retention metrics.
+
+---
+*Customer ID: CUST-0157*
+*Risk Score: 100%*
+*Segment: Enterprise*
