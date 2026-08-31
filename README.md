@@ -1,469 +1,205 @@
-# ChurnGuard AI - Multi-Agent RAG Customer Churn Prediction Platform
+# ChurnGuard AI
 
-<!-- Project Identity -->
-![Multi-Agent RAG](https://img.shields.io/badge/Multi--Agent_RAG-Customer_Churn_Prevention-FF6B6B?style=for-the-badge&logo=openai&logoColor=white)
-![Production Ready](https://img.shields.io/badge/Status-Production_Ready-gold?style=for-the-badge&logo=checkmarx&logoColor=white)
-![Customer Analytics](https://img.shields.io/badge/Domain-B2B_SaaS_Analytics-2563eb?style=for-the-badge&logo=analytics&logoColor=white)
+A customer-churn analysis platform for B2B SaaS: a dbt warehouse over customer
+engagement data, a RAG pipeline over the supporting documents, and a multi-agent
+system that turns both into retention recommendations.
 
-<!-- Core Tech Stack -->
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.1+-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-14.2+-000000?style=for-the-badge&logo=next.js&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+**This is a demonstration project.** The customer data is synthetic and generated
+by a script in this repository. Every number below is reproducible from the code —
+where something has not been measured, it says so rather than guessing.
 
-<!-- AI/ML Stack -->
-![LangChain](https://img.shields.io/badge/🦜_LangChain-0.3+-1C3C3C?style=for-the-badge&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-412991?style=for-the-badge&logo=openai&logoColor=white)
-![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC382D?style=for-the-badge&logo=database&logoColor=white)
-
-<!-- Performance Metrics -->
-![Response Time](https://img.shields.io/badge/Response_Time-2--3s-blue?style=for-the-badge&logo=stopwatch&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-14.2+-000000?logo=next.js&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.11-FF694B?logo=dbt&logoColor=white)
+![DuckDB](https://img.shields.io/badge/DuckDB-1.1+-FFF000?logo=duckdb&logoColor=black)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-1C3C3C)
 
 ---
 
-## 🎯 What is ChurnGuard AI?
+## What it does
 
-**ChurnGuard AI** is a production-ready AI platform that **predicts customer churn and generates actionable retention strategies** for B2B SaaS companies. Unlike generic LLMs or traditional CS platforms, ChurnGuard combines:
+| | |
+|---|---|
+| **Scores retention risk** | A weighted model over observed engagement, adoption, trend, support volume and CSAT. Ranks customers who actually churned at **AUC 0.79**. |
+| **Answers questions over the corpus** | RAG across 771 documents — customer profiles, churn analyses, success stories, support and interaction history. |
+| **Generates retention plans** | LangGraph agents combine the score, retrieved context and an LLM into specific recommendations. |
+| **Publishes to a warehouse** | dbt models land in DuckDB locally and S3 + Athena in the cloud, from one set of definitions. |
 
-- **Multi-Agent RAG** (5 specialized agents: Risk Analyzer, Pattern Matcher, Data Retriever, Strategy Generator, Content Synthesizer)
-- **Data-Driven Intelligence** - AI responses based on actual customer metrics, not templates
-- **Predictive Modeling** - Predicts *when* customers will churn with 87%+ confidence
-- **Actionable Plans** - Specific 5-step retention strategies with owners and deadlines
+## Honest status
 
-### Why ChurnGuard AI vs Alternatives?
+Being explicit about what is and isn't proven, because an earlier version of this
+README was not.
 
-| Feature | ChatGPT/Claude | Salesforce Einstein | Gainsight | **ChurnGuard AI** |
-|---------|---------------|---------------------|-----------|-------------------|
-| **Data Integration** | Manual copy-paste | Salesforce CRM only | CRM + Basic integrations | **Multi-platform** (CRM + Support + Analytics + Billing) |
-| **Output** | Generic advice | Churn score + Alert | Health score (Red/Yellow/Green) | **Score + WHY + 5-step action plan** |
-| **Interface** | Chat only | Dashboard | Dashboard | **Conversational AI + Dashboard** |
-| **Pricing** | $20/month (ChatGPT Plus) | $50-75/user/month | $25K-$100K/year | **Demo project** (open source) |
-| **Implementation** | Instant | Requires admin setup | 3-6 months | **1-2 weeks** |
+| Claim | Status |
+|---|---|
+| Health score separates real churners | ✅ AUC **0.791**, asserted in `tests/test_warehouse_parity.py` |
+| SQL and Python scoring agree | ✅ all 200 customers within 0.1, enforced by test |
+| Dataset referential integrity | ✅ **28** contract checks in `scripts/validate_dataset.py` |
+| Warehouse correctness | ✅ **52** dbt tests |
+| DuckDB and Athena agree | ✅ 6/6 queries, `warehouse/verify_athena.py` |
+| Retrieval quality | ⚠️ **context recall 0.15** on a 10-question subset. Poor, cause diagnosed — see below. |
+| End-to-end latency | ❌ not benchmarked |
+| Churn *prediction* accuracy | ❌ no predictive model has been trained. The score is a weighted heuristic, not a classifier. |
+
+> **On the previous "94.7% accuracy" claim.** Earlier revisions of this README
+> advertised 94.7% retrieval accuracy. That figure came from an evaluation run
+> against an LLM-generated golden set whose questions referenced companies present
+> in no data file, over a 25-document corpus, using harness code that could not
+> execute at its own pinned RAGAS version. It did not measure anything. The golden
+> set, the corpus and the harness have since been rebuilt; the honest number today
+> is 0.15 and the work to improve it is scoped.
+
+**Why retrieval recall is low:** dense embeddings match the *shape* of a question
+and ignore named entities, so "how many tickets has DisasterRecovery Solutions
+raised" returns five unrelated customers. Hybrid BM25 + semantic fusion is the
+fix. Roughly a third of the golden questions are also aggregates ("which segment
+has the highest churn rate") that retrieval structurally cannot answer — those
+belong in SQL against the warehouse, not in the vector store.
 
 ---
 
-## 🚀 Quick Start
+## Architecture
 
-Get the entire platform running in 3 steps:
+```
+┌──────────────┐         ┌─────────────────────────────────────────────┐
+│  Next.js UI  │────────▶│              FastAPI (single app)           │
+│  dashboard   │◀────────│  degraded mode when no LLM stack available  │
+└──────────────┘         └──────┬─────────────────────┬────────────────┘
+                                │                     │
+                  ┌─────────────▼──────┐   ┌──────────▼──────────────┐
+                  │  Health scoring    │   │  LangGraph agents       │
+                  │  (weighted model)  │   │  research + writing     │
+                  └─────────┬──────────┘   └──────────┬──────────────┘
+                            │                         │
+                  ┌─────────▼──────────┐   ┌──────────▼──────────────┐
+                  │   dbt warehouse    │   │   Qdrant vector store   │
+                  │ bronze→silver→gold │   │   771 documents         │
+                  │  DuckDB  ·  Athena │   │   OpenAI embeddings     │
+                  └────────────────────┘   └─────────────────────────┘
+```
 
-### 1. Clone the Repository
+Scoring lives in **both** Python and SQL. `src/core/health_scoring.py` serves the
+API; `warehouse/models/gold/customer_health_score.sql` makes the same number
+queryable by anyone with a SQL client. A parity test recomputes all 200 customers
+each way and fails on divergence — two implementations are only acceptable when
+something enforces that they agree.
+
+---
+
+## Quick start
+
 ```bash
-git clone git@github.com:rach16/ChurnGuard-AI.git
+git clone https://github.com/rach16/ChurnGuard-AI.git
 cd ChurnGuard-AI
+uv sync
+cp .env.example .env     # then add your OPENAI_API_KEY
 ```
-
-### 2. Environment Setup
-```bash
-# Add your OpenAI API key
-export OPENAI_API_KEY="your-key-here"
-
-# Or create .env file
-echo "OPENAI_API_KEY=your-key-here" > .env
-```
-
-### 3. Start the Application
-```bash
-# Terminal 1: Start Backend
-python3 src/backend/api.py
-
-# Terminal 2: Start Frontend
-cd frontend
-npm install
-npm run dev
-```
-
-**🎉 Done!** Access the application:
-- **Frontend Dashboard**: http://localhost:3000
-- **API Documentation**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-
----
-
-## ✨ Key Features
-
-### 🎯 **Multi-Agent RAG Architecture**
-- **5 Specialized Agents** working in parallel:
-  - **Risk Analyzer** - Calculates weighted churn scores
-  - **Pattern Matcher** - Finds similar historical cases
-  - **Data Retriever** - Pulls cross-platform metrics
-  - **Strategy Generator** - Creates custom action plans
-  - **Content Synthesizer** - Formats responses with citations
-- **Retrieval quality** - measured with RAGAS against a golden set derived from the source data (baseline being re-established; see Evaluation)
-- **Real-time Processing** - Sub-3-second response times
-
-### 📊 **Data-Driven Customer Intelligence**
-- **Synthetic Customer Generation** - Realistic profiles with 90-day engagement history
-- **Health Scoring Algorithm** - Weighted risk factors (Segment 30%, Tenure 20%, Engagement 35%, Support 15%)
-- **Feature Adoption Tracking** - 8-feature usage analysis
-- **Support Volume Analysis** - Ticket trends and sentiment
-- **Churn Prediction** - Days until churn with confidence intervals
-
-### 🎨 **Production-Ready Frontend**
-- **Interactive Dashboard** - Real-time customer cards with risk visualization
-- **Customer Detail Pages** - Comprehensive analysis with:
-  - 90-day engagement timeline charts (Recharts)
-  - Feature usage bar charts
-  - Risk factor radar charts
-  - Recommended action items with prioritization
-  - Support ticket history
-- **Responsive Design** - Tailwind CSS with Framer Motion animations
-- **Real-time Updates** - Live health scoring and predictions
-
-### 🤖 **Intelligent AI Analysis**
-- **Conversational Interface** - Natural language queries about customer churn
-- **Personalized Recommendations** - Different strategies based on customer segment, tenure, adoption rate
-- **Transparent Citations** - Shows exactly which data points influenced decisions
-- **Confidence Scoring** - 87%+ confidence for data-driven predictions
-
-### 🏗️ **Technical Architecture**
-- **Backend**: FastAPI + Pydantic validation + LangChain RAG
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **AI/ML**: OpenAI GPT-4 + Qdrant Vector DB + Parent Document Retriever
-- **Data**: Synthetic data generation with realistic customer profiles
-
----
-
-## 🏗️ System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              CHURNGUARD AI PLATFORM                             │
-└─────────────────────────────────────────────────────────────────────────────────┘
-
-┌──────────────┐                                                 ┌──────────────┐
-│              │         HTTP Requests                           │              │
-│   Customer   │────────────────────────────────────────────────▶│   Frontend   │
-│  Success Team│                                                 │  (Next.js)   │
-│              │◀────────────────────────────────────────────────│              │
-└──────────────┘         Dashboard / Chatbot                     └──────┬───────┘
-                                                                         │
-                                                                         │ REST API
-                                                                         │
-                                                                  ┌──────▼───────┐
-                                                                  │              │
-                                                                  │   Backend    │
-                                                                  │   (FastAPI)  │
-                                                                  │              │
-                                                                  └──────┬───────┘
-                                                                         │
-                                              ┌──────────────────────────┼──────────────────────┐
-                                              │                          │                      │
-                                              │     Orchestrates Agents  │                      │
-                                              │                          │                      │
-┌─────────────────────────────────────────────▼──────────────────────────▼──────────────────────▼───────┐
-│                          🤖 MULTI-AGENT AI SYSTEM (LangGraph)                                         │
-│                                                                                                        │
-│  ┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐                             │
-│  │                 │      │                  │      │                 │                             │
-│  │  Risk Analyzer  │      │ Pattern Matcher  │      │ Strategy Gen    │                             │
-│  │                 │      │                  │      │                 │                             │
-│  │ • Churn scores  │      │ • RAG retrieval  │      │ • Action plans  │                             │
-│  │ • Health metrics│      │ • Similar cases  │      │ • Recommendations│                            │
-│  │ • Predictions   │      │ • RAGAS-measured │      │ • Prioritization│                             │
-│  │                 │      │                  │      │                 │                             │
-│  └────────┬────────┘      └────────┬─────────┘      └────────┬────────┘                             │
-│           │                        │                         │                                      │
-└───────────┼────────────────────────┼─────────────────────────┼──────────────────────────────────────┘
-            │                        │                         │
-            │                        │                         │
-            │ Fetch Customer Data    │ RAG Retrieval           │ LLM Calls
-            │                        │                         │
-            ▼                        ▼                         ▼
-   ┌─────────────────┐      ┌──────────────────┐     ┌───────────────────┐
-   │                 │      │                  │     │                   │
-   │  CSV Data Files │      │   Vector DB      │     │    OpenAI API     │
-   │                 │      │   (Qdrant)       │     │                   │
-   │ • Customers     │      │                  │     │ • GPT-4o-mini     │
-   │ • Metrics       │      │ • 855 chunks     │     │ • Embeddings      │
-   │ • Tickets       │      │ • Embeddings     │     │ • 1536 dimensions │
-   │ • 100 profiles  │      │ • 75 analyses    │     │                   │
-   │                 │      │                  │     │                   │
-   └─────────────────┘      └──────────────────┘     └───────────────────┘
-
-                                                     ┌───────────────────┐
-                                                     │                   │
-                                                     │  RAGAS Evaluation │
-                                                     │                   │
-                                                     │ • Faithfulness    │
-                                                     │ • Relevancy 92.3% │
-                                                     │ • Recall: TBD     │
-                                                     │                   │
-                                                     └───────────────────┘
-
-Key Data Flow:
-━━━━━━━━━━━━━
-1. User queries via Frontend (Dashboard/Chatbot)
-2. Backend API receives request and orchestrates Multi-Agent System
-3. Agents work in parallel:
-   - Risk Analyzer fetches customer data from CSV files
-   - Pattern Matcher performs RAG retrieval on Vector DB
-   - Strategy Generator calls OpenAI API for recommendations
-4. Content Synthesizer formats response with citations
-5. Response returned to Frontend for display
-
-Performance:
-━━━━━━━━━━━
-⚡ 2-3s end-to-end response time
-✅ 95.6% faithfulness score
-🎯 87-92% prediction confidence
-```
-
----
-
-## 📁 Project Structure
-
-```
-ChurnGuard-AI/
-├── 📁 Backend & API
-│   ├── src/backend/
-│   │   ├── api.py                   # FastAPI server (single entrypoint)
-│   │   └── Dockerfile               # Backend container config
-│   ├── src/core/
-│   │   ├── health_scoring.py        # Health score algorithm + synthetic data
-│   │   ├── knowledge_graph.py       # Customer data modeling
-│   │   └── rag_retrievers.py        # 5 RAG retrieval strategies
-│   ├── src/agents/
-│   │   ├── multi_agent_system.py    # 5-agent orchestration
-│   │   ├── research_team.py         # Research agents (3)
-│   │   └── writing_team.py          # Writing agents (2)
-│
-├── 🎨 Frontend Dashboard
-│   └── frontend/
-│       ├── src/app/
-│       │   ├── page.tsx             # Main dashboard with customer cards
-│       │   ├── customer/[id]/page.tsx  # Customer detail page
-│       │   └── components/Chatbot.tsx  # AI analysis interface
-│       ├── package.json
-│       └── tailwind.config.js
-│
-├── 📚 Documentation
-│   ├── docs/
-│   │   └── COMPREHENSIVE_PROJECT_DOCUMENTATION.md
-│
-├── 🧪 Tests & Evaluation
-│   ├── tests/
-│   │   ├── test_multi_agent_system.py
-│   │   └── test_rag_system.py
-│   ├── test_data_driven_analysis.py
-│   └── test_personalization.py
-│
-└── ⚙️ Configuration
-    ├── .gitignore
-    ├── pyproject.toml               # Python dependencies
-    └── docker-compose.yml           # Multi-service orchestration
-```
-
----
-
-## 🔗 API Endpoints
-
-### **POST** `/multi-agent-analyze` ⭐
-Multi-agent comprehensive churn analysis with data-driven insights.
-
-**Request:**
-```json
-{
-  "query": "Analyze customer churn risk for CloudSync Systems (Enterprise segment, $171,842 ARR). They have a 75% risk score with primary concern: Support issues. Provide specific retention strategies.",
-  "include_background": true,
-  "include_citations": true
-}
-```
-
-**Response:**
-```json
-{
-  "response": "Customer Profile: CloudSync Systems...\n\nData-Driven Insights:\n- High support volume: 8 tickets in 30 days indicates friction\n- Low feature adoption at 40%...",
-  "key_insights": [
-    "High Support Volume: 8 tickets/30 days - indicates product friction",
-    "Low Product Adoption: 40% feature usage (vs 70% benchmark)"
-  ],
-  "confidence_score": 0.92,
-  "processing_time_ms": 2847
-}
-```
-
-### **GET** `/customer/{customer_id}/detailed-analysis`
-Retrieve comprehensive customer analysis with charts and metrics.
-
-**Response includes:**
-- Health indicators (risk score, tenure, ARR, feature adoption)
-- 90-day engagement timeline
-- Feature usage breakdown (8 features)
-- Risk factor weights (radar chart data)
-- Churn prediction with confidence interval
-- Recommended actions with owners and deadlines
-- Support tickets and interactions
-
-### **GET** `/health`
-API health check and service status.
-
----
-
-## 🎨 Frontend Features
-
-### Dashboard (`/`)
-- **Summary Statistics** - At-risk customers, ARR at risk, prediction accuracy
-- **Customer Cards** - Filterable grid with:
-  - Risk score (color-coded: red/yellow/green)
-  - Days until churn prediction
-  - Risk reason (pricing, engagement, features, support, adoption)
-  - ARR, segment, tenure
-  - "View Details" and "Analyze with AI" buttons
-
-### Customer Detail Page (`/customer/[id]`)
-- **Health Indicators** - 4 key metrics cards
-- **Engagement Timeline** - 90-day line chart showing declining patterns
-- **Feature Usage** - Bar chart for 8 features with adoption rates
-- **Risk Factors** - Radar chart with weighted contributors
-- **Churn Prediction** - Days until churn with confidence interval
-- **Recommended Actions** - Prioritized list with owners and deadlines
-- **Support History** - Tickets and interactions timeline
-
-### AI Analysis Modal
-- Natural language query interface
-- Real-time streaming responses (3-5 second latency)
-- Data-driven insights with citations
-- Personalized recommendations based on actual customer metrics
-
----
-
-## 🛠️ Development
-
-### Local Development Setup
-```bash
-# Backend
-uv sync  # installs from pyproject.toml
-python3 src/backend/api.py
-
-# Frontend
-cd frontend
-npm install
-npm run dev
-```
-
-### Testing
-```bash
-# Test data-driven AI analysis
-python3 test_data_driven_analysis.py
-
-# Test personalization
-python3 test_personalization.py
-
-# Run unit tests
-pytest tests/
-```
-
-### Key Technologies
 
 **Backend:**
-- **FastAPI** - Modern async Python web framework
-- **Pydantic** - Data validation and serialization
-- **LangChain** - RAG pipeline orchestration
-- **OpenAI GPT-4** - Language model for analysis
-- **Qdrant** - Vector database (optional, uses in-memory by default)
+
+```bash
+uv run python src/backend/api.py
+```
 
 **Frontend:**
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
-- **Recharts** - Data visualization
-- **Framer Motion** - Smooth animations
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Dashboard at `http://localhost:3000`, API docs at `http://localhost:8000/docs`.
+
+### Running without an API key
+
+The API starts in **degraded mode**: the dashboard, health scoring and customer
+detail pages work from CSV alone, and the LLM endpoints return 503 naming the
+missing dependency. `ENABLE_RAG=false` selects this deliberately.
+
+```bash
+curl localhost:8000/health   # reports per-component status
+curl localhost:8000/ready    # 503 when the service cannot serve
+```
+
+### The warehouse
+
+```bash
+cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build
+```
+
+See [warehouse/README.md](warehouse/README.md) for the S3 + Athena path.
 
 ---
 
-## 📊 Performance Metrics
+## The data
 
-> **Note on prior figures.** Earlier versions of this README claimed 94.7% retrieval
-> accuracy. That number came from an evaluation run against an LLM-generated golden
-> set whose questions referenced companies present in no data file, over a 25-document
-> corpus, using harness code that could not execute at its own pinned RAGAS version.
-> It did not measure anything. The golden set and corpus have since been rebuilt from
-> the source data; a defensible baseline is being re-established.
+Synthetic, generated by `scripts/generate_synthetic_rag_data.py`, deterministic
+under a fixed seed and `AS_OF_DATE`.
 
+| | |
+|---|---|
+| Customers | 200 (**71 churned**, 35.5%) |
+| Engagement snapshots | 15,840 weekly observations |
+| Support tickets · interactions | 1,311 · 2,953 |
+| RAG corpus | 771 documents |
+| Golden eval set | 65 questions, derived from the data |
 
-- **Retrieval Accuracy**: baseline being re-established (see below)
-- **Response Time**: 2-3 seconds (multi-agent analysis)
-- **Health scoring**: weighted over observed engagement, adoption, trend, support volume and CSAT; ranks known churners at AUC 0.79
-- **Dataset**: 200 customers with weekly engagement history, referential integrity enforced by `scripts/validate_dataset.py`
-- **Health Scoring**: Engagement 35%, Adoption 20%, Trend 15%, Support 15%, CSAT 15% (see `RISK_WEIGHTS`)
+Each customer carries a latent health trajectory, and engagement, tickets, CSAT
+and the churn label all derive from it — so the published features genuinely
+predict the target (AUC 0.72–0.80 across five features, with tenure deliberately
+uninformative at 0.51). Without that, no model could learn anything and the
+project would be theatre.
 
----
-
-## 🎯 Use Cases
-
-### 1. **Customer Success Teams**
-- Identify at-risk customers before they churn
-- Get specific action plans with owners and deadlines
-- Track engagement trends over 90-day periods
-
-### 2. **Sales Teams**
-- Prioritize renewal conversations by risk score
-- Understand why high-value customers are churning
-- Generate personalized retention offers
-
-### 3. **Product Teams**
-- Identify feature adoption gaps (8-feature analysis)
-- Understand product-market fit issues by segment
-- Prioritize feature development based on churn patterns
-
-### 4. **Executives**
-- Monitor ARR at risk across customer base
-- Track churn prediction accuracy over time
-- Make data-driven retention investment decisions
+```bash
+python3 scripts/generate_synthetic_rag_data.py   # regenerate
+python3 scripts/validate_dataset.py              # 28 contract checks
+```
 
 ---
 
-## 🚧 Future Enhancements
+## Layout
 
-**Technical Improvements:**
-- Real API integrations (Salesforce, Stripe, Mixpanel, Intercom)
-- Train custom ML model on actual churn data
-- Workflow automation (auto-create tickets, send Slack alerts)
-- Advanced visualizations (churn cohort analysis, retention curves)
-- Real-time streaming updates (WebSockets)
+```
+src/
+├── backend/api.py           FastAPI — the single entrypoint
+├── core/
+│   ├── health_scoring.py    weighted risk model (mirrors the SQL)
+│   ├── rag_retrievers.py    5 retrieval strategies over Qdrant
+│   └── knowledge_graph.py   NetworkX entity graph
+├── agents/                  LangGraph research + writing teams
+└── evaluation/              RAGAS harness
 
-**AI Enhancements:**
-- Fine-tune models on domain-specific churn patterns
-- Add more specialized agents (Sentiment Analyzer, Revenue Impact Predictor)
-- Implement A/B testing for retention strategies
-- Build feedback loop to learn from successful interventions
+warehouse/                   dbt project — bronze / silver / gold
+scripts/                     data generation, validation, S3 publish
+frontend/                    Next.js 14 dashboard
+```
 
-**Scale & Performance:**
-- Optimize vector search for 10K+ customers
-- Add caching layer for frequent queries
-- Implement background processing for heavy computations
+## Testing
 
----
+```bash
+uv run --extra dev --extra warehouse pytest tests/
+python3 scripts/validate_dataset.py
+cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt test
+```
 
-## 🤝 Contributing
+## Known gaps
 
-This is a demo project showcasing advanced RAG and multi-agent architectures. Feel free to:
-- Fork the repository
-- Submit issues for bugs or feature requests
-- Create pull requests with improvements
+Tracked, not hidden:
 
----
+- Retrieval recall 0.15 — hybrid BM25 not yet implemented
+- No committed evaluation baseline; `/evaluation-results` returns 404 by design
+- Reranking requires `COHERE_API_KEY`; without it the fallback scores 0.0 recall
+- LLM calls are synchronous inside async handlers, so one worker serialises requests
+- The knowledge graph builder still expects a legacy schema and is not rebuilt
+- `/integrations` is a static page, not live connections
 
-## 📄 License
+## Design decisions
 
-MIT License - See [LICENSE](LICENSE) file for details
+Seven decisions from this rebuild are recorded in [docs/adr/](docs/adr/) — what
+forced each one, what it cost, and what was rejected. Notably why the 94.7% claim
+was retracted, and why fixing a long-silent knowledge-graph bug would have made
+the system worse.
 
----
+## Licence
 
-## 🙏 Acknowledgments
-
-- **OpenAI** - GPT-4 language model
-- **LangChain** - RAG framework and agent orchestration
-- **Qdrant** - Vector database
-- **Next.js Team** - React framework
-- **FastAPI** - Python web framework
-
----
-
-**Built to demonstrate how AI can transform customer retention with Multi-Agent RAG architecture** 🚀
-
-**Repository**: https://github.com/rach16/ChurnGuard-AI
-
----
-
-**Ready to prevent churn with AI-powered intelligence!** 📊
+MIT — see [LICENSE](LICENSE).
