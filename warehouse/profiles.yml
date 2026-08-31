@@ -1,0 +1,25 @@
+# Local by default: DuckDB is embedded, so `dbt run` needs no server and no
+# credentials. The athena target is the same models against a cloud warehouse --
+# see warehouse/README.md.
+churnguard:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard.duckdb') }}"
+      threads: 4
+      extensions:
+        - httpfs
+        - parquet
+
+    # Writes the gold layer to S3 as Parquet from the same DuckDB engine, so the
+    # models are unchanged and only the destination differs.
+    s3:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard.duckdb') }}"
+      threads: 4
+      extensions:
+        - httpfs
+        - parquet
+      settings:
+        s3_region: "{{ env_var('AWS_REGION', 'us-east-1') }}"

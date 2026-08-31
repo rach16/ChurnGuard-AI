@@ -1,0 +1,91 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      CSV files produced by scripts/generate_synthetic_rag_data.py. customers is the
+      dimension; every other table references it by customer_id.
+    meta:
+      external_location: "read_csv_auto('../data/{name}.csv')"
+
+    tables:
+      - name: customers
+        description: One row per customer. The grain of the whole warehouse.
+        columns:
+          - name: customer_id
+            description: Stable business key, CUST-NNNN.
+            tests: [unique, not_null]
+          - name: company_name
+            tests: [unique, not_null]
+          - name: segment
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ["SMB", "Commercial", "Enterprise"]
+          - name: is_churned
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [0, 1]
+          - name: arr
+            tests: [not_null]
+
+      - name: engagement_snapshots
+        description: Weekly engagement observations per customer.
+        columns:
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id
+          - name: week_start
+            tests: [not_null]
+          - name: engagement_score
+            tests: [not_null]
+
+      - name: support_tickets
+        columns:
+          - name: ticket_id
+            tests: [unique, not_null]
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id
+          - name: csat_score
+            tests:
+              - accepted_values:
+                  values: [1, 2, 3, 4, 5]
+
+      - name: customer_interactions
+        columns:
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id
+
+      - name: churn_analyses
+        columns:
+          - name: doc_id
+            tests: [unique, not_null]
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id
+
+      - name: success_stories
+        columns:
+          - name: story_id
+            tests: [unique, not_null]
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id

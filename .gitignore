@@ -61,3 +61,9 @@ cache/*.pkl
 # Per-run evaluation outputs - only the committed baseline belongs in git
 metrics/*_results.csv
 metrics/evaluation_comparison.csv
+
+# dbt build artefacts and the local warehouse file
+warehouse/target/
+warehouse/dbt_packages/
+warehouse/logs/
+warehouse/*.duckdb
