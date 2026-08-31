@@ -1,2 +1,0 @@
-method,faithfulness,answer_relevancy,context_recall,context_precision,answer_correctness,semantic_similarity
-Reranking,0.7929292929292929,0.385321940744889,0.0,0.2999999999775,0.3096802267415638,0.871413214658563

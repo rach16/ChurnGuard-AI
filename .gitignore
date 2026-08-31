@@ -57,3 +57,7 @@ Thumbs.db
 
 # Knowledge graph cache - rebuild with build_churn_knowledge_graph()
 cache/*.pkl
+
+# Per-run evaluation outputs - only the committed baseline belongs in git
+metrics/*_results.csv
+metrics/evaluation_comparison.csv

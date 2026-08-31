@@ -1,2 +1,0 @@
-method,faithfulness,answer_relevancy,context_recall,context_precision,answer_correctness,semantic_similarity
-Contextual Compression,0.6666666666666667,0.7722728740282709,0.03333333333333333,0.249999999983,0.4826095764345988,0.8784902537903433
