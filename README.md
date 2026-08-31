@@ -66,7 +66,7 @@ echo "OPENAI_API_KEY=your-key-here" > .env
 ### 3. Start the Application
 ```bash
 # Terminal 1: Start Backend
-python3 src/backend/api_simple.py
+python3 src/backend/api.py
 
 # Terminal 2: Start Frontend
 cd frontend
@@ -219,7 +219,7 @@ Performance:
 ChurnGuard-AI/
 ├── 📁 Backend & API
 │   ├── src/backend/
-│   │   ├── api_simple.py             # FastAPI server with all endpoints
+│   │   ├── api.py                   # FastAPI server (single entrypoint)
 │   │   └── Dockerfile               # Backend container config
 │   ├── src/core/
 │   │   ├── health_scoring.py        # Health score algorithm + synthetic data
@@ -335,10 +335,8 @@ API health check and service status.
 ### Local Development Setup
 ```bash
 # Backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt  # or use pyproject.toml
-python3 src/backend/api_simple.py
+uv sync  # installs from pyproject.toml
+python3 src/backend/api.py
 
 # Frontend
 cd frontend
