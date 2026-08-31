@@ -185,7 +185,7 @@ export default function EvaluationsPage() {
               <div>
                 <span className="font-semibold text-gray-800">Best Overall: </span>
                 <span className="text-gray-700">
-                  Parent Document retrieval achieves 94.7% context recall and 90.0% precision (most complete context coverage)
+                  Retrieval baseline is being re-established against the rebuilt golden set
                 </span>
               </div>
             </div>

@@ -1,3 +1,7 @@
+> **Note.** Accuracy comparisons in earlier revisions of this document cited a 94.7%
+> figure that did not survive review; see the note in README.md. Claims here are being
+> re-grounded against measured results.
+
 # ChurnGuard AI vs Salesforce Einstein - Competitive Analysis
 
 ## Quick Answer
@@ -12,7 +16,7 @@
 
 | Feature | Salesforce Einstein AI | ChurnGuard AI |
 |---------|------------------------|---------------|
-| **Accuracy** | 85% prediction accuracy | **94.7% retrieval accuracy** |
+| **Accuracy** | 85% prediction accuracy (vendor-published) | retrieval baseline being re-established |
 | **Architecture** | Single prediction model | **Multi-Agent RAG (5 specialized agents)** |
 | **Interface** | Dashboard + alerts | **Conversational AI (natural language queries)** |
 | **Output** | Churn probability score + alerts | **Score + WHY + 5-step action plan with owners** |
@@ -38,7 +42,7 @@
 
 ### Use ChurnGuard AI If:
 - ✅ You use multiple tools (CRM + support + analytics + billing)
-- ✅ You want higher accuracy (94.7% vs 85%)
+- ✅ You want retrieval quality measured openly with RAGAS against a golden set derived from your own data
 - ✅ You need conversational AI to explore churn patterns
 - ✅ You want specific action plans, not just alerts
 - ✅ You want standalone platform with no vendor lock-in
@@ -164,7 +168,7 @@ You can:
 
 | Dimension | Winner |
 |-----------|--------|
-| **Accuracy** | ChurnGuard AI (94.7% vs 85%) |
+| **Accuracy** | not currently claimed -- baseline being re-established |
 | **Data Integration** | ChurnGuard AI (multi-platform vs CRM-only) |
 | **Actionability** | ChurnGuard AI (action plans vs alerts) |
 | **Conversational AI** | ChurnGuard AI (natural language queries) |
@@ -190,7 +194,7 @@ If your goal is to actually **prevent churn** with AI-powered intelligence, you 
 
 **Alternative:**
 
-"Einstein is 85% accurate and works only with Salesforce data. We're 94.7% accurate and integrate Salesforce plus Stripe, Intercom, Mixpanel, and more - giving you the complete picture."
+"Einstein works only with Salesforce data. We integrate Salesforce plus Stripe, Intercom, Mixpanel and more, and we publish how our retrieval is measured rather than asking you to take an accuracy number on trust."
 
 **Alternative:**
 
@@ -222,7 +226,7 @@ If your goal is to actually **prevent churn** with AI-powered intelligence, you 
 
 **A:** "Great question - and actually, we can work together with Einstein! But here are the key differences:
 
-First, accuracy: Einstein is 85% accurate, we're 94.7% - that's nearly 10% higher.
+First, measurement: we publish our evaluation harness and golden set, so our retrieval quality is reproducible rather than asserted.
 
 Second, data: Einstein only sees your Salesforce CRM data. We integrate Salesforce plus Stripe, Intercom, Mixpanel, Zendesk - the complete customer picture.
 

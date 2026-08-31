@@ -439,9 +439,9 @@ export default function Home() {
                           <Target className="w-5 h-5 text-green-600" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-xs text-gray-600 font-medium">Prediction Accuracy</p>
+                          <p className="text-xs text-gray-600 font-medium">Historical Churn Rate</p>
                           <p className="text-2xl font-semibold text-gray-800 mt-0.5">
-                            {dashboardStats ? (dashboardStats.prediction_accuracy * 100).toFixed(1) : 0}%
+                            {dashboardStats ? (dashboardStats.historical_churn_rate * 100).toFixed(1) : 0}%
                           </p>
                         </div>
                       </div>

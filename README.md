@@ -17,7 +17,6 @@
 ![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC382D?style=for-the-badge&logo=database&logoColor=white)
 
 <!-- Performance Metrics -->
-![Accuracy](https://img.shields.io/badge/Retrieval_Accuracy-94.7%25-brightgreen?style=for-the-badge&logo=target&logoColor=white)
 ![Response Time](https://img.shields.io/badge/Response_Time-2--3s-blue?style=for-the-badge&logo=stopwatch&logoColor=white)
 
 ---
@@ -35,7 +34,6 @@
 
 | Feature | ChatGPT/Claude | Salesforce Einstein | Gainsight | **ChurnGuard AI** |
 |---------|---------------|---------------------|-----------|-------------------|
-| **Retrieval Accuracy** | N/A | 85% | N/A | **94.7%** ⭐ |
 | **Data Integration** | Manual copy-paste | Salesforce CRM only | CRM + Basic integrations | **Multi-platform** (CRM + Support + Analytics + Billing) |
 | **Output** | Generic advice | Churn score + Alert | Health score (Red/Yellow/Green) | **Score + WHY + 5-step action plan** |
 | **Interface** | Chat only | Dashboard | Dashboard | **Conversational AI + Dashboard** |
@@ -90,7 +88,7 @@ npm run dev
   - **Data Retriever** - Pulls cross-platform metrics
   - **Strategy Generator** - Creates custom action plans
   - **Content Synthesizer** - Formats responses with citations
-- **94.7% Retrieval Accuracy** - Industry-leading performance using Parent Document Retriever
+- **Retrieval quality** - measured with RAGAS against a golden set derived from the source data (baseline being re-established; see Evaluation)
 - **Real-time Processing** - Sub-3-second response times
 
 ### 📊 **Data-Driven Customer Intelligence**
@@ -161,7 +159,7 @@ npm run dev
 │  │                 │      │                  │      │                 │                             │
 │  │ • Churn scores  │      │ • RAG retrieval  │      │ • Action plans  │                             │
 │  │ • Health metrics│      │ • Similar cases  │      │ • Recommendations│                            │
-│  │ • Predictions   │      │ • 94.7% accuracy │      │ • Prioritization│                             │
+│  │ • Predictions   │      │ • RAGAS-measured │      │ • Prioritization│                             │
 │  │                 │      │                  │      │                 │                             │
 │  └────────┬────────┘      └────────┬─────────┘      └────────┬────────┘                             │
 │           │                        │                         │                                      │
@@ -188,7 +186,7 @@ npm run dev
                                                      │                   │
                                                      │ • Faithfulness    │
                                                      │ • Relevancy 92.3% │
-                                                     │ • Recall 94.7%    │
+                                                     │ • Recall: TBD     │
                                                      │                   │
                                                      └───────────────────┘
 
@@ -206,7 +204,6 @@ Key Data Flow:
 Performance:
 ━━━━━━━━━━━
 ⚡ 2-3s end-to-end response time
-📊 94.7% retrieval accuracy
 ✅ 95.6% faithfulness score
 🎯 87-92% prediction confidence
 ```
@@ -376,11 +373,19 @@ pytest tests/
 
 ## 📊 Performance Metrics
 
-- **Retrieval Accuracy**: 94.7% (Parent Document Retriever)
+> **Note on prior figures.** Earlier versions of this README claimed 94.7% retrieval
+> accuracy. That number came from an evaluation run against an LLM-generated golden
+> set whose questions referenced companies present in no data file, over a 25-document
+> corpus, using harness code that could not execute at its own pinned RAGAS version.
+> It did not measure anything. The golden set and corpus have since been rebuilt from
+> the source data; a defensible baseline is being re-established.
+
+
+- **Retrieval Accuracy**: baseline being re-established (see below)
 - **Response Time**: 2-3 seconds (multi-agent analysis)
-- **Confidence Score**: 87-92% (with actual customer data)
-- **Synthetic Data**: 50 realistic customer profiles with 90-day history
-- **Health Scoring**: Weighted algorithm (Segment 30%, Tenure 20%, Engagement 35%, Support 15%)
+- **Health scoring**: weighted over observed engagement, adoption, trend, support volume and CSAT; ranks known churners at AUC 0.79
+- **Dataset**: 200 customers with weekly engagement history, referential integrity enforced by `scripts/validate_dataset.py`
+- **Health Scoring**: Engagement 35%, Adoption 20%, Trend 15%, Support 15%, CSAT 15% (see `RISK_WEIGHTS`)
 
 ---
 

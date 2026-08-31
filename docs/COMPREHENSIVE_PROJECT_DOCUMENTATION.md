@@ -1,3 +1,8 @@
+> ⚠️ **Stale evaluation figures.** Every retrieval metric in this document was produced
+> before the golden set and corpus were rebuilt, against an LLM-generated golden set
+> whose questions referenced companies present in no data file. Treat all RAGAS numbers
+> below as historical, not current. See the note in README.md.
+
 # Customer Churn RAG System - Comprehensive Project Documentation
 
 **AI-Powered Customer Churn Analysis Using Retrieval-Augmented Generation and Agentic Reasoning**
@@ -673,7 +678,7 @@ Comprehensive multi-agent analysis using Research Team + Writing Team architectu
 | **Reranking** | 0.616 | 0.561 | 0.778 | 0.750 |
 | **Contextual Compression** ⚠️ | **0.423** | 0.570 | **0.400** | **0.300** |
 
-**Legend**: ⭐ = Best for context coverage (94.7% recall) | ⚠️ = Underperforming (<0.50)
+**Legend**: figures below predate the golden-set and corpus rebuild and are not current; see README.md
 
 ## 🔍 Performance Conclusions
 

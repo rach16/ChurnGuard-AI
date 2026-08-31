@@ -281,7 +281,8 @@ export interface DashboardStats {
   critical_risk_count: number;
   total_arr_at_risk: number;
   avg_days_to_churn: number;
-  prediction_accuracy: number;
+  historical_churn_rate: number;
+  as_of: string;
   total_active_customers: number;
 }
 
