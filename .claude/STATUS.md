@@ -9,7 +9,8 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Step 1 (7.1) landed; Step 2 (7.2, the survival model) is next and not started.
+Nothing. Step 1 (7.2) landed as a ranker; its **dates are not yet usable** and 7.3 must
+fix calibration before 7.4 can serve them.
 
 ## Completed
 
@@ -38,6 +39,7 @@ Nothing. Step 1 (7.1) landed; Step 2 (7.2, the survival model) is next and not s
 | Phase | Delivered | Commit | Measurably changed | FDE roadmap |
 |---|---|---|---|---|
 | **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
+| **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
@@ -56,6 +58,9 @@ Nothing. Step 1 (7.1) landed; Step 2 (7.2, the survival model) is next and not s
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
+| Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
+| Survival model — held out by time | AUC 0.665, Brier 0.049 | 2026-08-31 | same — underpredicts, see gaps |
+| Predicted churn date accuracy | **196 days median abs error** | 2026-08-31 | 10 held-out churners, predicted 180d ahead |
 | DuckDB vs Athena | 6/6 queries agree | 2026-08-30 | `warehouse/verify_athena.py` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
@@ -114,6 +119,9 @@ actual content (IaC, networking, orchestration) is still at zero.
 |---|---|
 | **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
+| **Predicted dates are systematically late** | Median 196d absolute error; 5 of 15 held-out churners predicted beyond 2 years. The model ranks well but its hazards are too low, so curves decay too slowly. Blocks 7.4. → 7.3 |
+| **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
+| In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
 | Knowledge graph always `None` | `build_churn_knowledge_graph` expects the legacy Salesforce schema. `churn_agent.py` and `research_team.py` call `get_churn_patterns()`, which contributes nothing. Stale cache removed in `5ff002a`. |
 | No committed eval baseline | `/evaluation-results` returns 404 by design |

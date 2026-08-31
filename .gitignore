@@ -75,3 +75,6 @@ infra/*.tfstate.*
 infra/terraform.tfvars
 infra/.terraform.lock.hcl
 infra/tfplan
+
+# Trained model artefacts
+models/*.joblib
