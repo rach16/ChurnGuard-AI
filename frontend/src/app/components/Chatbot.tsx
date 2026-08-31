@@ -32,6 +32,7 @@ interface ChatbotProps {
   useMultiAgent: boolean;
   setUseMultiAgent: (value: boolean) => void;
   backendStatus: 'checking' | 'online' | 'offline';
+  aiReason?: string | null;
 }
 
 const suggestedPrompts = [
@@ -56,6 +57,7 @@ export default function Chatbot({
   useMultiAgent,
   setUseMultiAgent,
   backendStatus,
+  aiReason = null,
 }: ChatbotProps) {
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
@@ -271,14 +273,14 @@ export default function Chatbot({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask me anything about customer churn..."
-            disabled={loading || backendStatus === 'offline'}
+            disabled={loading || backendStatus === 'offline' || Boolean(aiReason)}
             className="flex-1 px-4 py-3 border border-hair rounded focus:ring-1 focus:ring-ink focus:border-ink disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           />
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             type="submit"
-            disabled={loading || !query.trim() || backendStatus === 'offline'}
+            disabled={loading || !query.trim() || backendStatus === 'offline' || Boolean(aiReason)}
             className="px-6 py-3 bg-sand text-white rounded hover:shadow-paper disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold flex items-center gap-2"
           >
             {loading ? (
@@ -297,11 +299,20 @@ export default function Chatbot({
             )}
           </motion.button>
         </form>
-        {backendStatus === 'offline' && (
-          <p className="text-xs text-critical mt-2 font-medium">
-            Backend is offline. Please ensure the API is running.
+        {/* Offline means unreachable. Degraded means reachable with no LLM stack,
+            which is a configuration state the reader can act on -- so name what is
+            missing rather than claiming the service is down. */}
+        {backendStatus === 'offline' ? (
+          <p className="text-xs text-critical mt-2">
+            Backend is offline. Start it with{' '}
+            <code className="font-mono">uv run python src/backend/api.py</code>
           </p>
-        )}
+        ) : aiReason ? (
+          <p className="text-xs text-mute mt-2">
+            AI features unavailable &mdash; {aiReason}. The dashboard and customer
+            detail pages work without it.
+          </p>
+        ) : null}
       </div>
     </div>
   );
