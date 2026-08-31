@@ -67,3 +67,11 @@ warehouse/target/
 warehouse/dbt_packages/
 warehouse/logs/
 warehouse/*.duckdb
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+infra/.terraform.lock.hcl
+infra/tfplan
