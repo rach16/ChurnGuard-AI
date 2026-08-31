@@ -197,9 +197,9 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <p className="text-3xl font-bold text-gray-800 mb-1.5 tracking-tight">
-                {stats ? (stats.prediction_accuracy * 100).toFixed(1) : 0}%
+                {stats ? (stats.historical_churn_rate * 100).toFixed(1) : 0}%
               </p>
-              <p className="text-sm text-gray-600 font-medium">Prediction Accuracy</p>
+              <p className="text-sm text-gray-600 font-medium">Historical Churn Rate</p>
             </div>
           </div>
         )}
