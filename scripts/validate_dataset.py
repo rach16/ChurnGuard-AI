@@ -19,8 +19,10 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT / "data"
 DOCS_DIR = DATA_DIR / "churn_analysis_docs"
+GOLDEN_PATH = ROOT / "golden-masters" / "churn_golden_master.csv"
 
 CHILD_FILES = [
     "engagement_snapshots.csv",
@@ -158,6 +160,29 @@ def main() -> int:
     c.check("rag_metadata customer count is accurate",
             meta["statistics"]["total_customers"] == len(customers),
             f"metadata says {meta['statistics']['total_customers']}, file has {len(customers)}")
+
+    print("\n[golden dataset]")
+    # The previous golden master referenced companies that existed in no data file, so
+    # RAGAS was scoring retrieval against unretrievable answers. Guard against a repeat.
+    with open(GOLDEN_PATH, newline="", encoding="utf-8") as fh:
+        golden = list(csv.DictReader(fh))
+
+    doc_ids = {r["doc_id"] for r in analyses}
+    names = {r["company_name"] for r in customers}
+
+    c.check("golden dataset is non-empty", len(golden) > 0, f"{len(golden)} questions")
+
+    blank = [r for r in golden if not r["question"].strip() or not r["ground_truth"].strip()]
+    c.check("no blank questions or answers", not blank, f"{len(blank)} incomplete rows")
+
+    bad_ctx = {tok for r in golden for tok in r["expected_context"].split(",")
+               if tok and tok not in by_id and tok not in doc_ids}
+    c.check("expected_context references real ids", not bad_ctx,
+            f"{len(bad_ctx)} unknown: {sorted(bad_ctx)[:3]}")
+
+    named = [r for r in golden if any(n in r["question"] for n in names)]
+    c.check("golden questions are grounded in real customers", len(named) > 0,
+            f"only {len(named)} of {len(golden)} name a customer in customers.csv")
 
     print("\n" + "=" * 60)
     if c.failures:
