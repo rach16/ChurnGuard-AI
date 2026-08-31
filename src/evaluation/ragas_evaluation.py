@@ -74,25 +74,59 @@ class ChurnRAGEvaluator:
         }
         return Dataset.from_dict(data)
     
+    # Columns to_pandas() emits that describe the sample rather than score it.
+    _NON_METRIC_COLUMNS = frozenset({
+        "user_input", "retrieved_contexts", "response", "reference", "reference_contexts",
+        "question", "answer", "contexts", "ground_truth", "ground_truths",
+    })
+
     def evaluate(self, dataset: Dataset) -> Dict:
         """
         Run RAGAS evaluation on dataset
-        
+
+        ragas.evaluate() returns an EvaluationResult, not a mapping -- it exposes
+        to_pandas()/total_cost/total_tokens and nothing dict-like. Reduce it here to
+        {metric_name: mean_score} so callers get the dict this signature promises.
+
         Args:
             dataset: Evaluation dataset
-        
+
         Returns:
-            Dictionary of metric scores
+            Dictionary of mean metric scores, plus 'per_sample' holding the raw frame
         """
         logger.info(f"Running RAGAS evaluation on {len(dataset)} samples...")
-        
+
         try:
             result = evaluate(dataset, metrics=self.metrics)
-            logger.info("✓ RAGAS evaluation complete")
-            return result
         except Exception as e:
             logger.error(f"RAGAS evaluation failed: {e}")
             raise
+
+        df = result.to_pandas()
+        scores: Dict = {
+            col: float(df[col].mean())
+            for col in df.columns
+            if col not in self._NON_METRIC_COLUMNS
+            and pd.api.types.is_numeric_dtype(df[col])
+        }
+
+        if not scores:
+            raise RuntimeError(
+                f"RAGAS returned no numeric metric columns. Got: {list(df.columns)}"
+            )
+
+        # NaN means the metric could not be computed for any sample -- usually a
+        # missing reference or an empty context. Surface it rather than reporting 0.
+        for metric, value in scores.items():
+            if pd.isna(value):
+                logger.warning(f"Metric '{metric}' is NaN across all samples")
+
+        tokens = getattr(result, "total_tokens", None)
+        logger.info(f"✓ RAGAS evaluation complete ({len(scores)} metrics"
+                    + (f", {tokens} tokens)" if tokens else ")"))
+
+        scores["per_sample"] = df
+        return scores
     
     def evaluate_retrieval_method(
         self,

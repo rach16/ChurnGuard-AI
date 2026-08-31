@@ -7,6 +7,7 @@ import os
 import sys
 import logging
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -32,96 +33,200 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _env_flag(name: str, default: bool = True) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
+
+
+class ServiceState:
+    """Tracks which subsystems came up, and why any of them did not.
+
+    The API deliberately still serves in a degraded state: health scoring and the
+    dashboard work from CSV alone, so a missing OPENAI_API_KEY should not take the
+    whole service down. What it must not do is pretend those subsystems are fine --
+    every unavailable component records the reason, /ready reflects it, and the
+    endpoints that depend on it return 503 saying exactly what is missing.
+    """
+
+    def __init__(self) -> None:
+        self.rag_retriever: Optional[ChurnRAGRetriever] = None
+        self.churn_agent: Optional[CustomerChurnAgent] = None
+        self.multi_agent_system: Optional[MultiAgentChurnSystem] = None
+        self.health_scorer: Optional[CustomerHealthScorer] = None
+        self.knowledge_graph = None
+        self.errors: dict[str, str] = {}
+
+    def unavailable(self, component: str, reason: str) -> None:
+        self.errors[component] = reason
+        logger.warning(f"⚠️  {component} unavailable: {reason}")
+
+    @property
+    def ai_ready(self) -> bool:
+        """True when the LLM-backed endpoints can actually serve."""
+        return self.multi_agent_system is not None and self.rag_retriever is not None
+
+    @property
+    def core_ready(self) -> bool:
+        """True when the CSV-backed endpoints (dashboard, scoring) can serve."""
+        return self.health_scorer is not None
+
+    def components(self) -> dict:
+        return {
+            "health_scorer": self.health_scorer is not None,
+            "rag_retriever": self.rag_retriever is not None,
+            "churn_agent": self.churn_agent is not None,
+            "multi_agent_system": self.multi_agent_system is not None,
+            "knowledge_graph": self.knowledge_graph is not None,
+        }
+
+
+state = ServiceState()
+
+
+def _init_health_scorer() -> None:
+    """Health scoring works from CSV alone -- no API key, no vector store."""
+    try:
+        state.health_scorer = CustomerHealthScorer(
+            churn_data_path=os.getenv("CHURN_DATA_PATH", "data/churned_customers_cleaned.csv")
+        )
+        logger.info("✓ Health scorer initialized")
+    except Exception as e:
+        state.unavailable("health_scorer", f"{type(e).__name__}: {e}")
+
+
+AI_COMPONENTS = ("rag_retriever", "churn_agent", "multi_agent_system")
+
+
+def _ai_unavailable(reason: str) -> None:
+    """Record one reason against every AI component, so each 503 explains itself."""
+    for component in AI_COMPONENTS:
+        state.unavailable(component, reason)
+
+
+def _init_ai_stack() -> None:
+    """Bring up the RAG retriever and agents. Any failure leaves the API degraded."""
+    if not _env_flag("ENABLE_RAG", True):
+        _ai_unavailable("disabled via ENABLE_RAG=false")
+        return
+
+    if not os.getenv("OPENAI_API_KEY"):
+        _ai_unavailable("OPENAI_API_KEY is not set")
+        return
+
+    try:
+        logger.info("📊 Loading RAG retriever...")
+        state.rag_retriever = ChurnRAGRetriever(
+            collection_name=os.getenv("COLLECTION_NAME", "churn_corpus"),
+            qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333"),
+        )
+        num_docs = state.rag_retriever.load_and_process_documents(
+            data_folder=os.getenv("DATA_FOLDER", "data")
+        )
+        logger.info(f"✓ Indexed {num_docs} documents")
+    except Exception as e:
+        state.rag_retriever = None
+        _ai_unavailable(f"{type(e).__name__}: {e}")
+        return
+
+    kg_path = Path(os.getenv("KNOWLEDGE_GRAPH_PATH", "cache/churn_knowledge_graph.pkl"))
+    if kg_path.exists():
+        try:
+            # load_graph is an instance method that mutates in place; there has never
+            # been a ChurnKnowledgeGraph.load() classmethod.
+            kg = ChurnKnowledgeGraph()
+            kg.load_graph(str(kg_path))
+            state.knowledge_graph = kg
+            logger.info("✓ Loaded knowledge graph from cache")
+        except Exception as e:
+            state.unavailable("knowledge_graph", f"{type(e).__name__}: {e}")
+    else:
+        state.unavailable("knowledge_graph", f"no cached graph at {kg_path}")
+
+    use_tavily = bool(os.getenv("TAVILY_API_KEY"))
+    for name, factory, attr in (
+        ("churn_agent", CustomerChurnAgent, "churn_agent"),
+        ("multi_agent_system", MultiAgentChurnSystem, "multi_agent_system"),
+    ):
+        try:
+            setattr(state, attr, factory(
+                rag_retriever=state.rag_retriever,
+                knowledge_graph=state.knowledge_graph,
+                use_tavily=use_tavily,
+            ))
+            logger.info(f"✓ {name} initialized")
+        except Exception as e:
+            state.unavailable(name, f"{type(e).__name__}: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start subsystems independently so one failure cannot take down the rest."""
+    logger.info("🚀 Starting Customer Churn API...")
+
+    _init_health_scorer()
+    _init_ai_stack()
+
+    if state.ai_ready:
+        logger.info("✅ Fully initialized -- AI endpoints available")
+    elif state.core_ready:
+        logger.warning(
+            "⚠️  Running DEGRADED: dashboard and health scoring available, "
+            f"AI endpoints will return 503. Reasons: {state.errors}"
+        )
+    else:
+        logger.error(f"❌ Nothing initialized. Reasons: {state.errors}")
+
+    yield
+    logger.info("Shutting down")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Customer Churn RAG API",
     description="AI-powered customer churn prediction and analysis using RAG",
-    version="0.1.0",
+    version="0.4.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# CORS configuration
+# CORS. A wildcard origin with credentials is rejected by browsers, so credentials
+# are only enabled when an explicit origin list is configured.
+_origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=_origins or ["*"],
+    allow_credentials=bool(_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global RAG system components (initialized on startup)
-rag_retriever: Optional[ChurnRAGRetriever] = None
-churn_agent: Optional[CustomerChurnAgent] = None
-multi_agent_system: Optional[MultiAgentChurnSystem] = None
-health_scorer: Optional[CustomerHealthScorer] = None
 
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize RAG system on startup"""
-    global rag_retriever, churn_agent, multi_agent_system, health_scorer
-
-    logger.info("🚀 Initializing RAG system...")
-    
-    try:
-        # Check if OpenAI API key is set
-        if not os.getenv("OPENAI_API_KEY"):
-            logger.warning("⚠️  OPENAI_API_KEY not set - RAG system will not work")
-            return
-        
-        # Initialize RAG retriever
-        logger.info("📊 Loading RAG retriever...")
-        rag_retriever = ChurnRAGRetriever(
-            collection_name=os.getenv("COLLECTION_NAME", "customer_churn"),
-            qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333")
+def require_ai(component: str):
+    """Return an initialized AI component, or explain precisely what is missing."""
+    obj = getattr(state, component, None)
+    if obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": f"{component} is not available",
+                "reason": state.errors.get(component, "not initialized"),
+                "components": state.components(),
+            },
         )
-        
-        # Load and process documents
-        data_folder = os.getenv("DATA_FOLDER", "data")
-        num_docs = rag_retriever.load_and_process_documents(data_folder=data_folder)
-        logger.info(f"✓ Loaded and indexed {num_docs} documents")
-        
-        # Initialize knowledge graph if available
-        kg = None
-        kg_path = Path("cache/churn_knowledge_graph.pkl")
-        if kg_path.exists():
-            try:
-                kg = ChurnKnowledgeGraph.load(str(kg_path))
-                logger.info("✓ Loaded knowledge graph from cache")
-            except Exception as e:
-                logger.warning(f"Could not load knowledge graph: {e}")
-        
-        # Initialize agent
-        logger.info("🤖 Initializing churn agent...")
-        churn_agent = CustomerChurnAgent(
-            rag_retriever=rag_retriever,
-            knowledge_graph=kg,
-            use_tavily=bool(os.getenv("TAVILY_API_KEY"))
-        )
-        logger.info("✓ Churn agent initialized")
-        
-        # Initialize multi-agent system
-        logger.info("🤖 Initializing multi-agent system...")
-        multi_agent_system = MultiAgentChurnSystem(
-            rag_retriever=rag_retriever,
-            knowledge_graph=kg,
-            use_tavily=bool(os.getenv("TAVILY_API_KEY"))
-        )
-        logger.info("✓ Multi-agent system initialized")
+    return obj
 
-        # Initialize health scorer
-        logger.info("💚 Initializing customer health scorer...")
-        health_scorer = CustomerHealthScorer(
-            churn_data_path="data/churned_customers_cleaned.csv"
-        )
-        logger.info("✓ Health scorer initialized")
 
-        logger.info("✅ RAG system fully initialized and ready!")
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize RAG system: {e}", exc_info=True)
-        logger.warning("⚠️  API will run but RAG endpoints will return errors")
+def require_health_scorer() -> CustomerHealthScorer:
+    if state.health_scorer is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "health_scorer is not available",
+                "reason": state.errors.get("health_scorer", "not initialized"),
+            },
+        )
+    return state.health_scorer
 
 
 # Request/Response Models
@@ -155,6 +260,9 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     service: str
+    degraded: bool = False
+    components: dict = {}
+    errors: dict = {}
 
 
 class ChurnAnalysisResponse(BaseModel):
@@ -185,12 +293,42 @@ class MultiAgentResponse(BaseModel):
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint for Docker health checks"""
+    """Liveness check. Always 200 while the process is up.
+
+    Reports which subsystems actually initialized, so a degraded service is visible
+    rather than looking identical to a fully healthy one. Use /ready for load
+    balancer and orchestrator health checks -- this endpoint deliberately does not
+    fail, so on its own it cannot gate traffic.
+    """
     return HealthResponse(
-        status="healthy",
+        status="healthy" if state.ai_ready else "degraded" if state.core_ready else "unhealthy",
         timestamp=datetime.now().isoformat(),
-        service="customer-churn-rag-api"
+        service="customer-churn-rag-api",
+        degraded=not state.ai_ready,
+        components=state.components(),
+        errors=state.errors,
     )
+
+
+@app.get("/ready")
+async def readiness_check(require_ai_stack: bool = False):
+    """Readiness check for load balancers and orchestrators.
+
+    Returns 503 when the service cannot serve, so an ALB or ECS health check marks
+    the target unhealthy instead of routing traffic to a broken instance. By default
+    readiness means the CSV-backed endpoints work; pass require_ai_stack=true to also
+    demand the LLM stack.
+    """
+    ready = state.ai_ready if require_ai_stack else state.core_ready
+    payload = {
+        "ready": ready,
+        "timestamp": datetime.now().isoformat(),
+        "components": state.components(),
+        "errors": state.errors,
+    }
+    if not ready:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=payload)
+    return payload
 
 
 # Main analysis endpoint
@@ -205,11 +343,7 @@ async def analyze_churn(request: ChurnAnalysisRequest):
     logger.info(f"Churn analysis request: {request.customer_id or 'general'}")
     
     # Check if agent is initialized
-    if not churn_agent:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Churn agent not initialized. Please ensure OPENAI_API_KEY is set and Qdrant is running."
-        )
+    churn_agent = require_ai("churn_agent")
     
     start_time = time.time()
     
@@ -288,11 +422,7 @@ async def ask_question(request: AskRequest):
     logger.info(f"Question received: {request.question[:50]}...")
     
     # Check if RAG system is initialized
-    if not rag_retriever:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RAG system not initialized. Please ensure OPENAI_API_KEY is set and Qdrant is running."
-        )
+    rag_retriever = require_ai("rag_retriever")
     
     start_time = time.time()
     
@@ -419,11 +549,7 @@ async def multi_agent_analyze(request: MultiAgentRequest):
     logger.info(f"Multi-agent analysis request: {request.query[:50]}...")
     
     # Check if multi-agent system is initialized
-    if not multi_agent_system:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Multi-agent system not initialized. Please ensure OPENAI_API_KEY is set and Qdrant is running."
-        )
+    multi_agent_system = require_ai("multi_agent_system")
     
     start_time = time.time()
     
@@ -534,11 +660,7 @@ async def get_at_risk_customers(
     Returns customers with risk scores above the threshold,
     sorted by risk level (highest first)
     """
-    if not health_scorer:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Health scorer not initialized"
-        )
+    health_scorer = require_health_scorer()
 
     try:
         customers = health_scorer.get_at_risk_customers(
@@ -572,11 +694,7 @@ async def get_dashboard_stats():
     - Average days to churn
     - Prediction accuracy
     """
-    if not health_scorer:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Health scorer not initialized"
-        )
+    health_scorer = require_health_scorer()
 
     try:
         stats = health_scorer.get_dashboard_stats()
@@ -607,11 +725,7 @@ async def calculate_customer_health(request: CustomerHealthRequest):
 
     Returns risk score, risk level, risk factors, and confidence
     """
-    if not health_scorer:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Health scorer not initialized"
-        )
+    health_scorer = require_health_scorer()
 
     try:
         customer_data = {
@@ -640,11 +754,7 @@ async def calculate_customer_health(request: CustomerHealthRequest):
 @app.get("/customer/{customer_id}/detailed-analysis")
 async def get_customer_detailed_analysis(customer_id: int):
     """Get detailed analysis for a specific customer with synthetic historical data"""
-    if not health_scorer:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Health scorer not initialized"
-        )
+    health_scorer = require_health_scorer()
 
     try:
         # Get all customers and find the one requested

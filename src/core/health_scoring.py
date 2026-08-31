@@ -35,7 +35,7 @@ class CustomerHealthScorer:
 
             # Clean amount column
             if 'Amount' in self.df.columns:
-                self.df['Amount'] = self.df['Amount'].replace('[\$,]', '', regex=True).astype(float)
+                self.df['Amount'] = self.df['Amount'].replace(r'[\$,]', '', regex=True).astype(float)
 
             logger.info(f"Loaded {len(self.df)} churned customer records")
         except Exception as e:

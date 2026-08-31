@@ -74,7 +74,7 @@ export default function CustomerDetailPage() {
   const fetchCustomerAnalysis = async (id: number) => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/customer/${id}/detailed-analysis`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/customer/${id}/detailed-analysis`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch customer analysis');

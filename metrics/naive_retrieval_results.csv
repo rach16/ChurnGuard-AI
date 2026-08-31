@@ -1,0 +1,2 @@
+method,faithfulness,answer_relevancy,context_recall,context_precision,answer_correctness,semantic_similarity
+Naive Retrieval,0.7739239028944911,0.7705641375997788,0.15,0.2768055555368947,0.4430832718770691,0.8726831442604146
