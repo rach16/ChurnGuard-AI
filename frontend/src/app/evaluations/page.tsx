@@ -28,14 +28,14 @@ export default function EvaluationsPage() {
     // Different thresholds for different metrics
     if (metric === 'faithfulness' || metric === 'context_precision') {
       // Stricter thresholds for accuracy metrics
-      if (score >= 85) return 'text-green-600 font-semibold';
-      if (score >= 70) return 'text-yellow-600';
-      return 'text-red-600';
+      if (score >= 85) return 'text-mute font-semibold';
+      if (score >= 70) return 'text-mute';
+      return 'text-critical';
     }
     // More lenient for other metrics
-    if (score >= 75) return 'text-green-600 font-semibold';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    if (score >= 75) return 'text-mute font-semibold';
+    if (score >= 60) return 'text-mute';
+    return 'text-critical';
   };
 
   const getMethodBadge = (method: string) => {
@@ -51,11 +51,11 @@ export default function EvaluationsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <main className="min-h-screen bg-sand p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading evaluation results...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-hair mx-auto"></div>
+            <p className="mt-4 text-mute">Loading evaluation results...</p>
           </div>
         </div>
       </main>
@@ -64,12 +64,12 @@ export default function EvaluationsPage() {
 
   if (error || !data) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <main className="min-h-screen bg-sand p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <p className="text-red-600 font-semibold">Error loading evaluation results</p>
-            <p className="text-red-500 mt-2">{error || 'Unknown error'}</p>
-            <Link href="/" className="mt-4 inline-block text-indigo-600 hover:underline">
+          <div className="bg-sand border border-critical rounded p-6 text-center">
+            <p className="text-critical font-semibold">Error loading evaluation results</p>
+            <p className="text-critical mt-2">{error || 'Unknown error'}</p>
+            <Link href="/" className="mt-4 inline-block text-mute hover:underline">
               ← Back to Home
             </Link>
           </div>
@@ -79,26 +79,26 @@ export default function EvaluationsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <main className="min-h-screen bg-sand p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/" className="text-indigo-600 hover:underline mb-4 inline-block">
+          <Link href="/" className="text-mute hover:underline mb-4 inline-block">
             ← Back to Chat
           </Link>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-4xl font-bold text-ink mb-2">
             📊 RAGAS Evaluation Results
           </h1>
-          <p className="text-gray-600">
+          <p className="text-mute">
             {data.note}
           </p>
         </div>
 
         {/* Performance Comparison Table */}
-        <div className="bg-white rounded-lg shadow-xl overflow-hidden mb-8">
+        <div className="bg-paper rounded shadow-paper overflow-hidden mb-8">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-indigo-600 to-purple-600">
+            <table className="min-w-full divide-y divide-hair">
+              <thead className="bg-sand">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                     Retrieval Method
@@ -123,15 +123,15 @@ export default function EvaluationsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-paper divide-y divide-hair">
                 {data.results.map((result, idx) => (
                   <tr key={result.method} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-ink">
                           {result.method}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-faint">
                           {getMethodBadge(result.method)}
                         </span>
                       </div>
@@ -162,56 +162,56 @@ export default function EvaluationsPage() {
         </div>
 
         {/* Metrics Explanation */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">📖 Metrics Explained</h2>
+        <div className="bg-paper rounded shadow-paper p-6 mb-8">
+          <h2 className="text-2xl font-bold text-ink mb-4">📖 Metrics Explained</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(data.metrics_info).map(([key, description]) => (
-              <div key={key} className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 capitalize mb-2">
+              <div key={key} className="border border-hair rounded p-4">
+                <h3 className="font-semibold text-ink capitalize mb-2">
                   {key.replace(/_/g, ' ')}
                 </h3>
-                <p className="text-sm text-gray-600">{description}</p>
+                <p className="text-sm text-mute">{description}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Key Findings */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">🎯 Key Findings</h2>
+        <div className="bg-sand rounded shadow-paper p-6">
+          <h2 className="text-2xl font-bold text-ink mb-4">🎯 Key Findings</h2>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
-              <span className="text-green-600 text-xl">✅</span>
+              <span className="text-mute text-xl">✅</span>
               <div>
-                <span className="font-semibold text-gray-800">Best Overall: </span>
-                <span className="text-gray-700">
+                <span className="font-semibold text-ink">Best Overall: </span>
+                <span className="text-mute">
                   Retrieval baseline is being re-established against the rebuilt golden set
                 </span>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-blue-600 text-xl">📚</span>
+              <span className="text-mute text-xl">📚</span>
               <div>
-                <span className="font-semibold text-gray-800">Most Accurate: </span>
-                <span className="text-gray-700">
+                <span className="font-semibold text-ink">Most Accurate: </span>
+                <span className="text-mute">
                   Multi Query retrieval achieves 73.7% faithfulness and 66.0% answer correctness (best factual accuracy)
                 </span>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-yellow-600 text-xl">⚡</span>
+              <span className="text-mute text-xl">⚡</span>
               <div>
-                <span className="font-semibold text-gray-800">Fastest Baseline: </span>
-                <span className="text-gray-700">
+                <span className="font-semibold text-ink">Fastest Baseline: </span>
+                <span className="text-mute">
                   Naive retrieval offers 61.3% faithfulness with simplest implementation (good for prototyping)
                 </span>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <span className="text-red-600 text-xl">⚠️</span>
+              <span className="text-critical text-xl">⚠️</span>
               <div>
-                <span className="font-semibold text-gray-800">Avoid: </span>
-                <span className="text-gray-700">
+                <span className="font-semibold text-ink">Avoid: </span>
+                <span className="text-mute">
                   Contextual Compression shows only 46.3% faithfulness (too aggressive filtering causes hallucinations)
                 </span>
               </div>
@@ -222,16 +222,16 @@ export default function EvaluationsPage() {
         {/* Color Legend */}
         <div className="mt-6 flex items-center justify-center gap-6 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-600 rounded"></div>
-            <span className="text-gray-600">Excellent (≥75-85%)</span>
+            <div className="w-3 h-3 bg-ink rounded"></div>
+            <span className="text-mute">Excellent (≥75-85%)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-600 rounded"></div>
-            <span className="text-gray-600">Good (60-75%)</span>
+            <div className="w-3 h-3 bg-ink rounded"></div>
+            <span className="text-mute">Good (60-75%)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-600 rounded"></div>
-            <span className="text-gray-600">Needs Improvement (&lt;60%)</span>
+            <div className="w-3 h-3 bg-critical rounded"></div>
+            <span className="text-mute">Needs Improvement (&lt;60%)</span>
           </div>
         </div>
       </div>

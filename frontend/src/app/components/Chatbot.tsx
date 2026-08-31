@@ -70,35 +70,35 @@ export default function Chatbot({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="flex flex-col h-full bg-sand">
       {/* Chat Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <div className="bg-paper border-b border-hair px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl">
+          <div className="bg-sand p-2.5 rounded">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900">ChurnGuard AI Assistant</h3>
-            <p className="text-xs text-gray-600">Powered by Multi-Agent RAG System</p>
+            <h3 className="text-lg font-bold text-ink">ChurnGuard AI Assistant</h3>
+            <p className="text-xs text-mute">Powered by Multi-Agent RAG System</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Multi-Agent Toggle */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+          <div className="flex items-center gap-2 px-3 py-2 bg-sand border border-hair rounded">
             <input
               type="checkbox"
               checked={useMultiAgent}
               onChange={(e) => setUseMultiAgent(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded"
+              className="w-4 h-4 text-mute rounded"
             />
-            <span className="text-xs font-semibold text-indigo-700">Multi-Agent Mode</span>
+            <span className="text-xs font-semibold text-mute">Multi-Agent Mode</span>
           </div>
           {messages.length > 0 && (
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onClear}
-              className="p-2 bg-red-50 border border-red-200 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+              className="p-2 bg-red-50 border border-red-200 text-critical rounded hover:bg-red-100 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </motion.button>
@@ -116,11 +116,11 @@ export default function Chatbot({
               exit={{ opacity: 0, scale: 0.9 }}
               className="flex flex-col items-center justify-center h-full text-center"
             >
-              <div className="bg-gradient-to-br from-blue-100 to-indigo-100 p-6 rounded-3xl mb-6">
-                <Bot className="w-16 h-16 text-blue-600" />
+              <div className="bg-sand p-6 rounded mb-6">
+                <Bot className="w-16 h-16 text-mute" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Start a Conversation</h3>
-              <p className="text-gray-600 mb-8 max-w-md">
+              <h3 className="text-2xl font-bold text-ink mb-2">Start a Conversation</h3>
+              <p className="text-mute mb-8 max-w-md">
                 Ask me anything about customer churn, risk factors, retention strategies, or competitive insights
               </p>
 
@@ -135,7 +135,7 @@ export default function Chatbot({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => onSuggestedPrompt(prompt)}
-                    className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-lg transition-all text-sm font-medium text-gray-700 text-left"
+                    className="px-4 py-3 bg-paper border-2 border-hair rounded hover:border-hair hover:shadow-paper transition-all text-sm font-medium text-mute text-left"
                   >
                     {prompt}
                   </motion.button>
@@ -180,7 +180,7 @@ export default function Chatbot({
                           {message.content}
                         </p>
                       ) : (
-                        <div className="text-sm leading-relaxed text-gray-800 prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-bold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-strong:text-gray-900 prose-strong:font-semibold">
+                        <div className="text-sm leading-relaxed text-ink prose prose-sm max-w-none prose-headings:text-ink prose-headings:font-bold prose-h2:text-base prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-sm prose-h3:mt-3 prose-h3:mb-1 prose-p:my-2 prose-ul:my-2 prose-li:my-1 prose-strong:text-ink prose-strong:font-semibold">
                           <ReactMarkdown>{message.content}</ReactMarkdown>
                         </div>
                       )}
@@ -193,12 +193,12 @@ export default function Chatbot({
                     {message.role === 'assistant' && (
                       <button
                         onClick={() => copyToClipboard(message.content, message.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-100 rounded-lg"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-sand rounded"
                       >
                         {copiedId === message.id ? (
-                          <Check className="w-4 h-4 text-green-600" />
+                          <Check className="w-4 h-4 text-mute" />
                         ) : (
-                          <Copy className="w-4 h-4 text-gray-600" />
+                          <Copy className="w-4 h-4 text-mute" />
                         )}
                       </button>
                     )}
@@ -206,11 +206,11 @@ export default function Chatbot({
 
                   {/* Show metadata for assistant responses */}
                   {message.role === 'assistant' && message.response && 'confidence_score' in message.response && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="flex items-center gap-4 text-xs text-gray-600">
+                    <div className="mt-3 pt-3 border-t border-hair">
+                      <div className="flex items-center gap-4 text-xs text-mute">
                         <span className="flex items-center gap-1">
                           <span className="font-semibold">Confidence:</span>
-                          <span className="text-green-600 font-bold">
+                          <span className="text-mute font-bold">
                             {(message.response.confidence_score * 100).toFixed(0)}%
                           </span>
                         </span>
@@ -235,25 +235,25 @@ export default function Chatbot({
               exit={{ opacity: 0 }}
               className="flex gap-3"
             >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-sand flex items-center justify-center">
                 <Bot className="w-5 h-5 text-white" />
               </div>
-              <div className="bg-white border-2 border-gray-200 rounded-2xl px-5 py-4 shadow-sm">
+              <div className="bg-paper border-2 border-hair rounded px-5 py-4 shadow-sm">
                 <div className="flex gap-2">
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
                     transition={{ repeat: Infinity, duration: 1, delay: 0 }}
-                    className="w-2 h-2 bg-blue-600 rounded-full"
+                    className="w-2 h-2 bg-ink rounded-full"
                   />
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
                     transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
-                    className="w-2 h-2 bg-blue-600 rounded-full"
+                    className="w-2 h-2 bg-ink rounded-full"
                   />
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
                     transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
-                    className="w-2 h-2 bg-blue-600 rounded-full"
+                    className="w-2 h-2 bg-ink rounded-full"
                   />
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function Chatbot({
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
+      <div className="bg-paper border-t border-hair px-6 py-4">
         <form onSubmit={onSubmit} className="flex gap-3">
           <input
             type="text"
@@ -272,14 +272,14 @@ export default function Chatbot({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask me anything about customer churn..."
             disabled={loading || backendStatus === 'offline'}
-            className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex-1 px-4 py-3 border-2 border-hair rounded focus:ring-2 focus:ring-blue-500 focus:border-hair disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           />
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             type="submit"
             disabled={loading || !query.trim() || backendStatus === 'offline'}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold flex items-center gap-2"
+            className="px-6 py-3 bg-sand text-white rounded hover:shadow-paper disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -298,7 +298,7 @@ export default function Chatbot({
           </motion.button>
         </form>
         {backendStatus === 'offline' && (
-          <p className="text-xs text-red-600 mt-2 font-medium">
+          <p className="text-xs text-critical mt-2 font-medium">
             Backend is offline. Please ensure the API is running.
           </p>
         )}
