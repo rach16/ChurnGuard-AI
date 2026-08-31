@@ -9,7 +9,7 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Architecture settled (`1efc4ff`); Phase 7.1 is the next item and is not started.
+Nothing. Step 1 (7.1) landed; Step 2 (7.2, the survival model) is next and not started.
 
 ## Completed
 
@@ -38,6 +38,7 @@ Nothing. Architecture settled (`1efc4ff`); Phase 7.1 is the next item and is not
 | Phase | Delivered | Commit | Measurably changed | FDE roadmap |
 |---|---|---|---|---|
 | **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
+| **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
 
@@ -52,7 +53,9 @@ Nothing. Architecture settled (`1efc4ff`); Phase 7.1 is the next item and is not
 | Health scorer AUC vs churn label | **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
-| dbt tests | 52/52 pass | 2026-08-30 | `dbt test` |
+| dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
+| Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
+| Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | DuckDB vs Athena | 6/6 queries agree | 2026-08-30 | `warehouse/verify_athena.py` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
@@ -63,6 +66,7 @@ Superseded:
   a different metric on a different sample; not comparable to the current
   figures. It overstated the problem.
 - Backend image size ~~1.99 GB (2026-08-31)~~ → 1.11 GB after 2.5.
+- dbt tests ~~52 (2026-08-30)~~ → 67 after 7.1.
 - Retrieval accuracy ~~94.7%~~ — fabricated, retracted. See ADR-0007.
 - Prediction accuracy ~~0.947~~ — was retrieval recall mislabelled. Removed in `21e4788`.
 
@@ -109,7 +113,8 @@ actual content (IaC, networking, orchestration) is still at zero.
 | Item | Detail |
 |---|---|
 | **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
-| **Features are not point-in-time** | `health_scoring.py` uses each customer's latest snapshot. Fine for a dashboard, leaks badly for training. → 7.1 |
+| `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
+| `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
 | Knowledge graph always `None` | `build_churn_knowledge_graph` expects the legacy Salesforce schema. `churn_agent.py` and `research_team.py` call `get_churn_patterns()`, which contributes nothing. Stale cache removed in `5ff002a`. |
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
@@ -132,36 +137,35 @@ surfaced**. Everything else supports that or waits.
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **1** | 7.1 | Point-in-time feature + label models in dbt | 1½d | $0 | — | P1 · Feature engineering |
-| **2** | 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
-| **3** | 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
-| **4** | 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
-| **5** | 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
+| **1** | 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
+| **2** | 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
+| **3** | 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
+| **4** | 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
 
 ### Phase 4 — Explanation layer (execute second)
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **6** | 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
-| **7** | 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
-| **8** | 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
+| **5** | 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
+| **6** | 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
+| **7** | 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
 
 ### Phase 5 — The "Forward" (execute third)
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **9** | 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
-| **10** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
-| **11** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+| **8** | 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
+| **9** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
+| **10** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
 
 ### Phase 3 — Evaluation (execute fourth)
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **12** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
-| **13** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
-| **14** | 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
-| **15** | 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
+| **11** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
+| **12** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
+| **13** | 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
+| **14** | 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
 
 ### Phase 2 — Deployment (execute last)
 
@@ -171,10 +175,10 @@ this is ready whenever it is worth doing.
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **16** | 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
-| **17** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
-| **18** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
-| **19** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
+| **15** | 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
+| **16** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
+| **17** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
+| **18** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
 
 ## Deferred
 

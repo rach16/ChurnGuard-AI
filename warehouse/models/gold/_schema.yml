@@ -57,3 +57,40 @@ models:
       - name: trend
         tests:
           - accepted_values: {values: ["increasing", "stable", "decreasing"]}
+
+  - name: feat_customer_week
+    description: >
+      Point-in-time features, one row per customer per observed week. Every value
+      uses only data up to and including week_start. Verified by
+      tests/test_point_in_time_features.py, which rebuilds on truncated input.
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+      - name: week_start
+        tests: [not_null]
+      - name: engagement_score
+        tests: [not_null]
+      - name: tenure_weeks
+        tests: [not_null]
+
+  - name: train_survival
+    description: >
+      Training table for the survival model. Features plus forward-looking labels
+      and the censoring indicator. See ADR-0008.
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+      - name: event_observed
+        tests:
+          - not_null
+          - accepted_values: {values: [0, 1]}
+      - name: event_in_next_period
+        tests:
+          - not_null
+          - accepted_values: {values: [0, 1]}
+      - name: weeks_to_event
+        tests: [not_null]
