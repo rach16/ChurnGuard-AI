@@ -62,15 +62,13 @@ function Metric({
 }) {
   return (
     <div className="px-5 py-3 min-w-[140px]">
-      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-medium">{label}</p>
+      <p className="label">{label}</p>
       <p
-        className={`text-2xl font-semibold tabular-nums mt-1 ${
-          severe ? 'text-red-600' : 'text-slate-900'
-        }`}
+        className={`mono text-2xl mt-1.5 ${severe ? 'text-critical' : 'text-ink'}`}
       >
         {value}
       </p>
-      <p className="text-xs text-slate-400 mt-0.5">{hint}</p>
+      <p className="text-xs text-faint mt-1">{hint}</p>
     </div>
   );
 }
@@ -274,7 +272,7 @@ export default function Home() {
 
   // Skeleton loader component
   const SkeletonCard = () => (
-    <div className="animate-pulse p-6 bg-white rounded-xl border border-gray-200">
+    <div className="animate-pulse p-6 bg-card rounded-xl border border-hair">
       <div className="flex items-center justify-between mb-4">
         <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
         <div className="w-16 h-6 bg-gray-200 rounded-full"></div>
@@ -288,7 +286,7 @@ export default function Home() {
   );
 
   const SkeletonCustomer = () => (
-    <div className="animate-pulse p-6 border-b border-gray-100">
+    <div className="animate-pulse p-6 border-b border-hair">
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-4">
           <div className="flex items-center gap-3">
@@ -313,9 +311,9 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-wall">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-50">
+      <header className="bg-wall/80 backdrop-blur-sm border-b border-hair sticky top-0 z-50">
         <div className="max-w-[1400px] mx-auto px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -324,7 +322,7 @@ export default function Home() {
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900">ChurnGuard AI</h1>
+                  <h1 className="text-lg font-semibold text-ink">ChurnGuard AI</h1>
                 </div>
               </div>
             </div>
@@ -336,8 +334,8 @@ export default function Home() {
                   onClick={() => setActiveTab('dashboard')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'dashboard'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-gray-100 text-ink'
+                      : 'text-mute hover:text-ink hover:bg-wall'
                   }`}
                 >
                   Dashboard
@@ -346,27 +344,27 @@ export default function Home() {
                   onClick={() => setActiveTab('analyze')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'analyze'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-gray-100 text-ink'
+                      : 'text-mute hover:text-ink hover:bg-wall'
                   }`}
                 >
                   AI Analysis
                 </button>
                 <Link
                   href="/analytics"
-                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium text-mute hover:text-ink hover:bg-wall rounded-md transition-colors"
                 >
                   Analytics
                 </Link>
                 <Link
                   href="/integrations"
-                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium text-mute hover:text-ink hover:bg-wall rounded-md transition-colors"
                 >
                   Integrations
                 </Link>
                 <Link
                   href="/evaluations"
-                  className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium text-mute hover:text-ink hover:bg-wall rounded-md transition-colors"
                 >
                   Metrics
                 </Link>
@@ -374,13 +372,13 @@ export default function Home() {
 
               <div className="h-6 w-px bg-gray-200"></div>
 
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-wall">
                 <div className={`w-1.5 h-1.5 rounded-full ${
-                  backendStatus === 'online' ? 'bg-green-500' :
+                  backendStatus === 'online' ? 'bg-brass' :
                   backendStatus === 'offline' ? 'bg-red-500' :
                   'bg-yellow-500'
                 }`} />
-                <span className="text-xs text-gray-600 font-medium">
+                <span className="text-xs text-mute font-medium">
                   {backendStatus === 'online' ? 'Live' :
                    backendStatus === 'offline' ? 'Offline' :
                    'Connecting...'}
@@ -407,10 +405,8 @@ export default function Home() {
                   which is the only thing on the page anyone acts on. */}
               <div className="mb-6 flex items-end justify-between gap-6 flex-wrap">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight text-slate-900">
-                    Customer Health
-                  </h2>
-                  <p className="text-sm text-slate-500 mt-0.5">
+                  <h2 className="text-3xl text-ink">Customer Health</h2>
+                  <p className="text-sm text-mute mt-1">
                     {dashboardStats
                       ? `${dashboardStats.total_active_customers} active accounts \u00b7 as of ${dashboardStats.as_of}`
                       : 'Loading\u2026'}
@@ -419,7 +415,7 @@ export default function Home() {
 
                 {/* Colour is reserved for severity. Everything else is neutral, so
                     red on the page always means the same thing. */}
-                <div className="flex items-stretch divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                <div className="flex items-stretch divide-x divide-hair rounded-lg border border-hair bg-card shadow-paper">
                   <Metric
                     label="At risk"
                     value={dashboardStats?.total_at_risk ?? 0}
@@ -449,11 +445,11 @@ export default function Home() {
               </div>
 
               {/* At-Risk Customers List */}
-              <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 overflow-hidden shadow-sm">
-                <div className="px-6 py-4 border-b border-gray-200/60 flex items-center justify-between">
+              <div className="bg-card/60 backdrop-blur-sm rounded-xl border border-hair/50 overflow-hidden shadow-paper">
+                <div className="px-6 py-4 border-b border-hair/60 flex items-center justify-between">
                   <div>
-                    <h3 className="text-base font-semibold text-gray-800">At-Risk Customers</h3>
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <h3 className="text-base font-semibold text-ink">At-Risk Customers</h3>
+                    <p className="text-xs text-mute mt-0.5">
                       {atRiskCustomers.length} customers requiring attention
                     </p>
                   </div>
@@ -461,7 +457,7 @@ export default function Home() {
                     <button
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="p-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      className="p-2 border border-gray-300 text-gray-700 rounded-md hover:bg-wall transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
@@ -485,10 +481,10 @@ export default function Home() {
                   ) : atRiskCustomers.length === 0 ? (
                     <div className="p-12 text-center">
                       <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <CheckCircle2 className="w-8 h-8 text-green-600" />
+                        <CheckCircle2 className="w-8 h-8 text-brass" />
                       </div>
-                      <p className="text-lg font-bold text-gray-900 mb-1">All Clear!</p>
-                      <p className="text-gray-600">No at-risk customers detected</p>
+                      <p className="text-lg font-bold text-ink mb-1">All Clear!</p>
+                      <p className="text-mute">No at-risk customers detected</p>
                     </div>
                   ) : (
                     atRiskCustomers.map((customer) => (
@@ -500,15 +496,15 @@ export default function Home() {
                       <div
                         key={customer.id}
                         onClick={() => router.push(`/customer/${customer.id}`)}
-                        className="group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                        className="group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 border-b border-hair last:border-0 hover:bg-wall cursor-pointer transition-colors"
                       >
                         <div
-                          className={`text-2xl font-semibold tabular-nums leading-none ${
+                          className={`mono text-2xl leading-none ${
                             customer.risk_score >= 80
-                              ? 'text-red-600'
+                              ? 'text-critical'
                               : customer.risk_score >= 60
-                              ? 'text-amber-600'
-                              : 'text-slate-500'
+                              ? 'text-brass'
+                              : 'text-mute'
                           }`}
                         >
                           {Math.round(customer.risk_score)}
@@ -516,24 +512,24 @@ export default function Home() {
 
                         <div className="min-w-0">
                           <div className="flex items-baseline gap-2">
-                            <span className="font-medium text-slate-900 truncate">{customer.name}</span>
-                            <span className="text-xs text-slate-400 shrink-0">{customer.segment}</span>
+                            <span className="text-ink truncate">{customer.name}</span>
+                            <span className="label shrink-0">{customer.segment}</span>
                           </div>
-                          <div className="text-sm text-slate-500 mt-0.5 truncate">
+                          <div className="text-sm text-mute mt-1 truncate">
                             {customer.risk_reason}
-                            <span className="text-slate-300 mx-1.5">|</span>
+                            <span className="text-hair mx-2">/</span>
                             {formatMoney(customer.arr)}
-                            <span className="text-slate-300 mx-1.5">|</span>
+                            <span className="text-hair mx-2">/</span>
                             {customer.support_tickets_30d} tickets / 30d
                           </div>
                         </div>
 
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <div className="text-sm font-medium text-slate-900 tabular-nums">
+                            <div className="mono text-sm text-ink">
                               ~{customer.days_until_churn}d
                             </div>
-                            <div className="text-xs text-slate-400">est. horizon</div>
+                            <div className="label mt-0.5">est. horizon</div>
                           </div>
                           <button
                             onClick={(e) => {
@@ -542,7 +538,7 @@ export default function Home() {
                               navigator.clipboard.writeText(task);
                               showToast('Task copied to clipboard');
                             }}
-                            className="px-2.5 py-1 text-xs text-slate-500 border border-slate-200 rounded hover:bg-white hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="px-2.5 py-1 text-xs text-mute border border-hair rounded hover:bg-card hover:text-ink opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             Copy task
                           </button>
@@ -561,7 +557,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="h-[800px] rounded-2xl shadow-xl border border-gray-100 overflow-hidden"
+              className="h-[800px] rounded-xl shadow-paper border border-hair overflow-hidden"
             >
               <Chatbot
                 messages={messages}
@@ -595,7 +591,7 @@ export default function Home() {
             <div className={`${
               toastMessage.includes('✓') || toastMessage.includes('copied')
                 ? 'bg-gradient-to-r from-green-600 to-emerald-600'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600'
+                : 'bg-gradient-to-r bg-ink'
             } text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 min-w-[320px] max-w-md border-2 border-white/20`}>
               {toastMessage.includes('✓') || toastMessage.includes('copied') ? (
                 <CheckCircle2 className="w-6 h-6 flex-shrink-0 animate-bounce" />

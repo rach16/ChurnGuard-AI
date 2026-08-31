@@ -1,20 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Palette and type after prateekmulye.dev: warm paper rather than grey-blue,
+   an editorial serif for prose and headings, mono for labels and numerals.
+   Severity colours are shifted warm -- pure red-600 reads as an error dialogue
+   against cream, where rust sits in the same light as the paper. */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --wall:  #faf8f3;   /* page */
+  --card:  #ffffff;
+  --ink:   #1d1a16;   /* warm near-black */
+  --mute:  #6f675b;
+  --faint: #7d7466;
+  --hair:  #e7e1d5;   /* hairline borders */
+  --brass: #8a6a24;   /* accent, replaces blue */
+
+  --critical: #a33a26; /* rust, not red-600 */
+  --warning:  #8a6a24; /* brass doubles as the warning tone */
+
+  --shadow: 0 1px 2px rgba(29, 26, 22, .05), 0 8px 28px rgba(29, 26, 22, .07);
+
+  --serif: 'Newsreader', Georgia, serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: var(--wall);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Labels, identifiers and anything the eye scans in a column. Mono keeps digits
+   aligned, which is the point when comparing risk scores down a list. */
+.label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Headings sit at weight 470 -- Newsreader is variable, and the half-step between
+   regular and medium is what stops it reading as a book. */
+h1, h2, h3 { font-weight: 470; letter-spacing: -0.01em; }
