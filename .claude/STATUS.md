@@ -1,11 +1,11 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `5c2abe8` · 14 commits since fork.
+Last updated 2026-08-31 · `main` @ `8a8bee5` · 16 commits since fork.
 
 ## In flight
 
-Nothing. Phase 4.1 landed; next item not started.
+Nothing. Phase 2.1 landed; 2.2w is next and not started.
 
 ## Completed
 
@@ -25,6 +25,7 @@ Nothing. Phase 4.1 landed; next item not started.
 | **1.4** | Gold layer to S3 + Athena | `27f9d81` | 4 tables in Glue; 6/6 queries agree across engines |
 | **5.0** | README rewrite + 7 ADRs | `3d208a3` | README 469→198 lines; 7 stale claims removed |
 | **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 |
+| **2.1** | Async unblocked; data baked into image | `2278cee` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. |
 
 ## Current metrics
 
@@ -34,6 +35,8 @@ Nothing. Phase 4.1 landed; next item not started.
 | Retrieval — single-entity recall (hybrid) | **0.941** | 2026-08-31 | same |
 | Retrieval — single-entity hit rate (naive) | 0.735 | 2026-08-31 | same |
 | Retrieval — all-answerable recall (hybrid) | 0.609 | 2026-08-31 | same |
+| Concurrency — 5 requests × 0.4s work | **0.42s** (was 2.03s) | 2026-08-31 | threadpool harness, 2.1 |
+| Backend image size | 1.99 GB | 2026-08-31 | `docker images` |
 | Health scorer AUC vs churn label | **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
@@ -62,18 +65,16 @@ is a weighted heuristic.
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
 | All LLM calls hardcoded to OpenAI | 8 files construct `ChatOpenAI`/`OpenAIEmbeddings` directly. No provider abstraction. → 4.2 |
-| Blocking LLM calls in `async` handlers | `api.py:362`, `api.py:433`. One worker serialises requests. → 2.1 |
-| Data not baked into image | Dockerfile creates empty dirs; compose bind-mounts. Container cannot run standalone. → 2.1 |
 | `/integrations` page | Static hardcoded array, zero API calls |
 | `/evaluations` page | Renders an error since the baseline CSV was deleted |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
+| Backend image is 1.99 GB | ML dependencies dominate. Slow ECR pulls and cold starts. Not addressed. |
 
 ## Next: Phase 2 — AWS deployment
 
 | # | Item | Effort | Cost | Depends on |
 |---|---|---|---|---|
-| 2.1 | Fix async blocking; bake data into image | 1d | $0 | — |
 | 2.2w | Write Terraform (ECR, VPC, ECS, ALB) | 2d | $0 | 2.1 |
 | 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w |
 | 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 |

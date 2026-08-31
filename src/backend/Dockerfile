@@ -47,8 +47,15 @@ RUN uv sync --no-dev --no-install-project || uv pip install --system -e .
 # Copy source code
 COPY src/ ./src/
 
-# Create necessary directories (data will be mounted as volume from docker-compose)
-RUN mkdir -p data cache notebooks golden-masters metrics
+# Bake the dataset into the image rather than relying on a bind mount.
+# docker-compose mounts these from the host, but ECS and any other orchestrator
+# without a host filesystem would leave them empty -- and because startup is
+# fault-tolerant, the API would boot "healthy" and serve nothing. ~2 MB.
+COPY data/ ./data/
+COPY golden-masters/ ./golden-masters/
+
+# Written to at runtime, so created rather than copied.
+RUN mkdir -p cache notebooks metrics
 
 # Stage 2: FastAPI Backend Service
 FROM base AS backend
