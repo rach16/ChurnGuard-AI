@@ -50,7 +50,10 @@ Use `uv run`, not bare `python3` — most scripts need the project venv.
   cost and effort, and are recorded under Deferred in STATUS.md if declined.
   They do not get built unprompted.
 - **Use the existing phase numbering.** New work is a sub-item of an existing
-  phase (4.4, 2.5) unless a new phase is explicitly agreed.
+  phase (4.4, 2.5) unless a new phase is explicitly agreed. Phase numbers are
+  **identifiers, not an order** — commit messages and ADRs reference them, so
+  they never change. Execution order lives in the Step column of STATUS.md and
+  is expected to change; do not renumber a phase to make it sort correctly.
 - **No unevidenced numbers.** Every metric in docs or code comments names the
   script that produced it and the date. If it has not been measured, say so.
   ADR-0007 records why this rule exists.
