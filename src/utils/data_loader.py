@@ -198,27 +198,169 @@ Detailed Churn Story
         logger.info(f"✅ Successfully processed {len(documents)} churned customer documents")
         return documents
     
+    def load_corpus_documents(self) -> List[Document]:
+        """
+        Load the full RAG corpus from the current dataset.
+
+        Every document carries `customer_id`, so retrieval can be scored against the
+        golden dataset's expected_context and joined back to the customer dimension.
+
+        Produces five document types:
+          customer_profile   one per customer, holding the facts the eval questions ask about
+          churn_analysis     the per-customer analysis write-ups
+          success_story      retention case studies
+          support_history    that customer's tickets, collapsed into one document
+          interaction_history that customer's touchpoints, collapsed into one document
+
+        Returns:
+            List of LangChain Document objects ready for embedding
+        """
+        customers = self.load_csv_data("customers.csv")
+        tickets = self.load_csv_data("support_tickets.csv")
+        interactions = self.load_csv_data("customer_interactions.csv")
+        snapshots = self.load_csv_data("engagement_snapshots.csv")
+        analyses = self.load_csv_data("churn_analyses.csv")
+        stories = self.load_csv_data("success_stories.csv")
+
+        # Latest weekly snapshot per customer; the generator writes them chronologically.
+        latest = snapshots.groupby("customer_id").last()
+
+        ticket_stats = tickets.groupby("customer_id").agg(
+            ticket_count=("ticket_id", "count"), mean_csat=("csat_score", "mean")
+        )
+
+        documents: List[Document] = []
+
+        def base_meta(row, source_type: str, doc_id: str) -> Dict:
+            return {
+                "customer_id": row["customer_id"],
+                "company_name": row["company_name"],
+                "segment": row["segment"],
+                "source_type": source_type,
+                "doc_id": doc_id,
+            }
+
+        # 1. Customer profiles -------------------------------------------------------
+        for _, c in customers.iterrows():
+            cid = c["customer_id"]
+            eng = latest.loc[cid] if cid in latest.index else None
+            tix = ticket_stats.loc[cid] if cid in ticket_stats.index else None
+
+            churn_line = (
+                f"Status: CHURNED on {c['churn_date']} -- category {c['churn_category']}, "
+                f"specifically \"{c['specific_reason']}\"."
+                if c["is_churned"] == 1
+                else f"Status: ACTIVE, contract runs to {c['contract_end_date']}."
+            )
+            competitor = c["competitor"] if isinstance(c["competitor"], str) and c["competitor"] else "None recorded"
+
+            content = f"""Customer Profile: {c['company_name']} ({cid})
+======================================================
+Segment: {c['segment']}
+Industry: {c['industry']}
+Region: {c['region']}
+ARR: ${int(c['arr']):,}
+Seats: {c['seats']}
+Tenure: {c['tenure_months']} months (started {c['contract_start_date']})
+{churn_line}
+Competitor named: {competitor}
+
+Engagement
+----------
+Latest engagement score: {eng['engagement_score'] if eng is not None else 'n/a'}
+Latest feature adoption rate: {eng['feature_adoption_rate'] if eng is not None else 'n/a'}
+Active users in latest week: {eng['active_users'] if eng is not None else 'n/a'}
+
+Support
+-------
+Total tickets raised: {int(tix['ticket_count']) if tix is not None else 0}
+Average CSAT: {f"{tix['mean_csat']:.2f} / 5" if tix is not None else 'no tickets'}"""
+
+            meta = base_meta(c, "customer_profile", f"PROFILE-{cid}")
+            meta.update({
+                "arr": int(c["arr"]),
+                "is_churned": int(c["is_churned"]),
+                "tenure_months": int(c["tenure_months"]),
+                "industry": c["industry"],
+            })
+            documents.append(Document(page_content=content, metadata=meta))
+
+        # 2. Churn analyses ----------------------------------------------------------
+        for _, a in analyses.iterrows():
+            meta = base_meta(a, "churn_analysis", a["doc_id"])
+            meta.update({"churn_category": a["churn_category"], "risk_score": int(a["risk_score"])})
+            documents.append(Document(page_content=a["document"], metadata=meta))
+
+        # 3. Success stories ---------------------------------------------------------
+        for _, s in stories.iterrows():
+            meta = base_meta(s, "success_story", s["story_id"])
+            meta.update({"challenge_category": s["challenge_category"]})
+            documents.append(Document(page_content=s["full_story"], metadata=meta))
+
+        # 4. Support history, one document per customer ------------------------------
+        for cid, group in tickets.groupby("customer_id"):
+            first = group.iloc[0]
+            lines = [
+                f"- [{r['created_date'][:10]}] {r['severity']} / {r['category']}: {r['issue_type']}. "
+                f"Resolved in {r['resolution_hours']}h. CSAT {r['csat_score']}/5."
+                for _, r in group.iterrows()
+            ]
+            content = (
+                f"Support History: {first['company_name']} ({cid})\n"
+                f"{len(group)} tickets, average CSAT {group['csat_score'].mean():.2f}/5\n\n"
+                + "\n".join(lines)
+            )
+            documents.append(Document(
+                page_content=content,
+                metadata=base_meta(first, "support_history", f"SUPPORT-{cid}"),
+            ))
+
+        # 5. Interaction history, one document per customer ---------------------------
+        for cid, group in interactions.groupby("customer_id"):
+            first = group.iloc[0]
+            lines = [
+                f"- [{r['interaction_date']}] {r['interaction_type']}: {r['content']}"
+                for _, r in group.sort_values("interaction_date", ascending=False).iterrows()
+            ]
+            content = (
+                f"Interaction History: {first['company_name']} ({cid})\n"
+                f"{len(group)} recorded touchpoints\n\n" + "\n".join(lines)
+            )
+            documents.append(Document(
+                page_content=content,
+                metadata=base_meta(first, "interaction_history", f"INTERACTIONS-{cid}"),
+            ))
+
+        by_type: Dict[str, int] = {}
+        for d in documents:
+            by_type[d.metadata["source_type"]] = by_type.get(d.metadata["source_type"], 0) + 1
+        logger.info(f"✅ Loaded {len(documents)} corpus documents: {by_type}")
+
+        return documents
+
     def get_all_documents(self) -> List[Document]:
         """
         Load all documents from data folder
-        
+
+        Prefers the current dataset; falls back to the legacy churned-customers export
+        if customers.csv is not present.
+
         Returns:
             Combined list of all documents
         """
+        try:
+            return self.load_corpus_documents()
+        except FileNotFoundError as e:
+            logger.warning(f"Current dataset not found ({e}); falling back to legacy export")
+
         documents = []
-        
-        # Load churned customers (primary dataset)
         try:
             churned_docs = self.load_churned_customers_documents()
             documents.extend(churned_docs)
             logger.info(f"✓ Added {len(churned_docs)} churned customer documents")
         except Exception as e:
             logger.error(f"Error loading churned customers: {e}")
-        
-        # TODO: Add pulse history documents
-        # TODO: Add PDF documents if available
-        # TODO: Add text files if available
-        
+
         logger.info(f"✅ Total documents loaded: {len(documents)}")
         return documents
 
