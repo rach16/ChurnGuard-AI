@@ -1,11 +1,15 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `be0d1a5` · 24 commits since fork.
+Last updated 2026-08-31 · `main` @ `7278b8c` · 27 commits since fork.
+
+Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
+that point was a remediation backlog; it is now ordered by the critical path to a
+predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Phase 2.2w landed (written, not applied); 2.3 is next.
+Nothing. Architecture settled (`1efc4ff`); Phase 7.1 is the next item and is not started.
 
 ## Completed
 
@@ -28,6 +32,12 @@ Nothing. Phase 2.2w landed (written, not applied); 2.3 is next.
 | **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
+
+### Architecture
+
+| Phase | Delivered | Commit | Measurably changed | FDE roadmap |
+|---|---|---|---|---|
+| **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
 
 ## Current metrics
 
@@ -72,6 +82,7 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Data quality & observability | ✅ | 52 dbt tests + 28 contracts |
 | └ Distributed compute (Spark/Ray) | ❌ skipped | 1.6 MB dataset — see Deferred |
 | **Applied AI** | 🔄 partial | |
+| ├ Predictive modelling | ❌ **no model exists** | Phase 7 — the critical path |
 | ├ Hybrid search (BM25 + vectors) | ✅ | `f41bfe6` |
 | ├ Eval, inner loop | ✅ | golden set + benchmark harness |
 | ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
@@ -83,7 +94,8 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
 | **Phase 3 — Consulting** | 🔄 1 of 4 artifacts | |
-| ├ ADRs | ✅ | 7 records, `3d208a3` |
+| ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
+| ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
 | ├ Site Survey | ❌ | 5.2 |
 | ├ Technical Scoping / PRD | ❌ | 5.2 |
 | └ MVA + Exec Status Report | ❌ | 5.3 |
@@ -96,6 +108,8 @@ actual content (IaC, networking, orchestration) is still at zero.
 
 | Item | Detail |
 |---|---|
+| **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
+| **Features are not point-in-time** | `health_scoring.py` uses each customer's latest snapshot. Fine for a dashboard, leaks badly for training. → 7.1 |
 | Knowledge graph always `None` | `build_churn_knowledge_graph` expects the legacy Salesforce schema. `churn_agent.py` and `research_team.py` call `get_churn_patterns()`, which contributes nothing. Stale cache removed in `5ff002a`. |
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
@@ -105,22 +119,59 @@ actual content (IaC, networking, orchestration) is still at zero.
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
 
-## Next: Phase 2 — AWS deployment
+## Next — ordered by the critical path
+
+The critical path to the product is **point-in-time features → survival model →
+predictions surfaced**. Everything else supports that or waits. Phase numbering
+is preserved from the original plan; only the order changed.
+
+### Phase 7 — Prediction (new, critical path)
 
 | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|
-| 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w | P2 · Orchestration |
-| 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 | P2 · Enterprise security |
-| 2.4 | GitHub Actions → ECR → ECS | 1d | $0 (free tier) | 2.2 | P2 · DevSecOps |
+| 7.1 | Point-in-time feature + label models in dbt | 1½d | $0 | — | P1 · Feature engineering |
+| 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
+| 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
+| 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
+| 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
 
-Also unstarted, no dependency on Phase 2:
+### Phase 4 — Explanation layer
 
-| # | Item | Effort | Cost | FDE roadmap |
-|---|---|---|---|---|
-| 4.2 | LiteLLM provider abstraction | 1d | $0 | AI · Model-agnostic |
-| 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | AI · Eval, inner loop |
-| 3.2 | pytest regression gate | ½d | $0 (needs 3.1) | AI · Eval, inner loop |
-| 5.2–5.4 | Site survey, PRD, MVA, cost-of-inaction | 1½d | $0 | P3 · Artifacts |
+| # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|
+| 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
+| 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
+| 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
+
+### Phase 5 — The "Forward"
+
+| # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|
+| 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
+| 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
+| 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+
+### Phase 3 — Evaluation
+
+| # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|
+| 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
+| 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
+| 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
+| 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
+
+### Phase 2 — Deployment (demoted, not dropped)
+
+Deployment is no longer the critical path. There is no point deploying a system
+whose core prediction does not exist yet. Terraform is written and validated, so
+this is ready whenever it is worth doing.
+
+| # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|
+| 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
+| 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
+| 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
+| 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
 
 ## Deferred
 
@@ -129,14 +180,34 @@ Also unstarted, no dependency on Phase 2:
 | 0.9 Vercel fix | User deferred 2026-08-30. Needs dashboard access to set Root Directory to `frontend`, or disable the integration. |
 | 4.3 Vector migration off Qdrant | No target until Phase 2 deploys. OpenSearch Serverless has a 2-OCU minimum ≈ **$350/mo** for 137 KB — use pgvector (~$15/mo) or Qdrant Cloud free tier instead. |
 | Phase 6 air-gap / edge | Only worth it for defence or regulated clients. |
-| Knowledge graph rebuild | Needs the builder ported off the legacy schema. Not on any critical path. |
+| Knowledge graph rebuild | Superseded — ARCHITECTURE.md schedules deletion in 4.5, not a rebuild. |
 | Distributed compute (Spark/Ray) | Roadmap item, deliberately skipped — 1.6 MB dataset. |
+
+## Re-derivation, 2026-08-31
+
+The plan up to this point was a remediation backlog — it fixed what was broken
+without deciding what the system should be. `docs/ARCHITECTURE.md` settled that:
+the product predicts a churn date with a confidence interval, the warehouse is
+authoritative for numbers, the vector store for narrative.
+
+What changed:
+
+| Change | Reason |
+|---|---|
+| **Phase 7 added** and placed first | The core prediction does not exist. `risk_score` is a weighted sum and `days_until_churn` is `np.interp` over it — never fitted to observed churn timing, so it cannot distinguish this quarter from next |
+| **Phase 2 demoted** below 7, 4, 5 | Deploying a system whose central claim is unimplemented proves nothing. Terraform is written, so the cost of waiting is zero |
+| **4.4 / 4.5 added** | Retrieval's role narrowed to explaining a specific prediction; four of five strategies and the knowledge graph become dead weight |
+| **3.1 now depends on 4.4** | Measuring retrieval before its scope is settled measures the wrong thing — the mistake that produced the 94.7% claim |
+| **5.4 now depends on 7.4** | Cost-of-inaction needs a predicted horizon to multiply ARR by. It was unbuildable as originally sequenced |
+| **SQL router moved out of Rejected** | It was rejected as scope creep against the old plan. Under the architecture it is not a feature but the boundary between layers, and 7.4 subsumes it |
+
+Nothing completed was invalidated. The dataset, warehouse, hybrid retrieval,
+image and Terraform all stand; they are simply no longer the critical path.
 
 ## Rejected
 
 | Item | Reason |
 |---|---|
-| SQL router for aggregate questions | Proposed twice as 4.4; user instructed no scope additions. Would route aggregate questions to `customer_health_score` instead of retrieval. Not built. |
 | Stage 7 UI phase | Proposed; not adopted. UI items tracked under Known gaps instead. |
 | `SALESFORCE_COMPARISON.md` | Deleted 2026-08-31. Compared to Einstein on unsupportable numbers, including sales scripts asserting "we're 94.7% accurate". |
 | Keeping the stale comprehensive doc live | Archived, not deleted — ADRs cite what it claimed. |
