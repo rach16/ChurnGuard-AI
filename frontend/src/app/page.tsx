@@ -83,6 +83,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  // Degraded is not offline. /health reports which subsystems came up, and the
+  // dashboard works from CSV with no LLM stack at all -- so a 503 from an AI
+  // endpoint must not disable the whole UI.
+  const [aiReason, setAiReason] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'analyze'>('dashboard');
 
   // Chatbot state
@@ -572,6 +576,7 @@ export default function Home() {
                 useMultiAgent={useMultiAgent}
                 setUseMultiAgent={setUseMultiAgent}
                 backendStatus={backendStatus}
+                aiReason={aiReason}
               />
             </motion.div>
           )}
