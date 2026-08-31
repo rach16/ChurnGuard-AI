@@ -1,0 +1,43 @@
+name: churnguard
+version: "1.0.0"
+config-version: 2
+
+profile: churnguard
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  churnguard:
+    # Bronze is the raw landing zone: source data typed, nothing reshaped, so any
+    # discrepancy downstream can always be traced back to what actually arrived.
+    bronze:
+      +materialized: view
+      +schema: bronze
+    # Silver conforms keys and casts types. One row per business entity per grain.
+    silver:
+      +materialized: table
+      +schema: silver
+    # Gold is what consumers query: dimensions, facts and the scoring model.
+    gold:
+      +materialized: table
+      +schema: gold
+
+vars:
+  # Weighting for customer_health_score. Mirrors RISK_WEIGHTS in
+  # src/core/health_scoring.py -- the SQL model and the Python scorer must agree,
+  # and tests/assert_health_score_matches_python.sql enforces that they do.
+  weight_engagement: 0.35
+  weight_adoption: 0.20
+  weight_trend: 0.15
+  weight_support: 0.15
+  weight_satisfaction: 0.15
+
+  trend_window_weeks: 12
+  ticket_window_days: 30
+  high_ticket_volume: 6

@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Customer dimension, one row per customer.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_num
+        tests: [unique, not_null]
+      - name: segment
+        tests:
+          - accepted_values: {values: ["SMB", "Commercial", "Enterprise"]}
+      - name: arr
+        tests: [not_null]
+
+  - name: fct_engagement_weekly
+    description: "Weekly engagement fact. Grain: customer x week."
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+      - name: engagement_score
+        tests: [not_null]
+
+  - name: fct_support_tickets
+    columns:
+      - name: ticket_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+
+  - name: customer_health_score
+    description: >
+      Risk score per customer, computed from observed engagement, adoption, trend,
+      support volume and CSAT. Mirrors src/core/health_scoring.py; parity is
+      enforced by tests/test_warehouse_parity.py.
+    columns:
+      - name: customer_id
+        tests:
+          - unique
+          - not_null
+          - relationships: {to: ref('dim_customer'), field: customer_id}
+      - name: risk_score
+        tests: [not_null]
+      - name: risk_level
+        tests:
+          - accepted_values: {values: ["Critical", "High", "Medium", "Low"]}
+      - name: risk_reason
+        tests:
+          - accepted_values:
+              values: ["Low engagement", "Feature gaps", "Declining usage",
+                       "Support issues", "Poor onboarding"]
+      - name: trend
+        tests:
+          - accepted_values: {values: ["increasing", "stable", "decreasing"]}

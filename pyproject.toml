@@ -58,6 +58,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+warehouse = [
+    # Local analytical warehouse. DuckDB is embedded -- no server, no credentials.
+    "duckdb>=1.1.0",
+    "dbt-core>=1.9.0",
+    "dbt-duckdb>=1.9.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
