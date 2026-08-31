@@ -8,10 +8,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'churn-primary': '#2563eb',
-        'churn-secondary': '#f59e0b',
-        'churn-success': '#10b981',
-        'churn-danger': '#ef4444',
+        wall: '#faf8f3',
+        card: '#ffffff',
+        ink: '#1d1a16',
+        mute: '#6f675b',
+        faint: '#7d7466',
+        hair: '#e7e1d5',
+        brass: '#8a6a24',
+        critical: '#a33a26',
+      },
+      fontFamily: {
+        serif: ['Newsreader', 'Georgia', 'serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      boxShadow: {
+        paper: '0 1px 2px rgba(29,26,22,.05), 0 8px 28px rgba(29,26,22,.07)',
       },
     },
   },
