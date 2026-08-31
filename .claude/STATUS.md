@@ -9,24 +9,24 @@ Nothing. Phase 2.5 landed; 2.2w is next and not started.
 
 ## Completed
 
-| Phase | Delivered | Commit | Measurably changed |
-|---|---|---|---|
-| **0.5** | Dataset rebuilt entity-first | `c3ad4e9` | Segment conflicts 89→0. interactions∩tickets 16→200. Labelled churn rows 25→71. |
-| **0.6** | Golden set derived from data, not an LLM | `060695c` | Questions grounded in real customers 0/54 → 32/65 |
-| **0.4** | `.env.example` | `4aa90bc` | — |
-| **0.7** | RAG points at the real corpus | `dcab498` | Indexed documents 25 → 771 |
-| **0.8** | RAGAS harness fixed | `a7cd8f2` | Harness ran for the first time at pinned `ragas==0.2.10` |
-| **0.1** | Two backends collapsed into one | `7222ee2` | `api_simple.py` deleted (660 LOC). `/ready` added. |
-| **0.10** | KG load fixed, stale graph dropped | `5ff002a` | 68 phantom customers no longer reachable by agents |
-| **0.11** | Subset eval outputs untracked | `ae2f838` | — |
-| **0.2** | Scoring from observed data | `96b28a2` | risk_score was `np.random.uniform(70,92)`; now AUC 0.791. Detail endpoint byte-identical across requests. |
-| **0.3** | 94.7% claim removed | `21e4788` | 7 README claims + 2 sales scripts corrected; false baseline CSV deleted |
-| **1.1–1.3** | dbt warehouse, scoring in SQL | `5ce3cbb` | 14 models, 52 dbt tests, SQL/Python parity on 200/200 |
-| **1.4** | Gold layer to S3 + Athena | `27f9d81` | 4 tables in Glue; 6/6 queries agree across engines |
-| **5.0** | README rewrite + 7 ADRs | `3d208a3` | README 469→198 lines; 7 stale claims removed |
-| **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 |
-| **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. |
-| **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. |
+| Phase | Delivered | Commit | Measurably changed | FDE roadmap |
+|---|---|---|---|---|
+| **0.5** | Dataset rebuilt entity-first | `c3ad4e9` | Segment conflicts 89→0. interactions∩tickets 16→200. Labelled churn rows 25→71. | P1 · Data quality |
+| **0.6** | Golden set derived from data, not an LLM | `060695c` | Questions grounded in real customers 0/54 → 32/65 | AI · Eval, inner loop |
+| **0.4** | `.env.example` | `4aa90bc` | — | — |
+| **0.7** | RAG points at the real corpus | `dcab498` | Indexed documents 25 → 771 | AI · RAG ingestion |
+| **0.8** | RAGAS harness fixed | `a7cd8f2` | Harness ran for the first time at pinned `ragas==0.2.10` | AI · Eval, inner loop |
+| **0.1** | Two backends collapsed into one | `7222ee2` | `api_simple.py` deleted (660 LOC). `/ready` added. | — |
+| **0.10** | KG load fixed, stale graph dropped | `5ff002a` | 68 phantom customers no longer reachable by agents | — |
+| **0.11** | Subset eval outputs untracked | `ae2f838` | — | — |
+| **0.2** | Scoring from observed data | `96b28a2` | risk_score was `np.random.uniform(70,92)`; now AUC 0.791. Detail endpoint byte-identical across requests. | AI · Proof mechanisms |
+| **0.3** | 94.7% claim removed | `21e4788` | 7 README claims + 2 sales scripts corrected; false baseline CSV deleted | AI · Proof mechanisms |
+| **1.1–1.3** | dbt warehouse, scoring in SQL | `5ce3cbb` | 14 models, 52 dbt tests, SQL/Python parity on 200/200 | P1 · Medallion, modeling, SQL |
+| **1.4** | Gold layer to S3 + Athena | `27f9d81` | 4 tables in Glue; 6/6 queries agree across engines | P2 · Cloud data architecture |
+| **5.0** | README rewrite + 7 ADRs | `3d208a3` | README 469→198 lines; 7 stale claims removed | P3 · ADR artifact |
+| **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 | AI · Hybrid search |
+| **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
+| **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
 
 ## Current metrics
 
@@ -59,6 +59,38 @@ Superseded:
 ~$2–5). Churn *prediction* accuracy — no classifier has been trained; the score
 is a weighted heuristic.
 
+## FDE roadmap coverage
+
+Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
+(BigQuery→Athena, Cloud Run→ECS Fargate, Vertex→Bedrock).
+
+| Roadmap area | Status | Where |
+|---|---|---|
+| **Phase 1 — Data Engineering** | ✅ complete | 1.1–1.4, 0.5 |
+| ├ Medallion, dimensional modeling, advanced SQL | ✅ | `5ce3cbb` |
+| ├ Data quality & observability | ✅ | 52 dbt tests + 28 contracts |
+| └ Distributed compute (Spark/Ray) | ❌ skipped | 1.6 MB dataset — see Deferred |
+| **Applied AI** | 🔄 partial | |
+| ├ Hybrid search (BM25 + vectors) | ✅ | `f41bfe6` |
+| ├ Eval, inner loop | ✅ | golden set + benchmark harness |
+| ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
+| ├ Multi-agent orchestration | ✅ | pre-existing, now served |
+| └ Model-agnostic providers | ❌ | 4.2 |
+| **Phase 2 — Cloud Architecture** | 🔴 barely started | |
+| ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
+| ├ IaC / Terraform | ❌ | 2.2w |
+| ├ Networking, VPC, IAM | ❌ | 2.2 |
+| └ Container orchestration | ❌ | 2.2 |
+| **Phase 3 — Consulting** | 🔄 1 of 4 artifacts | |
+| ├ ADRs | ✅ | 7 records, `3d208a3` |
+| ├ Site Survey | ❌ | 5.2 |
+| ├ Technical Scoping / PRD | ❌ | 5.2 |
+| └ MVA + Exec Status Report | ❌ | 5.3 |
+| **Air-gapped / tactical edge** | ❌ | Phase 6, deferred |
+
+Note: 2.1 and 2.5 are deployment readiness, not Phase 2 competency. Phase 2's
+actual content (IaC, networking, orchestration) is still at zero.
+
 ## Known gaps and dead code
 
 | Item | Detail |
@@ -74,21 +106,21 @@ is a weighted heuristic.
 
 ## Next: Phase 2 — AWS deployment
 
-| # | Item | Effort | Cost | Depends on |
-|---|---|---|---|---|
-| 2.2w | Write Terraform (ECR, VPC, ECS, ALB) | 2d | $0 | 2.1 |
-| 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w |
-| 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 |
-| 2.4 | GitHub Actions → ECR → ECS | 1d | $0 (free tier) | 2.2 |
+| # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|
+| 2.2w | Write Terraform (ECR, VPC, ECS, ALB) | 2d | $0 | 2.1 | P2 · IaC, networking |
+| 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w | P2 · Orchestration |
+| 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 | P2 · Enterprise security |
+| 2.4 | GitHub Actions → ECR → ECS | 1d | $0 (free tier) | 2.2 | P2 · DevSecOps |
 
 Also unstarted, no dependency on Phase 2:
 
-| # | Item | Effort | Cost |
-|---|---|---|---|
-| 4.2 | LiteLLM provider abstraction | 1d | $0 |
-| 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** |
-| 3.2 | pytest regression gate | ½d | $0 (needs 3.1) |
-| 5.2–5.4 | Site survey, PRD, MVA, cost-of-inaction | 1½d | $0 |
+| # | Item | Effort | Cost | FDE roadmap |
+|---|---|---|---|---|
+| 4.2 | LiteLLM provider abstraction | 1d | $0 | AI · Model-agnostic |
+| 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | AI · Eval, inner loop |
+| 3.2 | pytest regression gate | ½d | $0 (needs 3.1) | AI · Eval, inner loop |
+| 5.2–5.4 | Site survey, PRD, MVA, cost-of-inaction | 1½d | $0 | P3 · Artifacts |
 
 ## Deferred
 

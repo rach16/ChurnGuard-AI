@@ -62,6 +62,7 @@ Update `.claude/STATUS.md` whenever any of these happens:
 | A metric is re-measured | Record the new value **with the date measured**. Strike through the old one — `~~0.150 (2026-08-30)~~ → 0.941 (2026-08-31)`. Do not delete it. |
 | A scope decision is made | Add to Deferred or Rejected **with the reason**. Do not delete these sections. |
 | A gap is found or closed | Update Known gaps |
+| A phase item completes | Also set its **FDE roadmap** cell, and update the roadmap coverage table if the area's status changed |
 
 The README carries measured numbers too. When a metric changes, check whether
 README.md repeats it — STATUS.md being current is not sufficient.
