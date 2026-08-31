@@ -1,7 +1,15 @@
-> ⚠️ **Stale evaluation figures.** Every retrieval metric in this document was produced
-> before the golden set and corpus were rebuilt, against an LLM-generated golden set
-> whose questions referenced companies present in no data file. Treat all RAGAS numbers
-> below as historical, not current. See the note in README.md.
+> # ARCHIVED — superseded, retained for history
+>
+> This document describes the project as it stood before the August 2026 rebuild.
+> Its evaluation figures were produced against an ungrounded golden set and a
+> 25-document corpus, and do not reflect the current system. Its architecture
+> sections predate the dbt warehouse and the consolidation onto a single backend.
+>
+> It is kept because the ADRs in `docs/adr/` refer to what the project used to
+> claim, and deleting the evidence would make those records unverifiable.
+>
+> **For current documentation see [README.md](../README.md),
+> [warehouse/README.md](../warehouse/README.md) and [docs/adr/](adr/).**
 
 # Customer Churn RAG System - Comprehensive Project Documentation
 
