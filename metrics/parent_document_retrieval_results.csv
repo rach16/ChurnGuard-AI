@@ -1,0 +1,2 @@
+method,faithfulness,answer_relevancy,context_recall,context_precision,answer_correctness,semantic_similarity
+Parent Document Retrieval,0.774637445887446,0.9476788294232369,0.15,0.3249999999745833,0.4478766371604226,0.8871243458777706

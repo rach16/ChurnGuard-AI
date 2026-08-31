@@ -131,10 +131,16 @@ def _init_ai_stack() -> None:
     kg_path = Path(os.getenv("KNOWLEDGE_GRAPH_PATH", "cache/churn_knowledge_graph.pkl"))
     if kg_path.exists():
         try:
-            state.knowledge_graph = ChurnKnowledgeGraph.load(str(kg_path))
+            # load_graph is an instance method that mutates in place; there has never
+            # been a ChurnKnowledgeGraph.load() classmethod.
+            kg = ChurnKnowledgeGraph()
+            kg.load_graph(str(kg_path))
+            state.knowledge_graph = kg
             logger.info("✓ Loaded knowledge graph from cache")
         except Exception as e:
             state.unavailable("knowledge_graph", f"{type(e).__name__}: {e}")
+    else:
+        state.unavailable("knowledge_graph", f"no cached graph at {kg_path}")
 
     use_tavily = bool(os.getenv("TAVILY_API_KEY"))
     for name, factory, attr in (

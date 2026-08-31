@@ -1,0 +1,2 @@
+method,faithfulness,answer_relevancy,context_recall,context_precision,answer_correctness,semantic_similarity
+Multi-Query Retrieval,0.7682661782661783,0.952261679349651,0.16666666666666666,0.3052857142700086,0.5543615565066315,0.8904981740784741

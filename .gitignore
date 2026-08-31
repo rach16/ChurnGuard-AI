@@ -54,3 +54,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .vercel
+
+# Knowledge graph cache - rebuild with build_churn_knowledge_graph()
+cache/*.pkl
