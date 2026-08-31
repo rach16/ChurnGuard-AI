@@ -63,3 +63,39 @@ integrity) mirror the assertions in `scripts/validate_dataset.py` — those were
 written as contracts precisely so they could become dbt tests. Singular tests in
 `tests/` cover score bounds, band-label consistency, engagement grain, and that no
 ticket post-dates its customer's churn.
+
+## Publishing to S3 + Athena (1.4)
+
+The same gold models, landed in S3 as Parquet and registered in the Glue catalog,
+so they are queryable from Athena without changing a single model definition.
+
+```bash
+export AWS_PROFILE=personal AWS_REGION=us-east-1
+uv run --extra warehouse python warehouse/publish_to_s3.py   # export + register
+uv run --extra warehouse python warehouse/verify_athena.py   # both engines agree
+```
+
+`publish_to_s3.py` derives the Athena DDL from the DuckDB schema, so the table
+definitions cannot drift from the models. Generated DDL is written to
+`warehouse/athena/` for review.
+
+`verify_athena.py` runs the same six queries against both engines and fails on any
+divergence — publishing to a second engine is only worth anything if the answers
+match.
+
+| | |
+|---|---|
+| Bucket | `s3://churnguard-warehouse-586723123589` (encrypted, public access blocked) |
+| Glue database | `churnguard` |
+| Published | `dim_customer`, `fct_engagement_weekly`, `fct_support_tickets`, `customer_health_score` |
+| Total size | ~137 KB Parquet (ZSTD) |
+
+Bronze and silver stay local: they are build scaffolding, not a consumer contract.
+
+### On whether this is worth it
+
+At this data size, no — DuckDB answers every one of these queries in milliseconds,
+and Athena scanned so little that the billed cost rounds to zero. The reason to do
+it is portability: it demonstrates that the models, the tests and the scoring logic
+move to a cloud warehouse untouched. Treat it as a proof of portability, not an
+optimisation.
