@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
               disabled={loading}
               className="p-2.5 hover:bg-sand rounded transition-all duration-200 disabled:opacity-50 border border-hair hover:border-hair hover:shadow-paper"
             >
-              <RefreshCw className={`w-5 h-5 text-gray-700 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-5 h-5 text-mute ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>

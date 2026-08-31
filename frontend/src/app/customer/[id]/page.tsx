@@ -394,7 +394,7 @@ export default function CustomerDetailPage() {
                   <div className="flex items-center gap-4 text-xs text-mute">
                     <span>{ticket.date}</span>
                     <span className={`px-2 py-0.5 rounded ${
-                      ticket.priority === 'High' ? 'bg-red-100 text-critical' : 'bg-gray-200 text-gray-700'
+                      ticket.priority === 'High' ? 'bg-red-100 text-critical' : 'bg-hair text-mute'
                     }`}>
                       {ticket.priority}
                     </span>
@@ -422,7 +422,7 @@ export default function CustomerDetailPage() {
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
                       interaction.sentiment === 'Positive' ? 'bg-sand text-mute' :
                       interaction.sentiment === 'Negative' ? 'bg-red-100 text-critical' :
-                      'bg-gray-200 text-gray-700'
+                      'bg-hair text-mute'
                     }`}>
                       {interaction.sentiment}
                     </span>
