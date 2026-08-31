@@ -25,6 +25,12 @@ import {
 } from 'lucide-react';
 import { apiClient, AtRiskCustomer, DashboardStats } from '../api-client';
 
+function formatMoney(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<AtRiskCustomer[]>([]);
@@ -64,10 +70,10 @@ export default function AnalyticsPage() {
   }, { critical: 0, high: 0, medium: 0, low: 0 });
 
   const riskDistributionData = [
-    { name: 'Critical (80-100%)', value: riskDistribution.critical, color: '#ef4444' },
-    { name: 'High (60-79%)', value: riskDistribution.high, color: '#f97316' },
-    { name: 'Medium (40-59%)', value: riskDistribution.medium, color: '#eab308' },
-    { name: 'Low (0-39%)', value: riskDistribution.low, color: '#22c55e' },
+    { name: 'Critical (80-100%)', value: riskDistribution.critical, color: '#c1362c' },
+    { name: 'High (60-79%)', value: riskDistribution.high, color: '#8a6a24' },
+    { name: 'Medium (40-59%)', value: riskDistribution.medium, color: '#8a6a24' },
+    { name: 'Low (0-39%)', value: riskDistribution.low, color: '#6b6b6b' },
   ];
 
   const segmentData = customers.reduce((acc, customer) => {
@@ -102,8 +108,8 @@ export default function AnalyticsPage() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-4 rounded-xl shadow-lg border-2 border-gray-200">
-          <p className="font-bold text-gray-900 mb-2">{label}</p>
+        <div className="bg-paper p-4 rounded shadow-paper border-2 border-hair">
+          <p className="font-bold text-ink mb-2">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.name}: <span className="font-bold">{entry.value}</span>
@@ -116,27 +122,27 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-sand">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200/60 sticky top-0 z-50">
+      <header className="bg-paper/80 backdrop-blur-sm border-b border-hair/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/">
-                <button className="p-2.5 hover:bg-gray-100 rounded-lg transition-all duration-200 border border-gray-200 hover:border-gray-300 hover:shadow-sm">
-                  <ArrowLeft className="w-5 h-5 text-gray-700" />
+                <button className="p-2.5 hover:bg-sand rounded transition-all duration-200 border border-hair hover:border-hair hover:shadow-paper">
+                  <ArrowLeft className="w-5 h-5 text-mute" />
                 </button>
               </Link>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Analytics Dashboard</h1>
-                <p className="text-sm text-gray-600 font-medium">Real-time churn insights</p>
+                <h1 className="text-xl font-bold text-ink tracking-tight">Analytics Dashboard</h1>
+                <p className="text-sm text-mute font-medium">Real-time churn insights</p>
               </div>
             </div>
 
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="p-2.5 hover:bg-gray-100 rounded-lg transition-all duration-200 disabled:opacity-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+              className="p-2.5 hover:bg-sand rounded transition-all duration-200 disabled:opacity-50 border border-hair hover:border-hair hover:shadow-paper"
             >
               <RefreshCw className={`w-5 h-5 text-gray-700 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -149,57 +155,57 @@ export default function AnalyticsPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             {[1,2,3,4].map(i => (
-              <div key={i} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm animate-pulse">
-                <div className="h-12 w-12 bg-gray-200 rounded-xl mb-4"></div>
-                <div className="h-8 w-20 bg-gray-200 rounded mb-2"></div>
-                <div className="h-4 w-32 bg-gray-200 rounded"></div>
+              <div key={i} className="bg-paper rounded p-6 border border-hair shadow-paper animate-pulse">
+                <div className="h-12 w-12 bg-hair rounded mb-4"></div>
+                <div className="h-8 w-20 bg-hair rounded mb-2"></div>
+                <div className="h-4 w-32 bg-hair rounded"></div>
               </div>
             ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
               <div className="flex items-center justify-between mb-4">
-                <div className="bg-red-50 p-3 rounded-xl">
-                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                <div className="bg-sand p-3 rounded">
+                  <AlertTriangle className="w-6 h-6 text-critical" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-800 mb-1.5 tracking-tight">{stats?.total_at_risk || 0}</p>
-              <p className="text-sm text-gray-600 font-medium">At-Risk Customers</p>
+              <p className="text-3xl font-bold text-ink mb-1.5 tracking-tight">{stats?.total_at_risk || 0}</p>
+              <p className="text-sm text-mute font-medium">At-Risk Customers</p>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
               <div className="flex items-center justify-between mb-4">
-                <div className="bg-orange-50 p-3 rounded-xl">
-                  <DollarSign className="w-6 h-6 text-orange-500" />
+                <div className="bg-sand p-3 rounded">
+                  <DollarSign className="w-6 h-6 text-mute" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-800 mb-1.5 tracking-tight">
-                ${stats ? Math.round(stats.total_arr_at_risk / 1000) : 0}K
+              <p className="text-3xl font-bold text-ink mb-1.5 tracking-tight">
+                {stats ? formatMoney(stats.total_arr_at_risk) : '$0'}
               </p>
-              <p className="text-sm text-gray-600 font-medium">ARR at Risk</p>
+              <p className="text-sm text-mute font-medium">ARR at Risk</p>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
               <div className="flex items-center justify-between mb-4">
-                <div className="bg-blue-50 p-3 rounded-xl">
-                  <Users className="w-6 h-6 text-blue-500" />
+                <div className="bg-sand p-3 rounded">
+                  <Users className="w-6 h-6 text-mute" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-800 mb-1.5 tracking-tight">{stats?.total_active_customers || 0}</p>
-              <p className="text-sm text-gray-600 font-medium">Total Customers</p>
+              <p className="text-3xl font-bold text-ink mb-1.5 tracking-tight">{stats?.total_active_customers || 0}</p>
+              <p className="text-sm text-mute font-medium">Total Customers</p>
             </div>
 
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
               <div className="flex items-center justify-between mb-4">
-                <div className="bg-green-50 p-3 rounded-xl">
-                  <Target className="w-6 h-6 text-green-600" />
+                <div className="bg-sand p-3 rounded">
+                  <Target className="w-6 h-6 text-mute" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-gray-800 mb-1.5 tracking-tight">
+              <p className="text-3xl font-bold text-ink mb-1.5 tracking-tight">
                 {stats ? (stats.historical_churn_rate * 100).toFixed(1) : 0}%
               </p>
-              <p className="text-sm text-gray-600 font-medium">Historical Churn Rate</p>
+              <p className="text-sm text-mute font-medium">Historical Churn Rate</p>
             </div>
           </div>
         )}
@@ -208,9 +214,9 @@ export default function AnalyticsPage() {
         {!loading && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Risk Distribution */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-800 mb-2 tracking-tight">Risk Distribution</h3>
-              <p className="text-sm text-gray-600 mb-6 font-medium">Customer count by risk level</p>
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
+              <h3 className="text-lg font-bold text-ink mb-2 tracking-tight">Risk Distribution</h3>
+              <p className="text-sm text-mute mb-6 font-medium">Customer count by risk level</p>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -223,6 +229,7 @@ export default function AnalyticsPage() {
                     }
                     outerRadius={100}
                     dataKey="value"
+                    isAnimationActive={false}
                   >
                     {riskDistributionData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
@@ -235,41 +242,41 @@ export default function AnalyticsPage() {
                 {riskDistributionData.map((item) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-xs text-gray-700">{item.name}: {item.value}</span>
+                    <span className="text-xs text-mute">{item.name}: {item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* ARR by Segment */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm">
-              <h3 className="text-lg font-bold text-gray-800 mb-2 tracking-tight">ARR by Segment</h3>
-              <p className="text-sm text-gray-600 mb-6 font-medium">Revenue breakdown by customer segment</p>
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper">
+              <h3 className="text-lg font-bold text-ink mb-2 tracking-tight">ARR by Segment</h3>
+              <p className="text-sm text-mute mb-6 font-medium">Revenue breakdown by customer segment</p>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={arrBySegmentData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="segment" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e6e4e0" />
+                  <XAxis dataKey="segment" stroke="#9a9a9a" />
+                  <YAxis stroke="#9a9a9a" tickFormatter={(v: number) => formatMoney(v)} width={64} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="arr" fill="#3b82f6" radius={[4, 4, 0, 0]} name="ARR ($)" />
+                  <Bar dataKey="arr" fill="#000000" radius={[4, 4, 0, 0]} name="ARR ($)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
             {/* Top Churn Reasons */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200/50 shadow-sm lg:col-span-2">
-              <h3 className="text-lg font-bold text-gray-800 mb-2 tracking-tight">Top Risk Reasons</h3>
-              <p className="text-sm text-gray-600 mb-6 font-medium">Most common reasons for customer churn risk</p>
+            <div className="bg-paper/60 backdrop-blur-sm rounded p-6 border border-hair/50 shadow-paper lg:col-span-2">
+              <h3 className="text-lg font-bold text-ink mb-2 tracking-tight">Top Risk Reasons</h3>
+              <p className="text-sm text-mute mb-6 font-medium">Most common reasons for customer churn risk</p>
               <div className="space-y-4">
                 {churnReasonsData.map((reason) => (
                   <div key={reason.reason}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">{reason.reason}</span>
-                      <span className="text-sm font-bold text-gray-900">{reason.count} ({reason.percentage}%)</span>
+                      <span className="text-sm font-medium text-mute">{reason.reason}</span>
+                      <span className="text-sm font-bold text-ink">{reason.count} ({reason.percentage}%)</span>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-sand rounded-full h-2 overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                        className="h-full bg-ink rounded-full transition-all duration-500"
                         style={{ width: `${reason.percentage}%` }}
                       ></div>
                     </div>

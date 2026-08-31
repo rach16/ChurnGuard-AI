@@ -142,11 +142,11 @@ export default function IntegrationsPage() {
   const getStatusIcon = (status: Integration['status']) => {
     switch (status) {
       case 'connected':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-5 h-5 text-mute" />;
       case 'error':
-        return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+        return <AlertCircle className="w-5 h-5 text-mute" />;
       case 'disconnected':
-        return <XCircle className="w-5 h-5 text-gray-400" />;
+        return <XCircle className="w-5 h-5 text-faint" />;
     }
   };
 
@@ -162,18 +162,18 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-sand">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-paper border-b border-hair sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Integrations</h1>
-              <p className="text-gray-600 mt-1">Connect your tools to power churn prediction</p>
+              <h1 className="text-3xl font-bold text-ink">Integrations</h1>
+              <p className="text-mute mt-1">Connect your tools to power churn prediction</p>
             </div>
             <a
               href="/"
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-mute bg-paper border border-hair rounded hover:bg-sand transition-colors"
             >
               Back to Dashboard
             </a>
@@ -187,15 +187,15 @@ export default function IntegrationsPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="bg-paper rounded shadow-paper border border-hair p-6"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Connections</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{connectedCount}</p>
+                <p className="text-sm font-medium text-mute">Active Connections</p>
+                <p className="text-3xl font-bold text-ink mt-2">{connectedCount}</p>
               </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Link2 className="w-6 h-6 text-green-600" />
+              <div className="p-3 bg-sand rounded">
+                <Link2 className="w-6 h-6 text-mute" />
               </div>
             </div>
           </motion.div>
@@ -204,15 +204,15 @@ export default function IntegrationsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="bg-paper rounded shadow-paper border border-hair p-6"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Records Synced</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totalRecordsSynced.toLocaleString()}</p>
+                <p className="text-sm font-medium text-mute">Records Synced</p>
+                <p className="text-3xl font-bold text-ink mt-2">{totalRecordsSynced.toLocaleString()}</p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Database className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-sand rounded">
+                <Database className="w-6 h-6 text-mute" />
               </div>
             </div>
           </motion.div>
@@ -221,22 +221,22 @@ export default function IntegrationsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+            className="bg-paper rounded shadow-paper border border-hair p-6"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Available Integrations</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{integrations.length}</p>
+                <p className="text-sm font-medium text-mute">Available Integrations</p>
+                <p className="text-3xl font-bold text-ink mt-2">{integrations.length}</p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Zap className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-sand rounded">
+                <Zap className="w-6 h-6 text-mute" />
               </div>
             </div>
           </motion.div>
         </div>
 
         {/* Category Filter */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="bg-paper rounded shadow-paper border border-hair p-4 mb-6">
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => (
               <button
@@ -262,7 +262,7 @@ export default function IntegrationsPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+              className="bg-paper rounded shadow-paper border border-hair p-6 hover:shadow-paper transition-shadow"
             >
               {/* Integration Header */}
               <div className="flex items-start justify-between mb-4">
@@ -273,12 +273,12 @@ export default function IntegrationsPage() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{integration.name}</h3>
+                    <h3 className="text-xl font-bold text-ink">{integration.name}</h3>
                     <div className="flex items-center space-x-2 mt-1">
                       {getStatusIcon(integration.status)}
                       <span className={`text-sm font-medium ${
-                        integration.status === 'connected' ? 'text-green-600' :
-                        integration.status === 'error' ? 'text-yellow-600' :
+                        integration.status === 'connected' ? 'text-mute' :
+                        integration.status === 'error' ? 'text-mute' :
                         'text-gray-500'
                       }`}>
                         {getStatusText(integration.status)}
@@ -289,16 +289,16 @@ export default function IntegrationsPage() {
               </div>
 
               {/* Description */}
-              <p className="text-gray-600 mb-4">{integration.description}</p>
+              <p className="text-mute mb-4">{integration.description}</p>
 
               {/* Features */}
               <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">Features:</p>
+                <p className="text-sm font-medium text-mute mb-2">Features:</p>
                 <div className="flex flex-wrap gap-2">
                   {integration.features.map((feature) => (
                     <span
                       key={feature}
-                      className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-md"
+                      className="px-2 py-1 bg-sand text-mute text-xs rounded-md"
                     >
                       {feature}
                     </span>
@@ -308,14 +308,14 @@ export default function IntegrationsPage() {
 
               {/* Sync Info */}
               {integration.status === 'connected' && (
-                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="bg-sand rounded p-3 mb-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Last synced:</span>
-                    <span className="font-medium text-gray-900">{integration.lastSync}</span>
+                    <span className="text-mute">Last synced:</span>
+                    <span className="font-medium text-ink">{integration.lastSync}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm mt-2">
-                    <span className="text-gray-600">Records synced:</span>
-                    <span className="font-medium text-gray-900">{integration.recordsSynced?.toLocaleString()}</span>
+                    <span className="text-mute">Records synced:</span>
+                    <span className="font-medium text-ink">{integration.recordsSynced?.toLocaleString()}</span>
                   </div>
                 </div>
               )}
@@ -326,18 +326,18 @@ export default function IntegrationsPage() {
                   <>
                     <button
                       onClick={() => handleSync(integration.id)}
-                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2"
+                      className="flex-1 px-4 py-2 bg-ink text-white rounded hover:bg-ink transition-colors flex items-center justify-center space-x-2"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Sync Now</span>
                     </button>
                     <button
                       onClick={() => handleDisconnect(integration.id)}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="px-4 py-2 bg-sand text-mute rounded hover:bg-hair transition-colors"
                     >
                       Disconnect
                     </button>
-                    <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <button className="px-4 py-2 bg-sand text-mute rounded hover:bg-hair transition-colors">
                       <Settings className="w-4 h-4" />
                     </button>
                   </>
@@ -345,19 +345,19 @@ export default function IntegrationsPage() {
                   <>
                     <button
                       onClick={() => handleConnect(integration.id)}
-                      className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center justify-center space-x-2"
+                      className="flex-1 px-4 py-2 bg-ink text-white rounded hover:bg-ink transition-colors flex items-center justify-center space-x-2"
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Reconnect</span>
                     </button>
-                    <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                    <button className="px-4 py-2 bg-sand text-mute rounded hover:bg-hair transition-colors">
                       <Settings className="w-4 h-4" />
                     </button>
                   </>
                 ) : (
                   <button
                     onClick={() => handleConnect(integration.id)}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2"
+                    className="flex-1 px-4 py-2 bg-ink text-white rounded hover:bg-ink transition-colors flex items-center justify-center space-x-2"
                   >
                     <Link2 className="w-4 h-4" />
                     <span>Connect</span>
@@ -373,20 +373,20 @@ export default function IntegrationsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6"
+          className="mt-8 bg-sand rounded border border-hair p-6"
         >
           <div className="flex items-start space-x-4">
-            <div className="p-3 bg-indigo-100 rounded-lg">
-              <ExternalLink className="w-6 h-6 text-indigo-600" />
+            <div className="p-3 bg-sand rounded">
+              <ExternalLink className="w-6 h-6 text-mute" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Need Help Connecting?</h3>
-              <p className="text-gray-600 mb-4">
+              <h3 className="text-lg font-bold text-ink mb-2">Need Help Connecting?</h3>
+              <p className="text-mute mb-4">
                 Our integrations automatically sync customer data, usage metrics, and engagement signals to power accurate churn predictions. Check our documentation for setup guides.
               </p>
               <a
                 href="#"
-                className="inline-flex items-center space-x-2 text-indigo-600 font-medium hover:text-indigo-700"
+                className="inline-flex items-center space-x-2 text-mute font-medium hover:text-mute"
               >
                 <span>View Documentation</span>
                 <ExternalLink className="w-4 h-4" />
