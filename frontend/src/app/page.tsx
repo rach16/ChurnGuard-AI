@@ -64,7 +64,7 @@ function Metric({
     <div className="px-5 py-3 min-w-[140px]">
       <p className="label">{label}</p>
       <p
-        className={`mono text-2xl mt-1.5 ${severe ? 'text-critical' : 'text-ink'}`}
+        className={`mono text-2xl mt-2 ${severe ? 'text-critical' : 'text-ink'}`}
       >
         {value}
       </p>
@@ -405,7 +405,7 @@ export default function Home() {
                   which is the only thing on the page anyone acts on. */}
               <div className="mb-6 flex items-end justify-between gap-6 flex-wrap">
                 <div>
-                  <h2 className="text-3xl text-ink">Customer Health</h2>
+                  <h2 className="display text-5xl text-ink">Customer Health</h2>
                   <p className="text-sm text-mute mt-1">
                     {dashboardStats
                       ? `${dashboardStats.total_active_customers} active accounts \u00b7 as of ${dashboardStats.as_of}`
@@ -415,7 +415,7 @@ export default function Home() {
 
                 {/* Colour is reserved for severity. Everything else is neutral, so
                     red on the page always means the same thing. */}
-                <div className="flex items-stretch divide-x divide-hair rounded-lg border border-hair bg-card shadow-paper">
+                <div className="flex items-stretch divide-x divide-hair rounded border border-hair bg-sand">
                   <Metric
                     label="At risk"
                     value={dashboardStats?.total_at_risk ?? 0}
@@ -496,14 +496,14 @@ export default function Home() {
                       <div
                         key={customer.id}
                         onClick={() => router.push(`/customer/${customer.id}`)}
-                        className="group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 border-b border-hair last:border-0 hover:bg-wall cursor-pointer transition-colors"
+                        className="group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3.5 border-b border-hair last:border-0 hover:bg-sand cursor-pointer transition-colors"
                       >
                         <div
                           className={`mono text-2xl leading-none ${
                             customer.risk_score >= 80
                               ? 'text-critical'
                               : customer.risk_score >= 60
-                              ? 'text-brass'
+                              ? 'text-ink'
                               : 'text-mute'
                           }`}
                         >
@@ -512,7 +512,7 @@ export default function Home() {
 
                         <div className="min-w-0">
                           <div className="flex items-baseline gap-2">
-                            <span className="text-ink truncate">{customer.name}</span>
+                            <span className="font-medium text-ink truncate">{customer.name}</span>
                             <span className="label shrink-0">{customer.segment}</span>
                           </div>
                           <div className="text-sm text-mute mt-1 truncate">
@@ -557,7 +557,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="h-[800px] rounded-xl shadow-paper border border-hair overflow-hidden"
+              className="h-[800px] rounded border border-hair border border-hair overflow-hidden"
             >
               <Chatbot
                 messages={messages}

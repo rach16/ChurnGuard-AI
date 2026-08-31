@@ -1,51 +1,60 @@
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Palette and type after prateekmulye.dev: warm paper rather than grey-blue,
-   an editorial serif for prose and headings, mono for labels and numerals.
-   Severity colours are shifted warm -- pure red-600 reads as an error dialogue
-   against cream, where rust sits in the same light as the paper. */
+/* After fin.ai: white ground, black ink, no accent colour. A light display serif
+   carries the page title and nothing else; everything functional is small neutral
+   sans. Their faces (Serrif, Saans) are proprietary -- Instrument Serif and Inter
+   are the closest free equivalents in weight and contrast.
+
+   The one addition is a severity ramp. Fin is a marketing site and needs no
+   colour; a triage screen does, so a single red carries alarm and everything else
+   stays greyscale. One colour with one meaning. */
 :root {
-  --wall:  #faf8f3;   /* page */
-  --card:  #ffffff;
-  --ink:   #1d1a16;   /* warm near-black */
-  --mute:  #6f675b;
-  --faint: #7d7466;
-  --hair:  #e7e1d5;   /* hairline borders */
-  --brass: #8a6a24;   /* accent, replaces blue */
+  --paper: #ffffff;
+  --ink:   #000000;
+  --mute:  #6b6b6b;
+  --faint: #9a9a9a;
+  --hair:  #e6e4e0;
+  --sand:  #f7f5f2;   /* the cream Fin uses behind hero and nav bands */
 
-  --critical: #a33a26; /* rust, not red-600 */
-  --warning:  #8a6a24; /* brass doubles as the warning tone */
+  --critical: #c1362c;
+  --warning:  #8a6a24;
 
-  --shadow: 0 1px 2px rgba(29, 26, 22, .05), 0 8px 28px rgba(29, 26, 22, .07);
-
-  --serif: 'Newsreader', Georgia, serif;
+  --display: 'Instrument Serif', ui-serif, Georgia, serif;
+  --ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  background: var(--wall);
+  background: var(--paper);
   color: var(--ink);
-  font-family: var(--serif);
-  font-optical-sizing: auto;
+  font-family: var(--ui);
+  font-size: 14px;              /* Fin sets the whole UI at 14 */
   -webkit-font-smoothing: antialiased;
 }
 
-/* Labels, identifiers and anything the eye scans in a column. Mono keeps digits
-   aligned, which is the point when comparing risk scores down a list. */
+/* Display type only. Light weight, very tight tracking, line-height below 1 --
+   that combination is what makes it read as a masthead rather than a heading. */
+.display {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+}
+
 .label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   color: var(--faint);
 }
 
+/* Tabular figures so risk scores align down the column, which is the whole
+   point of the list. */
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-/* Headings sit at weight 470 -- Newsreader is variable, and the half-step between
-   regular and medium is what stops it reading as a book. */
-h1, h2, h3 { font-weight: 470; letter-spacing: -0.01em; }
+h1, h2, h3 { font-weight: 500; letter-spacing: -0.02em; }
