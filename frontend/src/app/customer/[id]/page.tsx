@@ -46,7 +46,7 @@ interface CustomerAnalysis {
     feature_usage: any[];
     interactions: any[];
     predictions: any;
-    recommended_actions: any[];
+    recommended_actions?: any[];
   };
   health_indicators: {
     engagement: string;
@@ -312,8 +312,8 @@ export default function CustomerDetailPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {customerAnalysis.predictions.days_until_churn} days
               </p>
-              <p className="text-sm text-gray-600 mt-1">
-                ({customerAnalysis.predictions.confidence_interval.lower}-{customerAnalysis.predictions.confidence_interval.upper} days range)
+              <p className="text-sm text-gray-500 mt-1">
+                point estimate &middot; interval arrives with the survival model
               </p>
             </div>
             <div>
@@ -340,7 +340,7 @@ export default function CustomerDetailPage() {
             <h2 className="text-xl font-bold text-gray-900">Recommended Actions</h2>
           </div>
           <div className="space-y-4">
-            {customerAnalysis.recommended_actions.map((action: any, idx: number) => (
+            {(customerAnalysis.recommended_actions ?? []).map((action: any, idx: number) => (
               <div
                 key={idx}
                 className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors"
