@@ -46,6 +46,35 @@ function formatMoney(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+// One metric. Deliberately plain: a label, a number, and a hint that says what the
+// number measures. The previous version wrapped each in a card with a coloured
+// icon chip, which cost 230px of vertical space and encoded nothing.
+function Metric({
+  label,
+  value,
+  hint,
+  severe = false,
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+  severe?: boolean;
+}) {
+  return (
+    <div className="px-5 py-3 min-w-[140px]">
+      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-medium">{label}</p>
+      <p
+        className={`text-2xl font-semibold tabular-nums mt-1 ${
+          severe ? 'text-red-600' : 'text-slate-900'
+        }`}
+      >
+        {value}
+      </p>
+      <p className="text-xs text-slate-400 mt-0.5">{hint}</p>
+    </div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -371,111 +400,52 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              {/* Page Title */}
-              <div className="mb-6">
-                <h2 className="text-2xl font-semibold text-gray-800">Customer Health Overview</h2>
-                <p className="text-sm text-gray-600 mt-1">Monitor at-risk accounts and take proactive action</p>
-              </div>
-
-              {/* Alert Banner */}
-              {dashboardStats && dashboardStats.critical_risk_count > 0 && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                  <div className="flex-shrink-0 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center mt-0.5">
-                    <AlertTriangle className="w-3 h-3 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-red-900">
-                      {dashboardStats.critical_risk_count} {dashboardStats.critical_risk_count === 1 ? 'customer needs' : 'customers need'} immediate attention
-                    </p>
-                    <p className="text-xs text-red-700 mt-0.5">High churn risk detected - Review and take action</p>
-                  </div>
+              {/* Header + metric strip.
+                  Previously this region was ~600px: a title block, an alert banner
+                  restating "1 critical case", and four oversized cards with pastel
+                  icon chips. You scrolled past all of it before seeing a customer,
+                  which is the only thing on the page anyone acts on. */}
+              <div className="mb-6 flex items-end justify-between gap-6 flex-wrap">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight text-slate-900">
+                    Customer Health
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {dashboardStats
+                      ? `${dashboardStats.total_active_customers} active accounts \u00b7 as of ${dashboardStats.as_of}`
+                      : 'Loading\u2026'}
+                  </p>
                 </div>
-              )}
 
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {dashboardLoading ? (
-                  <>
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
-                          <AlertTriangle className="w-5 h-5 text-red-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-600 font-medium">At-Risk Customers</p>
-                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">{dashboardStats?.total_at_risk || 0}</p>
-                        </div>
-                      </div>
-                      {dashboardStats && dashboardStats.critical_risk_count > 0 && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-red-500 font-medium">
-                            {dashboardStats.critical_risk_count} critical {dashboardStats.critical_risk_count === 1 ? 'case' : 'cases'}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
-                          <DollarSign className="w-5 h-5 text-orange-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-600 font-medium">ARR at Risk</p>
-                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
-                            {dashboardStats ? formatMoney(dashboardStats.total_arr_at_risk) : '$0'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-600 font-medium">
-                          Across {dashboardStats?.total_at_risk || 0} accounts
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-                          <Target className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-600 font-medium">Historical Churn Rate</p>
-                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
-                            {dashboardStats ? (dashboardStats.historical_churn_rate * 100).toFixed(1) : 0}%
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 font-medium">of all accounts to date</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 p-5 shadow-sm">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                          <Clock className="w-5 h-5 text-blue-500" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-600 font-medium">Early Warning Time</p>
-                          <p className="text-2xl font-semibold text-gray-800 mt-0.5">
-                            {dashboardStats ? Math.round(dashboardStats.avg_days_to_churn) : 0}d
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 font-medium">mean across at-risk accounts</p>
-                      </div>
-                    </div>
-                  </>
-                )}
+                {/* Colour is reserved for severity. Everything else is neutral, so
+                    red on the page always means the same thing. */}
+                <div className="flex items-stretch divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                  <Metric
+                    label="At risk"
+                    value={dashboardStats?.total_at_risk ?? 0}
+                    hint={
+                      dashboardStats?.critical_risk_count
+                        ? `${dashboardStats.critical_risk_count} critical`
+                        : 'none critical'
+                    }
+                    severe={Boolean(dashboardStats?.critical_risk_count)}
+                  />
+                  <Metric
+                    label="ARR at risk"
+                    value={dashboardStats ? formatMoney(dashboardStats.total_arr_at_risk) : '$0'}
+                    hint={`of ${dashboardStats?.total_active_customers ?? 0} accounts`}
+                  />
+                  <Metric
+                    label="Churn rate"
+                    value={dashboardStats ? `${(dashboardStats.historical_churn_rate * 100).toFixed(1)}%` : '0%'}
+                    hint="all accounts to date"
+                  />
+                  <Metric
+                    label="Median warning"
+                    value={dashboardStats ? `${Math.round(dashboardStats.avg_days_to_churn)}d` : '0d'}
+                    hint="across at-risk"
+                  />
+                </div>
               </div>
 
               {/* At-Risk Customers List */}
@@ -522,87 +492,62 @@ export default function Home() {
                     </div>
                   ) : (
                     atRiskCustomers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="p-5 hover:bg-gray-50/50 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between gap-6">
-                        <div className="flex-1 min-w-0">
-                          {/* Customer Header */}
-                          <div className="flex items-center gap-3 mb-3">
-                            <h4 className="text-sm font-semibold text-gray-800 truncate">
-                              {customer.name}
-                            </h4>
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${getRiskColor(customer.risk_score)}`}>
-                              {customer.risk_score}% Risk
-                            </span>
-                            <span className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
-                              {customer.segment}
-                            </span>
-                          </div>
+                      /* One scannable row per account.
+                         Was a ~120px card with the risk figure printed twice, in two
+                         formats, so three accounts filled the viewport. A CS lead
+                         triages twenty. Risk now appears once, on the left, where a
+                         column of numbers can be compared down the page. */
+                      <div
+                        key={customer.id}
+                        onClick={() => router.push(`/customer/${customer.id}`)}
+                        className="group grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                      >
+                        <div
+                          className={`text-2xl font-semibold tabular-nums leading-none ${
+                            customer.risk_score >= 80
+                              ? 'text-red-600'
+                              : customer.risk_score >= 60
+                              ? 'text-amber-600'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {Math.round(customer.risk_score)}
+                        </div>
 
-                          {/* Metrics Grid */}
-                          <div className="grid grid-cols-3 gap-4 mb-3">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-0.5">Annual Revenue</p>
-                              <p className="text-sm font-semibold text-gray-900">
-                                ${customer.arr.toLocaleString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-0.5">Days to Churn</p>
-                              <p className="text-sm font-semibold text-orange-600">
-                                {customer.days_until_churn} days
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-0.5">Risk Reason</p>
-                              <p className="text-sm font-medium text-gray-900 truncate">{customer.risk_reason}</p>
-                            </div>
+                        <div className="min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-medium text-slate-900 truncate">{customer.name}</span>
+                            <span className="text-xs text-slate-400 shrink-0">{customer.segment}</span>
                           </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleViewRecommendations(customer)}
-                              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
-                              title="Get AI-powered analysis"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                              Analyze
-                            </button>
-                            <button
-                              onClick={() => router.push(`/customer/${customer.id}`)}
-                              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors"
-                            >
-                              View Details
-                            </button>
-                            <button
-                              onClick={() => {
-                                const task = `Follow up with ${customer.name}\nPriority: ${customer.risk_score >= 80 ? 'Critical' : 'High'}\nDue: ${customer.days_until_churn} days\nAction: Address ${customer.risk_reason}`;
-                                navigator.clipboard.writeText(task);
-                                showToast('✓ Task copied!');
-                              }}
-                              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-                              title="Create task"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Create Task
-                            </button>
+                          <div className="text-sm text-slate-500 mt-0.5 truncate">
+                            {customer.risk_reason}
+                            <span className="text-slate-300 mx-1.5">|</span>
+                            {formatMoney(customer.arr)}
+                            <span className="text-slate-300 mx-1.5">|</span>
+                            {customer.support_tickets_30d} tickets / 30d
                           </div>
                         </div>
 
-                        {/* Risk Score Badge */}
-                        <div className="flex-shrink-0">
-                          <div className={`w-16 h-16 rounded-lg ${getRiskBadgeColor(customer.risk_score)} bg-opacity-10 flex flex-col items-center justify-center border ${getRiskBadgeColor(customer.risk_score)} border-opacity-20`}>
-                            <span className={`text-xl font-bold ${customer.risk_score >= 80 ? 'text-red-600' : customer.risk_score >= 60 ? 'text-orange-600' : 'text-yellow-600'}`}>
-                              {Math.round(customer.risk_score)}
-                            </span>
-                            <span className="text-[10px] text-gray-600 font-medium mt-0.5">RISK</span>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-slate-900 tabular-nums">
+                              ~{customer.days_until_churn}d
+                            </div>
+                            <div className="text-xs text-slate-400">est. horizon</div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const task = `Follow up with ${customer.name}\nPriority: ${customer.risk_score >= 80 ? 'Critical' : 'High'}\nDue: ${customer.days_until_churn} days\nAction: Address ${customer.risk_reason}`;
+                              navigator.clipboard.writeText(task);
+                              showToast('Task copied to clipboard');
+                            }}
+                            className="px-2.5 py-1 text-xs text-slate-500 border border-slate-200 rounded hover:bg-white hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Copy task
+                          </button>
                         </div>
                       </div>
-                    </div>
                     ))
                   )}
                 </div>
