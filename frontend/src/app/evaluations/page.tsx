@@ -63,16 +63,33 @@ export default function EvaluationsPage() {
   }
 
   if (error || !data) {
+    // No baseline is the expected state, not a failure. The previous results file
+    // was deleted deliberately: it had been produced against a golden set whose
+    // questions referenced companies present in no data file. Showing a red error
+    // box implies something broke, when in fact nothing has been measured yet.
     return (
-      <main className="min-h-screen bg-sand p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-sand border border-critical rounded p-6 text-center">
-            <p className="text-critical font-semibold">Error loading evaluation results</p>
-            <p className="text-critical mt-2">{error || 'Unknown error'}</p>
-            <Link href="/" className="mt-4 inline-block text-mute hover:underline">
-              ← Back to Home
-            </Link>
+      <main className="min-h-screen bg-paper p-8">
+        <div className="max-w-2xl mx-auto pt-24">
+          <h1 className="display text-4xl text-ink">No evaluation baseline</h1>
+          <p className="text-mute mt-4 leading-relaxed">
+            Retrieval quality has not been measured against the current corpus and
+            golden set. The previous results were discarded rather than kept, because
+            they were scored against questions that referenced customers present in no
+            data file.
+          </p>
+          <div className="mt-8 border-t border-hair pt-6">
+            <p className="label mb-3">Produce a baseline</p>
+            <code className="block bg-sand border border-hair rounded px-4 py-3 text-[13px] font-mono text-ink">
+              uv run python scripts/benchmark_retrieval.py
+            </code>
+            <p className="text-sm text-faint mt-3 leading-relaxed">
+              Scores retrieval against the golden set&rsquo;s expected_context. No API
+              cost. A full RAGAS run is a separate, paid step.
+            </p>
           </div>
+          <Link href="/" className="mt-10 inline-block text-sm text-mute hover:text-ink">
+            &larr; Back to dashboard
+          </Link>
         </div>
       </main>
     );
@@ -125,7 +142,7 @@ export default function EvaluationsPage() {
               </thead>
               <tbody className="bg-paper divide-y divide-hair">
                 {data.results.map((result, idx) => (
-                  <tr key={result.method} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                  <tr key={result.method} className={idx % 2 === 0 ? 'bg-sand' : 'bg-white'}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-sm font-semibold text-ink">

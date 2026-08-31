@@ -225,14 +225,14 @@ export default function Home() {
 
   const getRiskColor = (score: number) => {
     if (score >= 80) return 'text-red-600 bg-red-50 border-red-200';
-    if (score >= 60) return 'text-orange-600 bg-orange-50 border-orange-200';
-    return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (score >= 60) return 'text-brass bg-sand border-hair';
+    return 'text-brass bg-sand border-hair';
   };
 
   const getRiskBadgeColor = (score: number) => {
     if (score >= 80) return 'bg-red-500';
-    if (score >= 60) return 'bg-orange-500';
-    return 'bg-yellow-500';
+    if (score >= 60) return 'bg-brass';
+    return 'bg-brass';
   };
 
   // Handle AI recommendations for a customer
@@ -274,13 +274,13 @@ export default function Home() {
   const SkeletonCard = () => (
     <div className="animate-pulse p-6 bg-card rounded-xl border border-hair">
       <div className="flex items-center justify-between mb-4">
-        <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
-        <div className="w-16 h-6 bg-gray-200 rounded-full"></div>
+        <div className="w-12 h-12 bg-hair rounded-lg"></div>
+        <div className="w-16 h-6 bg-hair rounded-full"></div>
       </div>
       <div className="space-y-3">
-        <div className="h-8 bg-gray-200 rounded w-24"></div>
-        <div className="h-4 bg-gray-200 rounded w-32"></div>
-        <div className="h-3 bg-gray-200 rounded w-20"></div>
+        <div className="h-8 bg-hair rounded w-24"></div>
+        <div className="h-4 bg-hair rounded w-32"></div>
+        <div className="h-3 bg-hair rounded w-20"></div>
       </div>
     </div>
   );
@@ -290,22 +290,22 @@ export default function Home() {
       <div className="flex items-start justify-between">
         <div className="flex-1 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="h-6 w-40 bg-gray-200 rounded"></div>
-            <div className="h-6 w-20 bg-gray-200 rounded-full"></div>
-            <div className="h-6 w-24 bg-gray-200 rounded"></div>
+            <div className="h-6 w-40 bg-hair rounded"></div>
+            <div className="h-6 w-20 bg-hair rounded-full"></div>
+            <div className="h-6 w-24 bg-hair rounded"></div>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <div className="h-12 bg-gray-200 rounded"></div>
-            <div className="h-12 bg-gray-200 rounded"></div>
-            <div className="h-12 bg-gray-200 rounded"></div>
+            <div className="h-12 bg-hair rounded"></div>
+            <div className="h-12 bg-hair rounded"></div>
+            <div className="h-12 bg-hair rounded"></div>
           </div>
           <div className="flex gap-2">
-            <div className="h-10 w-48 bg-gray-200 rounded-lg"></div>
-            <div className="h-10 w-32 bg-gray-200 rounded-lg"></div>
-            <div className="h-10 w-32 bg-gray-200 rounded-lg"></div>
+            <div className="h-10 w-48 bg-hair rounded-lg"></div>
+            <div className="h-10 w-32 bg-hair rounded-lg"></div>
+            <div className="h-10 w-32 bg-hair rounded-lg"></div>
           </div>
         </div>
-        <div className="w-20 h-20 bg-gray-200 rounded-full"></div>
+        <div className="w-20 h-20 bg-hair rounded-full"></div>
       </div>
     </div>
   );
@@ -318,7 +318,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-ink rounded-lg flex items-center justify-center">
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -334,7 +334,7 @@ export default function Home() {
                   onClick={() => setActiveTab('dashboard')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'dashboard'
-                      ? 'bg-gray-100 text-ink'
+                      ? 'bg-sand text-ink'
                       : 'text-mute hover:text-ink hover:bg-wall'
                   }`}
                 >
@@ -344,7 +344,7 @@ export default function Home() {
                   onClick={() => setActiveTab('analyze')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                     activeTab === 'analyze'
-                      ? 'bg-gray-100 text-ink'
+                      ? 'bg-sand text-ink'
                       : 'text-mute hover:text-ink hover:bg-wall'
                   }`}
                 >
@@ -370,13 +370,13 @@ export default function Home() {
                 </Link>
               </nav>
 
-              <div className="h-6 w-px bg-gray-200"></div>
+              <div className="h-6 w-px bg-hair"></div>
 
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-wall">
                 <div className={`w-1.5 h-1.5 rounded-full ${
                   backendStatus === 'online' ? 'bg-brass' :
                   backendStatus === 'offline' ? 'bg-red-500' :
-                  'bg-yellow-500'
+                  'bg-brass'
                 }`} />
                 <span className="text-xs text-mute font-medium">
                   {backendStatus === 'online' ? 'Live' :
@@ -457,13 +457,13 @@ export default function Home() {
                     <button
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="p-2 border border-gray-300 text-gray-700 rounded-md hover:bg-wall transition-colors disabled:opacity-50"
+                      className="p-2 border border-hair text-mute rounded-md hover:bg-wall transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </button>
                     <button
                       onClick={handleExport}
-                      className="px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+                      className="px-3 py-2 bg-ink text-white text-sm font-medium rounded-md hover:bg-ink transition-colors flex items-center gap-1.5"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Export
@@ -471,7 +471,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-hair">
                   {dashboardLoading ? (
                     <>
                       <SkeletonCustomer />
@@ -480,7 +480,7 @@ export default function Home() {
                     </>
                   ) : atRiskCustomers.length === 0 ? (
                     <div className="p-12 text-center">
-                      <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <div className="bg-sand w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
                         <CheckCircle2 className="w-8 h-8 text-brass" />
                       </div>
                       <p className="text-lg font-bold text-ink mb-1">All Clear!</p>
@@ -590,7 +590,7 @@ export default function Home() {
           >
             <div className={`${
               toastMessage.includes('✓') || toastMessage.includes('copied')
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600'
+                ? 'bg-gradient-to-r from-mute to-emerald-600'
                 : 'bg-gradient-to-r bg-ink'
             } text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 min-w-[320px] max-w-md border-2 border-white/20`}>
               {toastMessage.includes('✓') || toastMessage.includes('copied') ? (

@@ -135,7 +135,7 @@ export default function Chatbot({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => onSuggestedPrompt(prompt)}
-                    className="px-4 py-3 bg-paper border-2 border-hair rounded hover:border-hair hover:shadow-paper transition-all text-sm font-medium text-mute text-left"
+                    className="px-4 py-3 bg-paper border border-hair rounded hover:border-hair hover:shadow-paper transition-all text-sm font-medium text-mute text-left"
                   >
                     {prompt}
                   </motion.button>
@@ -156,8 +156,8 @@ export default function Chatbot({
               {/* Avatar */}
               <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
                 message.role === 'user'
-                  ? 'bg-gradient-to-br from-purple-500 to-pink-500'
-                  : 'bg-gradient-to-br from-blue-500 to-indigo-500'
+                  ? 'bg-sand border border-hair'
+                  : 'bg-ink'
               }`}>
                 {message.role === 'user' ? (
                   <User className="w-5 h-5 text-white" />
@@ -170,8 +170,8 @@ export default function Chatbot({
               <div className={`flex-1 max-w-3xl ${message.role === 'user' ? 'flex justify-end' : ''}`}>
                 <div className={`group relative ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                    : 'bg-white border-2 border-gray-200'
+                    ? 'bg-ink text-white'
+                    : 'bg-white border-2 border-hair'
                 } rounded-2xl px-5 py-4 shadow-sm`}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -185,7 +185,7 @@ export default function Chatbot({
                         </div>
                       )}
                       <p className={`text-xs mt-2 ${
-                        message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                        message.role === 'user' ? 'text-white/60' : 'text-faint'
                       }`}>
                         {formatTime(message.timestamp)}
                       </p>
@@ -238,7 +238,7 @@ export default function Chatbot({
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-sand flex items-center justify-center">
                 <Bot className="w-5 h-5 text-white" />
               </div>
-              <div className="bg-paper border-2 border-hair rounded px-5 py-4 shadow-sm">
+              <div className="bg-paper border border-hair rounded px-5 py-4 shadow-sm">
                 <div className="flex gap-2">
                   <motion.div
                     animate={{ scale: [1, 1.3, 1] }}
@@ -272,7 +272,7 @@ export default function Chatbot({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask me anything about customer churn..."
             disabled={loading || backendStatus === 'offline'}
-            className="flex-1 px-4 py-3 border-2 border-hair rounded focus:ring-2 focus:ring-blue-500 focus:border-hair disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex-1 px-4 py-3 border border-hair rounded focus:ring-1 focus:ring-ink focus:border-ink disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           />
           <motion.button
             whileHover={{ scale: 1.05 }}

@@ -45,7 +45,7 @@ export default function IntegrationsPage() {
       recordsSynced: 1247,
       category: 'crm',
       features: ['Account sync', 'Opportunity tracking', 'Contact management', 'Custom fields'],
-      color: 'bg-blue-500',
+      color: 'bg-ink',
     },
     {
       id: 'stripe',
@@ -57,7 +57,7 @@ export default function IntegrationsPage() {
       recordsSynced: 892,
       category: 'billing',
       features: ['Payment tracking', 'Subscription events', 'MRR calculation', 'Churn analysis'],
-      color: 'bg-purple-500',
+      color: 'bg-ink',
     },
     {
       id: 'mixpanel',
@@ -69,7 +69,7 @@ export default function IntegrationsPage() {
       recordsSynced: 45231,
       category: 'analytics',
       features: ['Event tracking', 'User engagement', 'Feature adoption', 'Cohort analysis'],
-      color: 'bg-indigo-500',
+      color: 'bg-ink',
     },
     {
       id: 'intercom',
@@ -79,7 +79,7 @@ export default function IntegrationsPage() {
       status: 'disconnected',
       category: 'support',
       features: ['Conversation sync', 'CSAT scores', 'Support tickets', 'Response times'],
-      color: 'bg-green-500',
+      color: 'bg-ink',
     },
     {
       id: 'hubspot',
@@ -90,7 +90,7 @@ export default function IntegrationsPage() {
       lastSync: '2 hours ago',
       category: 'crm',
       features: ['Contact sync', 'Deal pipeline', 'Marketing campaigns', 'Lead scoring'],
-      color: 'bg-orange-500',
+      color: 'bg-ink',
     },
     {
       id: 'zendesk',
@@ -163,6 +163,20 @@ export default function IntegrationsPage() {
 
   return (
     <div className="min-h-screen bg-sand">
+      {/* This page describes connectors that do not exist. Every status, sync time
+          and record count below is illustrative. Saying so on the page is the
+          difference between a roadmap and a false claim -- the same problem as the
+          94.7% figure removed in 0.3. */}
+      <div className="bg-sand border-b border-hair">
+        <div className="max-w-7xl mx-auto px-6 py-3">
+          <p className="text-sm text-mute">
+            <span className="label mr-2">Roadmap</span>
+            No integration is connected. The statuses, sync times and record counts
+            on this page are illustrative of the intended product, not live data.
+          </p>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="bg-paper border-b border-hair sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -244,8 +258,8 @@ export default function IntegrationsPage() {
                 onClick={() => setSelectedCategory(category.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   selectedCategory === category.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-ink text-white'
+                    : 'bg-sand text-mute hover:bg-hair'
                 }`}
               >
                 {category.name} ({category.count})
@@ -279,7 +293,7 @@ export default function IntegrationsPage() {
                       <span className={`text-sm font-medium ${
                         integration.status === 'connected' ? 'text-mute' :
                         integration.status === 'error' ? 'text-mute' :
-                        'text-gray-500'
+                        'text-faint'
                       }`}>
                         {getStatusText(integration.status)}
                       </span>
