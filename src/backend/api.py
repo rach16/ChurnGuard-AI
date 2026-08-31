@@ -13,6 +13,7 @@ from typing import Optional
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
@@ -350,9 +351,13 @@ async def analyze_churn(request: ChurnAnalysisRequest):
     try:
         # Run agent analysis
         logger.info("🤖 Running agent analysis...")
-        result = churn_agent.run(
+        # LangGraph's run() is synchronous and takes seconds. Awaiting it directly
+        # from an async handler blocks the event loop, so a single worker serialises
+        # every request behind it. Hand it to a thread instead.
+        result = await run_in_threadpool(
+            churn_agent.run,
             query=request.query,
-            customer_id=request.customer_id
+            customer_id=request.customer_id,
         )
         
         # Extract recommendations if requested
@@ -447,7 +452,9 @@ async def ask_question(request: AskRequest):
         
         # Get the retrieval method
         retrieval_method = retriever_methods[request.retriever_type]
-        docs = retrieval_method(query=request.question, k=5)
+        # Retrieval embeds the query and hits Qdrant; multi_query also calls the LLM.
+        # All of it is synchronous, so it belongs off the event loop too.
+        docs = await run_in_threadpool(retrieval_method, query=request.question, k=5)
         
         if not docs:
             return {
@@ -489,10 +496,10 @@ Answer:""")
         ])
         
         chain = prompt | llm
-        result = chain.invoke({
+        result = await run_in_threadpool(chain.invoke, {
             "context": context,
             "question": request.question,
-            "max_length": request.max_response_length
+            "max_length": request.max_response_length,
         })
         
         answer = result.content
@@ -556,7 +563,7 @@ async def multi_agent_analyze(request: MultiAgentRequest):
     try:
         # Run multi-agent analysis
         logger.info("🤖 Running multi-agent analysis...")
-        result = multi_agent_system.analyze(query=request.query)
+        result = await run_in_threadpool(multi_agent_system.analyze, query=request.query)
         
         # Calculate metrics
         response_time = int((time.time() - start_time) * 1000)

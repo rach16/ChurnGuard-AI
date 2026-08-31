@@ -1,0 +1,25 @@
+# Keep the build context small and deterministic.
+.git
+.venv
+venv
+__pycache__
+*.pyc
+node_modules
+frontend/.next
+frontend/node_modules
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Local state that must never leak into an image
+.env
+.aws
+cache/*.pkl
+warehouse/target
+warehouse/logs
+warehouse/*.duckdb
+
+# Notebooks and docs are not needed at runtime
+notebooks
+docs
+*.ipynb
