@@ -41,6 +41,13 @@ dependencies = [
 
 
 [project.optional-dependencies]
+# Survival model training and inference. scikit-learn was removed from runtime in
+# 2.5 as unused; it is used again here, but only by the training path.
+model = [
+    "scikit-learn>=1.5.0",
+    "joblib>=1.3.2",
+]
+
 # RAGAS evaluation. Pulls datasets and pyarrow (~128 MB), needed only to run evals.
 evaluation = [
     "ragas==0.2.10",
