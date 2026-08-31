@@ -1,11 +1,11 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `4156d55` · 19 commits since fork.
+Last updated 2026-08-31 · `main` @ `be0d1a5` · 24 commits since fork.
 
 ## In flight
 
-Nothing. Phase 2.5 landed; 2.2w is next and not started.
+Nothing. Phase 2.2w landed (written, not applied); 2.3 is next.
 
 ## Completed
 
@@ -27,6 +27,7 @@ Nothing. Phase 2.5 landed; 2.2w is next and not started.
 | **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 | AI · Hybrid search |
 | **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
+| **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ## Current metrics
 
@@ -76,11 +77,11 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
 | ├ Multi-agent orchestration | ✅ | pre-existing, now served |
 | └ Model-agnostic providers | ❌ | 4.2 |
-| **Phase 2 — Cloud Architecture** | 🔴 barely started | |
+| **Phase 2 — Cloud Architecture** | 🔄 partial | |
 | ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
-| ├ IaC / Terraform | ❌ | 2.2w |
-| ├ Networking, VPC, IAM | ❌ | 2.2 |
-| └ Container orchestration | ❌ | 2.2 |
+| ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
+| ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
+| └ Container orchestration | 🔄 defined; never applied | 2.2a |
 | **Phase 3 — Consulting** | 🔄 1 of 4 artifacts | |
 | ├ ADRs | ✅ | 7 records, `3d208a3` |
 | ├ Site Survey | ❌ | 5.2 |
@@ -108,7 +109,6 @@ actual content (IaC, networking, orchestration) is still at zero.
 
 | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|
-| 2.2w | Write Terraform (ECR, VPC, ECS, ALB) | 2d | $0 | 2.1 | P2 · IaC, networking |
 | 2.2a | `terraform apply` | — | **$5–10 test / ~$105mo** | 2.2w | P2 · Orchestration |
 | 2.3 | Cognito auth, rate limiting, token cap | 1d | $0 to write | 2.2 | P2 · Enterprise security |
 | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 (free tier) | 2.2 | P2 · DevSecOps |

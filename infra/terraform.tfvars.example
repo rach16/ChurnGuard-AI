@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and edit. terraform.tfvars is gitignored.
+
+region        = "us-east-1"
+desired_count = 1
+
+# Cost controls -------------------------------------------------------------
+enable_nat_gateway = false   # true adds ~$33/month
+monthly_budget_usd = 20
+alarm_email        = ""      # set to receive billing alerts
+
+# LLM stack -----------------------------------------------------------------
+# Leave disabled until 2.3 adds auth and rate limiting. An open endpoint calling
+# an LLM has no spend ceiling.
+enable_rag = false
+
+# qdrant_url        = "https://xyz.cloud.qdrant.io:6333"
+# openai_secret_arn = "arn:aws:secretsmanager:us-east-1:586723123589:secret:churnguard/openai-XXXXXX"
+
+# Narrow this before enabling the LLM stack.
+allowed_cidr = "0.0.0.0/0"
