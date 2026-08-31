@@ -4,60 +4,61 @@ version = "0.1.0"
 description = "AI-powered customer churn prediction and analysis using RAG and LLM agents"
 readme = "README.md"
 requires-python = ">=3.12"
+# Runtime only: what the API process actually imports to serve a request.
+# Everything else moved to an extra -- see [project.optional-dependencies].
+# The eval, notebook and plotting stack was ~450 MB of an image that never uses it.
 dependencies = [
     # Web Framework
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-dotenv>=1.0.0",
-    
+    "pydantic>=2.0.0",
+
     # LangChain Core & Agents
     "langgraph>=0.2.69",
     "langchain>=0.3.19",
     "langchain-community>=0.3.16",
     "langchain-openai>=0.3.7",
     "langchain-experimental>=0.3.4",
-    
+
     # LLM Providers
     "openai>=1.61.0",
-    "langchain-cohere>=0.3.3",
-    
+    "langchain-cohere>=0.3.3",   # rag_retrievers.rerank_retrieval
+
     # Vector Database
     "qdrant-client>=1.13.2",
     "langchain-qdrant>=0.2.0",
-    
-    # Document Processing
-    "pymupdf>=1.26.3",
-    "unstructured>=0.14.8",
-    
+
     # Search & Retrieval
-    "tavily-python>=0.5.0",
-    "rank-bm25>=0.2.2",
-    
-    # Evaluation & Metrics
-    "ragas==0.2.10",
-    
-    # Data Science & Visualization
-    "networkx>=3.0",
+    "tavily-python>=0.5.0",      # tools/search_tools.py
+    "rank-bm25>=0.2.2",          # core/rag_retrievers.hybrid_retrieval
+
+    # Data
     "numpy>=2.2.2",
     "pandas>=2.0.0",
-    "matplotlib>=3.7.0",
-    "seaborn>=0.12.0",
-    "scikit-learn>=1.3.0",
-    
-    # NLP & Text Processing
-    "nltk==3.8.1",
-    
-    # Jupyter & Notebook Support
-    "jupyterlab>=4.0.6",
-    "ipywidgets>=8.1.1",
-    
-    # Utilities
-    "joblib>=1.3.2",
-    "tqdm>=4.66.0",
-    "pydantic>=2.0.0",
+    "networkx>=3.0",             # core/knowledge_graph.py
 ]
 
+
 [project.optional-dependencies]
+# RAGAS evaluation. Pulls datasets and pyarrow (~128 MB), needed only to run evals.
+evaluation = [
+    "ragas==0.2.10",
+    "tqdm>=4.66.0",
+]
+
+# Chart generation for notebooks and metrics reports.
+visualization = [
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+]
+
+# Interactive analysis. Never part of a served image.
+notebook = [
+    "jupyterlab>=4.0.6",
+    "ipywidgets>=8.1.1",
+]
+
 warehouse = [
     # Local analytical warehouse. DuckDB is embedded -- no server, no credentials.
     "duckdb>=1.1.0",

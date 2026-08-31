@@ -42,6 +42,8 @@ COPY README.md ./
 COPY uv.lock* ./
 
 # Install dependencies using uv (much faster than pip)
+# Runtime dependencies only. The evaluation, notebook and plotting extras are
+# deliberately excluded -- they were ~450 MB of an image that never imports them.
 RUN uv sync --no-dev --no-install-project || uv pip install --system -e .
 
 # Copy source code
@@ -73,8 +75,11 @@ CMD ["uv", "run", "python", "/app/src/backend/api.py"]
 # Stage 3: Jupyter Notebook Server
 FROM base AS jupyter
 
-# Jupyter dependencies are already installed in base stage via pyproject.toml
-# No additional installation needed
+# Jupyter, plotting and evaluation are extras now, so this stage installs them.
+# The backend stage deliberately does not.
+RUN uv sync --no-dev --no-install-project \
+        --extra notebook --extra visualization --extra evaluation \
+    || uv pip install --system -e ".[notebook,visualization,evaluation]"
 
 # Expose Jupyter port
 EXPOSE 8888
