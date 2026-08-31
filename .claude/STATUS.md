@@ -121,57 +121,60 @@ actual content (IaC, networking, orchestration) is still at zero.
 
 ## Next — ordered by the critical path
 
-The critical path to the product is **point-in-time features → survival model →
-predictions surfaced**. Everything else supports that or waits. Phase numbering
-is preserved from the original plan; only the order changed.
+**Phase numbers are identifiers, not a sequence.** They are referenced by commit
+messages and ADRs, so they never change; the order does, and did. Read the
+**Step** column for execution order.
 
-### Phase 7 — Prediction (new, critical path)
+The critical path is **point-in-time features → survival model → predictions
+surfaced**. Everything else supports that or waits.
 
-| # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|
-| 7.1 | Point-in-time feature + label models in dbt | 1½d | $0 | — | P1 · Feature engineering |
-| 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
-| 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
-| 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
-| 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
+### Phase 7 — Prediction (execute first)
 
-### Phase 4 — Explanation layer
+| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|---|
+| **1** | 7.1 | Point-in-time feature + label models in dbt | 1½d | $0 | — | P1 · Feature engineering |
+| **2** | 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
+| **3** | 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
+| **4** | 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
+| **5** | 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
 
-| # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|
-| 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
-| 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
-| 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
+### Phase 4 — Explanation layer (execute second)
 
-### Phase 5 — The "Forward"
+| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|---|
+| **6** | 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
+| **7** | 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
+| **8** | 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
 
-| # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|
-| 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
-| 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
-| 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+### Phase 5 — The "Forward" (execute third)
 
-### Phase 3 — Evaluation
+| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|---|
+| **9** | 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
+| **10** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
+| **11** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
 
-| # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|
-| 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
-| 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
-| 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
-| 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
+### Phase 3 — Evaluation (execute fourth)
 
-### Phase 2 — Deployment (demoted, not dropped)
+| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|---|
+| **12** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
+| **13** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
+| **14** | 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
+| **15** | 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
+
+### Phase 2 — Deployment (execute last)
 
 Deployment is no longer the critical path. There is no point deploying a system
 whose core prediction does not exist yet. Terraform is written and validated, so
 this is ready whenever it is worth doing.
 
-| # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|
-| 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
-| 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
-| 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
-| 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
+| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
+|---|---|---|---|---|---|---|
+| **16** | 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
+| **17** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
+| **18** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
+| **19** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
 
 ## Deferred
 
