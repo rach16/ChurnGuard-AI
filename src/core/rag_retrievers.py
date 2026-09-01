@@ -141,12 +141,17 @@ class ChurnRAGRetriever:
         self.child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
         self.parent_retriever = None  # Will be initialized after loading documents
         
-    def load_and_process_documents(self, data_folder: str = "data/"):
+    def load_and_process_documents(self, data_folder: str = "data/",
+                                   index_vectors: bool = True):
         """
-        Load documents from data folder and create vector embeddings
-        
+        Load the corpus, and by default embed and index it.
+
         Args:
             data_folder: Path to data folder with CSV files
+            index_vectors: False loads the documents and stops. Embedding 771
+                documents is the only step here that calls a paid API, so a
+                keyword-only caller -- the CI regression check -- skips it and
+                runs at zero cost. Every semantic and hybrid path needs it.
         """
         logger.info(f"Loading documents from {data_folder}...")
 
@@ -156,6 +161,10 @@ class ChurnRAGRetriever:
         self.documents = data_loader.get_all_documents()
 
         logger.info(f"✓ Loaded {len(self.documents)} corpus documents")
+
+        if not index_vectors:
+            logger.info("Skipping vector indexing: keyword-only mode")
+            return len(self.documents)
 
         # Initialize vector store (empty initially - parent retriever will populate it)
         self._init_empty_vector_store()
@@ -348,8 +357,18 @@ class ChurnRAGRetriever:
         # Over-fetch from each retriever so fusion has room to reorder.
         depth = max(k * 4, 20)
 
-        semantic_docs = self.vector_store.similarity_search(query, k=depth)
-        keyword_docs = self._bm25_search(query, k=depth)
+        # Skip a retriever whose weight is zero. At semantic_weight 0 the dense
+        # results contribute exactly nothing to the fusion below, so calling the
+        # vector store was pure waste -- and, more usefully, skipping it means a
+        # pure-keyword run needs no embeddings, no API key and no vector store at
+        # all. That is what lets the regression check run in CI for free.
+        semantic_docs = (
+            self.vector_store.similarity_search(query, k=depth)
+            if semantic_weight > 0 else []
+        )
+        keyword_docs = (
+            self._bm25_search(query, k=depth) if semantic_weight < 1 else []
+        )
 
         # Reciprocal rank fusion: a document's score is the sum over rankings of
         # 1/(RRF_K + rank). Documents both retrievers like rise above those either

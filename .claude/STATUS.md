@@ -36,6 +36,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | **2.3** | API key auth, rate limit, token cap | `9ab57a2` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
 | **2.4** | CI on every push; deploy pipeline written | `a423dbc` | 3 CI jobs (contracts+warehouse+65 tests, typecheck+build, terraform validate) on free public runners. Deploy is `workflow_dispatch` only and authenticates by OIDC — no long-lived AWS key in a public repo. | P2 · DevSecOps |
 | **D1** | Evaluation 404 + evidence tests | `aea2a34` | `/evaluation-results` 500→404. Evidence gains 10 tests, which exposed BM25 returning **zero evidence** when a customer has few passages — IDF collapses to 0 on a tiny corpus. | AI · RAG grounding |
+| **3.2a** | Retrieval regression gate in CI | `PLACEHOLDER_32` | Retrieval could have degraded 0.971→0.6 with every test still green. Now fails the build. Keyword-only, so **$0 per run** — verified it fires on a degraded retriever and not on a working one. | AI · Eval, inner loop |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -74,7 +75,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → **75/75 pass** | 2026-09-01 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → **80/80 pass** | 2026-09-01 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -197,7 +198,7 @@ than the work being forgotten.
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
 | **2** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
-| **3** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
+| **3** | 3.2b | Answer-faithfulness gate (needs a judge) | ½d | $0 | 3.1 | AI · Eval, inner loop |
 | **4** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
 | **5** | 3.3 | OTel → CloudWatch / X-Ray | 1d | **<$1** | 2.2a | AI · Eval, outer loop |
 | **6** | 3.4 | LLM-as-judge on sampled traffic | ½d | **$1–2** | 3.3 | AI · Eval, outer loop |
