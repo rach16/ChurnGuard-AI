@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `765fcf3` · 49 commits since fork.
+Last updated 2026-09-01 · `main` @ `e5e9e4e` · 51 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -34,6 +34,7 @@ that can start without a decision.
 | **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 | AI · Hybrid search |
 | **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
+| **2.3** | API key auth, rate limit, token cap | `2b36abd` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -70,6 +71,7 @@ that can start without a decision.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
+| pytest | ~~45~~ → **65/65 pass** | 2026-09-01 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -140,6 +142,8 @@ actual content (IaC, networking, orchestration) is still at zero.
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
 | **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
+| **Rate limit is per process, not per service** | Behind >1 replica the effective limit is the configured value times `desired_count`. Stated in `/health`, `.env.example`, the module docstring and ADR-0010. Needs shared state (ElastiCache or the ALB's own limiter); deferred until there is more than one replica. |
+| **Static shared API keys** | No rotation, no per-user attribution, revocation only by editing the secret and restarting. The floor, not the ceiling — 2.6 (Cognito) is the ceiling. |
 | **No test covers the evidence layer** | `CustomerEvidence` is keyed by `customer_id`, so cross-account leakage is structurally unreachable — but nothing asserts it. Found while writing the PRD's success criteria on 2026-09-01; S4 is marked true-by-construction rather than verified. A test belongs in 4.4. |
 | **`api.py` never calls `load_dotenv`** | A key in `.env` is ignored unless exported, so RAG, the agent and the multi-agent system come up unavailable on a stock checkout. Pre-existing, verified against `main` on 2026-09-01. Contradicts the `.env` instruction in CLAUDE.md. One-line fix, not applied — out of scope for 5.4. |
 | **Recoverable figure is survivorship-biased** | `success_stories.csv` records only interventions that worked. The recovery estimate is an upper bound and is labelled as one everywhere it is returned. Removing the bias needs a recorded failure set. |
@@ -214,8 +218,8 @@ this is ready whenever it is worth doing.
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **15** | 2.3 | API key, rate limit, per-request token cap | ½d | $0 | — | P2 · Enterprise security |
-| **16** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
+| ~~15~~ | 2.3 | ~~API key, rate limit, token cap~~ — **done**, see Completed | — | $0 | — | P2 · Enterprise security |
+| **9** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
 | **17** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
 | **18** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
 

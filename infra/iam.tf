@@ -20,20 +20,29 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Reading the OpenAI key is scoped to the one secret, not secretsmanager:* .
+# Reading secrets is scoped to the exact ARNs configured, not secretsmanager:* .
+#
+# Built from whichever secrets are actually set. Scoping this to the OpenAI ARN
+# alone would mean a deployment that sets only api_keys_secret_arn gets an
+# execution role that cannot read it, and the task fails to start with a
+# ResourceInitializationError that does not name the cause.
+locals {
+  secret_arns = compact([var.openai_secret_arn, var.api_keys_secret_arn])
+}
+
 data "aws_iam_policy_document" "read_secret" {
-  count = var.openai_secret_arn == "" ? 0 : 1
+  count = length(local.secret_arns) == 0 ? 0 : 1
 
   statement {
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [var.openai_secret_arn]
+    resources = local.secret_arns
   }
 }
 
 resource "aws_iam_role_policy" "execution_secrets" {
-  count = var.openai_secret_arn == "" ? 0 : 1
+  count = length(local.secret_arns) == 0 ? 0 : 1
 
-  name   = "${local.name}-read-openai-secret"
+  name   = "${local.name}-read-secrets"
   role   = aws_iam_role.execution.id
   policy = data.aws_iam_policy_document.read_secret[0].json
 }

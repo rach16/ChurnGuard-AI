@@ -56,6 +56,39 @@ variable "openai_secret_arn" {
   default     = ""
 }
 
+variable "api_keys_secret_arn" {
+  description = <<-EOT
+    ARN of a Secrets Manager secret holding comma-separated API keys for the
+    X-API-Key header.
+
+    Left empty, the service runs UNAUTHENTICATED. That is the correct default for
+    a local checkout and wrong for anything reachable from outside the VPC, so set
+    it before exposing the load balancer. /health reports which mode the task came
+    up in. See ADR-0010.
+
+        aws secretsmanager create-secret --name churnguard/api-keys \
+          --secret-string "$(openssl rand -hex 32),$(openssl rand -hex 32)"
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "rate_limit_per_minute" {
+  description = <<-EOT
+    Requests per minute per caller. Enforced per process, so the effective limit
+    across the service is this value times desired_count. Shared-state limiting is
+    deferred until there is more than one replica -- ADR-0010.
+  EOT
+  type        = number
+  default     = 60
+}
+
+variable "llm_max_tokens" {
+  description = "Cap on completion tokens per LLM request. 0 removes the cap."
+  type        = number
+  default     = 1024
+}
+
 variable "task_cpu" {
   description = "Fargate CPU units. 1024 = 1 vCPU."
   type        = number

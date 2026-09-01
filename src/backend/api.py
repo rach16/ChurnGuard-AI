@@ -29,6 +29,7 @@ from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
 from core.llm import active_configuration
+import security
 from model.survival import ChurnSurvivalModel
 from core.llm import chat_model
 
@@ -260,6 +261,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Added after CORS so it runs inside it: a rejected request still carries the CORS
+# headers a browser needs to read the 401 rather than reporting a network error.
+security.install(app)
+
 
 def require_ai(component: str):
     """Return an initialized AI component, or explain precisely what is missing."""
@@ -289,17 +294,25 @@ def require_health_scorer() -> CustomerHealthScorer:
 
 
 # Request/Response Models
+# Input side of the cost control. The output cap lives in core/llm.py; this bounds
+# what can be sent in. 2000 characters is roughly 500 tokens -- longer than any
+# real question and short enough that a scripted caller cannot inflate the prompt.
+MAX_QUESTION_CHARS = int(os.getenv("MAX_QUESTION_CHARS", 2000))
+
+
 class ChurnAnalysisRequest(BaseModel):
     """Request model for churn analysis"""
-    customer_id: Optional[str] = Field(None, description="Customer ID to analyze")
-    query: str = Field(..., description="Question about churn analysis")
+    customer_id: Optional[str] = Field(None, max_length=64, description="Customer ID to analyze")
+    query: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
+                       description="Question about churn analysis")
     include_recommendations: bool = Field(True, description="Include retention recommendations")
     max_response_length: int = Field(2000, ge=100, le=4000)
 
 
 class AskRequest(BaseModel):
     """Request model for general questions"""
-    question: str = Field(..., description="Question about churn patterns")
+    question: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
+                          description="Question about churn patterns")
     retriever_type: str = Field(
         "hybrid", 
         description="Retrieval method: 'hybrid' (default, measured best), 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
@@ -309,7 +322,8 @@ class AskRequest(BaseModel):
 
 class MultiAgentRequest(BaseModel):
     """Request model for multi-agent analysis"""
-    query: str = Field(..., description="Question for comprehensive multi-agent analysis")
+    query: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
+                       description="Question for comprehensive multi-agent analysis")
     include_background: bool = Field(True, description="Include background context from research team")
     include_citations: bool = Field(True, description="Include detailed citations")
 
@@ -323,6 +337,7 @@ class HealthResponse(BaseModel):
     components: dict = {}
     errors: dict = {}
     llm: dict = {}
+    security: dict = {}
 
 
 class ChurnAnalysisResponse(BaseModel):
@@ -370,6 +385,10 @@ async def health_check():
         # Which provider is actually configured, so a deployment can be audited
         # without reading the environment. Never includes a credential.
         llm=active_configuration(),
+        # Whether the API is accepting anonymous traffic. Deliberately visible on
+        # an unauthenticated endpoint: an operator needs to be able to see that
+        # auth is off without already having a key.
+        security=security.status_summary(),
     )
 
 

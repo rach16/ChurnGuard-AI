@@ -14,20 +14,33 @@ resource "aws_cloudwatch_log_group" "backend" {
 
 locals {
   # ENABLE_RAG drives the degraded mode from phase 0.1. With it false the task
-  # serves dashboard endpoints from baked-in CSV and returns 503 on LLM routes,
-  # which is the safe default before 2.3 adds auth and rate limiting.
+  # serves dashboard endpoints from baked-in CSV and returns 503 on LLM routes.
   base_environment = [
     { name = "ENABLE_RAG", value = tostring(var.enable_rag) },
     { name = "QDRANT_URL", value = var.qdrant_url },
     { name = "LOG_LEVEL", value = "INFO" },
     { name = "DATA_FOLDER", value = "data" },
+
+    # 2.3 cost controls. The rate limit is enforced per process, so the effective
+    # limit across the service is this times desired_count -- see ADR-0010.
+    { name = "RATE_LIMIT_PER_MINUTE", value = tostring(var.rate_limit_per_minute) },
+    { name = "LLM_MAX_TOKENS", value = tostring(var.llm_max_tokens) },
   ]
 
   # Secrets arrive as ARNs resolved by the ECS agent at start. The value never
   # enters the task definition, Terraform state, or a log line.
-  secrets = var.openai_secret_arn == "" ? [] : [
-    { name = "OPENAI_API_KEY", valueFrom = var.openai_secret_arn }
-  ]
+  #
+  # API_KEYS is a credential, so it goes here rather than in environment even
+  # though the application reads it as an ordinary variable. Left unset, the task
+  # comes up serving UNAUTHENTICATED and says so in /health and its logs.
+  secrets = concat(
+    var.openai_secret_arn == "" ? [] : [
+      { name = "OPENAI_API_KEY", valueFrom = var.openai_secret_arn }
+    ],
+    var.api_keys_secret_arn == "" ? [] : [
+      { name = "API_KEYS", valueFrom = var.api_keys_secret_arn }
+    ],
+  )
 }
 
 resource "aws_ecs_task_definition" "backend" {
