@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `6000938` · 36 commits since fork.
+Last updated 2026-08-31 · `main` @ `fc30742` · 40 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,7 +9,7 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Phase 8 (UI) complete. Step 1 (7.3) is next: the survival model ranks well
+Nothing. Phase 9 (recommended plays) complete. Step 1 (7.3) is next: the survival model ranks well
 but its **dates are 196 days off and not usable**, which blocks 7.4.
 
 ## Completed
@@ -39,6 +39,7 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | Phase | Delivered | Commit | Measurably changed | FDE roadmap |
 |---|---|---|---|---|
 | **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
+| **9.1** | Recommended plays from recorded outcomes | `fc537b1` | The app now answers "what has worked on accounts like this", not only "who is at risk" | P3 · Last-mile integration |
 | **8.1** | Operator console: rail, queue, detail pane | `3ac11f8` | Accounts visible without scrolling 1.5 → 14. Selection replaces navigation. | P3 · Technical demo |
 | **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
 | **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
