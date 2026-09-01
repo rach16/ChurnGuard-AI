@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `7278b8c` · 27 commits since fork.
+Last updated 2026-08-31 · `main` @ `6000938` · 36 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,8 +9,8 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Step 1 (7.2) landed as a ranker; its **dates are not yet usable** and 7.3 must
-fix calibration before 7.4 can serve them.
+Nothing. Phase 8 (UI) complete. Step 1 (7.3) is next: the survival model ranks well
+but its **dates are 196 days off and not usable**, which blocks 7.4.
 
 ## Completed
 
@@ -39,6 +39,10 @@ fix calibration before 7.4 can serve them.
 | Phase | Delivered | Commit | Measurably changed | FDE roadmap |
 |---|---|---|---|---|
 | **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
+| **8.1** | Operator console: rail, queue, detail pane | `3ac11f8` | Accounts visible without scrolling 1.5 → 14. Selection replaces navigation. | P3 · Technical demo |
+| **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
+| **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
+| **8.4** | Honest empty states; integrations marked roadmap | `ee8a0cc` | Six fabricated "live" connectors relabelled | AI · Proof mechanisms |
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
@@ -102,7 +106,8 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
 | ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
-| **Phase 3 — Consulting** | 🔄 1 of 4 artifacts | |
+| **Phase 3 — Consulting** | 🔄 2 of 5 artifacts | |
+| ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
 | ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
 | ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
 | ├ Site Survey | ❌ | 5.2 |
@@ -127,8 +132,7 @@ actual content (IaC, networking, orchestration) is still at zero.
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
 | All LLM calls hardcoded to OpenAI | 8 files construct `ChatOpenAI`/`OpenAIEmbeddings` directly. No provider abstraction. → 4.2 |
-| `/integrations` page | Static hardcoded array, zero API calls |
-| `/evaluations` page | Renders an error since the baseline CSV was deleted |
+| No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
 
