@@ -240,7 +240,7 @@ this is ready whenever it is worth doing.
 
 | Item | Reason |
 |---|---|
-| 0.9 Vercel fix | User deferred 2026-08-30. Needs dashboard access to set Root Directory to `frontend`, or disable the integration. |
+| 0.9 Vercel fix | **Diagnosis confirmed 2026-09-01.** Root Directory must be `frontend`; the original note was right. Build logs show Vercel auto-detecting the repo as **FastAPI** (`pyproject.toml` at root) and erroring before Next.js is considered — a symptom of the root directory, not a separate fault. A root `vercel.json` with `framework: nextjs` does **not** work: it makes Vercel look for `next` in the root `package.json`. Verified `cd frontend && vercel build` succeeds. Blocked on one project-settings change. |
 | 4.3 Vector migration off Qdrant | No target until Phase 2 deploys. OpenSearch Serverless has a 2-OCU minimum ≈ **$350/mo** for 137 KB — use pgvector (~$15/mo) or Qdrant Cloud free tier instead. |
 | Phase 6 air-gap / edge | Only worth it for defence or regulated clients. |
 | Knowledge graph rebuild | Superseded — ARCHITECTURE.md schedules deletion in 4.5, not a rebuild. |
