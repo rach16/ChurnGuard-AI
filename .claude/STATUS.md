@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `b8a8781` · 45 commits since fork.
+Last updated 2026-09-01 · `main` @ `67c7c28` · 47 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,9 +9,9 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. 5.4 complete. Next free work is 5.2 (site survey + PRD) and 5.3 (MVA +
-exec status report). Everything remaining outside Phase 5 costs money and is
-excluded by the user's standing constraint.
+Nothing. 5.2 complete. **5.3 (MVA + exec status report) is the last free item in
+the plan.** Everything after it costs money and is excluded by the standing
+constraint.
 
 ## Completed
 
@@ -51,6 +51,7 @@ excluded by the user's standing constraint.
 | **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **5.4** | Cost of inaction: exposure in dollars | `0050461` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
+| **5.2** | Site survey instrument + PRD | `3e757a8` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
@@ -116,13 +117,13 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
 | ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
-| **Phase 3 — Consulting** | 🔄 4 of 6 artifacts | |
+| **Phase 3 — Consulting** | 🔄 6 of 7 artifacts | |
 | ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
 | ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
 | ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
 | ├ Cost of inaction / value case | ✅ | 5.4, `docs/COST_OF_INACTION.md` |
-| ├ Site Survey | ❌ | 5.2 |
-| ├ Technical Scoping / PRD | ❌ | 5.2 |
+| ├ Site Survey | ✅ | 5.2, `docs/SITE_SURVEY.md` + worked example |
+| ├ Technical Scoping / PRD | ✅ | 5.2, `docs/PRD.md` |
 | └ MVA + Exec Status Report | ❌ | 5.3 |
 | **Air-gapped / tactical edge** | ❌ | Phase 6, deferred |
 
@@ -137,6 +138,7 @@ actual content (IaC, networking, orchestration) is still at zero.
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
 | **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
+| **No test covers the evidence layer** | `CustomerEvidence` is keyed by `customer_id`, so cross-account leakage is structurally unreachable — but nothing asserts it. Found while writing the PRD's success criteria on 2026-09-01; S4 is marked true-by-construction rather than verified. A test belongs in 4.4. |
 | **`api.py` never calls `load_dotenv`** | A key in `.env` is ignored unless exported, so RAG, the agent and the multi-agent system come up unavailable on a stock checkout. Pre-existing, verified against `main` on 2026-09-01. Contradicts the `.env` instruction in CLAUDE.md. One-line fix, not applied — out of scope for 5.4. |
 | **Recoverable figure is survivorship-biased** | `success_stories.csv` records only interventions that worked. The recovery estimate is an upper bound and is labelled as one everywhere it is returned. Removing the bias needs a recorded failure set. |
 | **No renewal calendar in exposure** | A 13-week horizon is applied uniformly; `contract_end_date` exists but is unused, so an account 3 weeks from renewal is weighted like one 11 months out. |
@@ -181,8 +183,8 @@ surfaced**. Everything else supports that or waits.
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
 | ~~8~~ | 5.4 | ~~Cost-of-inaction model~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
-| **8** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
-| **9** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+| ~~8~~ | 5.2 | ~~Site survey + PRD~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
+| **8** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
 
 5.4 was specified as *ARR × predicted horizon* and depended on 7.4. ADR-0009
 retracted dates, so there is no horizon to multiply by and 7.4 was never built.
@@ -220,7 +222,7 @@ this is ready whenever it is worth doing.
 | 4.3 Vector migration off Qdrant | No target until Phase 2 deploys. OpenSearch Serverless has a 2-OCU minimum ≈ **$350/mo** for 137 KB — use pgvector (~$15/mo) or Qdrant Cloud free tier instead. |
 | Phase 6 air-gap / edge | Only worth it for defence or regulated clients. |
 | Knowledge graph rebuild | Superseded — ARCHITECTURE.md schedules deletion in 4.5, not a rebuild. |
-| Distributed compute (Spark/Ray) | Roadmap item, deliberately skipped — 1.6 MB dataset. |
+| Distributed compute (Spark/Ray) | Roadmap item, deliberately skipped — ~~1.6 MB~~ → **2.0 MB** dataset (re-measured 2026-09-01, `du -sh data/`). Conclusion unchanged. |
 
 ## Re-derivation, 2026-08-31
 
