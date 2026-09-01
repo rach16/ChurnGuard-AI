@@ -1117,7 +1117,10 @@ async def root():
 if __name__ == "__main__":
     # Get configuration from environment
     host = os.getenv("BACKEND_HOST", "0.0.0.0")
-    port = int(os.getenv("BACKEND_PORT", "8000"))
+    # PORT is what every managed host assigns (Render, Railway, Fly, Heroku) and
+    # the container is unreachable if it binds anything else. BACKEND_PORT stays
+    # first so an explicit local setting still wins.
+    port = int(os.getenv("BACKEND_PORT") or os.getenv("PORT") or 8000)
     
     logger.info(f"Starting Customer Churn RAG API on {host}:{port}")
     
