@@ -35,6 +35,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHAT_MODEL = "gpt-4o-mini"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
+# Cap on output tokens per request. This is the cost control that actually binds:
+# input size is bounded by the retriever's k and the request validators, but an
+# unbounded completion can run to the model's full context on a single malformed
+# question. 1024 is comfortably above the longest legitimate answer this system
+# produces.
+#
+# Providers spell the parameter differently, so each declares its own name below.
+# Set LLM_MAX_TOKENS=0 to remove the cap.
+DEFAULT_MAX_TOKENS = 1024
+
 
 @dataclass(frozen=True)
 class Provider:
@@ -45,6 +55,7 @@ class Provider:
     package: str              # what to install if the module is missing
     env_keys: tuple[str, ...] = ()   # credentials it expects, for a clearer error
     local: bool = False       # true when no data leaves the host
+    max_tokens_arg: str = "max_tokens"   # what this provider calls the output cap
 
 
 PROVIDERS: Dict[str, Provider] = {
@@ -68,6 +79,8 @@ PROVIDERS: Dict[str, Provider] = {
     "ollama": Provider(
         chat_import="langchain_ollama", chat_class="ChatOllama",
         package="langchain-ollama", local=True,
+        # Ollama follows llama.cpp naming rather than the OpenAI convention.
+        max_tokens_arg="num_predict",
     ),
 }
 
@@ -105,8 +118,25 @@ def _resolve(spec: Provider, name: str) -> type:
     return getattr(module, spec.chat_class)
 
 
+def max_output_tokens() -> int:
+    """The configured output cap. 0 means uncapped."""
+    try:
+        return max(0, int(os.getenv("LLM_MAX_TOKENS", DEFAULT_MAX_TOKENS)))
+    except ValueError:
+        logger.warning(
+            f"LLM_MAX_TOKENS={os.getenv('LLM_MAX_TOKENS')!r} is not a number; "
+            f"using {DEFAULT_MAX_TOKENS}"
+        )
+        return DEFAULT_MAX_TOKENS
+
+
 def chat_model(temperature: float = 0.0, **kwargs: Any):
-    """Build the configured chat model.
+    """Build the configured chat model, capped.
+
+    The output cap is applied here rather than at the six call sites, for the same
+    reason the provider is: one place to change, and no way to add a seventh call
+    site that quietly forgets it. An explicit max_tokens in kwargs wins, so a
+    caller with a genuine reason can still override.
 
     Args:
         temperature: sampling temperature; 0 for anything whose output is parsed
@@ -122,7 +152,12 @@ def chat_model(temperature: float = 0.0, **kwargs: Any):
         )
 
     cls = _resolve(spec, name)
-    logger.debug(f"chat model: {name}/{model}")
+
+    cap = max_output_tokens()
+    if cap and spec.max_tokens_arg not in kwargs and "max_tokens" not in kwargs:
+        kwargs[spec.max_tokens_arg] = cap
+
+    logger.debug(f"chat model: {name}/{model} (max output {cap or 'uncapped'})")
     return cls(model=model, temperature=temperature, **kwargs)
 
 
@@ -158,6 +193,7 @@ def active_configuration() -> dict:
         "llm_model": os.getenv("LLM_MODEL", DEFAULT_CHAT_MODEL),
         "embedding_provider": emb,
         "embedding_model": os.getenv("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
+        "max_output_tokens": max_output_tokens() or None,
         "data_leaves_host": not (
             PROVIDERS.get(llm, Provider("", "", "")).local
             and EMBEDDING_PROVIDERS.get(emb, Provider("", "", "")).local
