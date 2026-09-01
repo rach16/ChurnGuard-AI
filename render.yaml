@@ -1,0 +1,62 @@
+# Render blueprint: the backend as a free web service.
+#
+# Free tier means 512 MB of RAM and a sleep after ~15 minutes idle, so the first
+# request after a quiet spell takes about 30 seconds. The app uses ~122 MB, so
+# memory is not the constraint.
+#
+# Everything the demo shows -- the queue, risk bands, exposure, evidence, plays --
+# reads local data and works with no external service. Only the AI question box
+# needs OPENAI_API_KEY and Qdrant.
+services:
+  - type: web
+    name: churnguard-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./src/backend/Dockerfile
+    dockerContext: .
+    # The image has a jupyter stage too; build only the backend.
+    dockerCommand: uv run python /app/src/backend/api.py
+
+    # /health is liveness and answers even when the AI stack is down, which is
+    # what a platform health check should judge. /ready would fail the deploy
+    # whenever OPENAI_API_KEY is absent, and absent is a valid configuration.
+    healthCheckPath: /health
+
+    envVars:
+      # Render assigns PORT; the app now reads it.
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATA_FOLDER
+        value: data
+
+      # Spend ceilings. The daily budget is the real one -- a per-visitor limit
+      # caps one person, not a crowd.
+      - key: LLM_MAX_TOKENS
+        value: "1024"
+      - key: MAX_QUESTION_CHARS
+        value: "2000"
+      - key: LLM_RATE_LIMIT_PER_HOUR
+        value: "10"
+      - key: LLM_DAILY_BUDGET
+        value: "200"
+
+      # The browser calls this service from the Vercel origin, so that origin has
+      # to be allowed explicitly. Set it to the Vercel URL after the first deploy.
+      - key: CORS_ALLOW_ORIGINS
+        sync: false
+
+      # Set by hand in the Render dashboard, never in this file -- it is public.
+      # Leave OPENAI_API_KEY unset and the site still works; only the AI question
+      # box reports itself unavailable.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+
+      # No API_KEYS: a public demo cannot ask a visitor for a credential. The
+      # rate limits above are what protect it instead.
