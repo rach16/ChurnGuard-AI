@@ -24,7 +24,6 @@ sys.path.append(str(Path(__file__).parent.parent))
 from core.rag_retrievers import ChurnRAGRetriever
 from agents.churn_agent import CustomerChurnAgent
 from agents.multi_agent_system import MultiAgentChurnSystem
-from core.knowledge_graph import ChurnKnowledgeGraph
 from core.health_scoring import CustomerHealthScorer
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
@@ -61,7 +60,6 @@ class ServiceState:
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
-        self.knowledge_graph = None
         self.errors: dict[str, str] = {}
 
     def unavailable(self, component: str, reason: str) -> None:
@@ -87,7 +85,6 @@ class ServiceState:
             "rag_retriever": self.rag_retriever is not None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
-            "knowledge_graph": self.knowledge_graph is not None,
         }
 
 
@@ -192,20 +189,6 @@ def _init_ai_stack() -> None:
         _ai_unavailable(f"{type(e).__name__}: {e}")
         return
 
-    kg_path = Path(os.getenv("KNOWLEDGE_GRAPH_PATH", "cache/churn_knowledge_graph.pkl"))
-    if kg_path.exists():
-        try:
-            # load_graph is an instance method that mutates in place; there has never
-            # been a ChurnKnowledgeGraph.load() classmethod.
-            kg = ChurnKnowledgeGraph()
-            kg.load_graph(str(kg_path))
-            state.knowledge_graph = kg
-            logger.info("✓ Loaded knowledge graph from cache")
-        except Exception as e:
-            state.unavailable("knowledge_graph", f"{type(e).__name__}: {e}")
-    else:
-        state.unavailable("knowledge_graph", f"no cached graph at {kg_path}")
-
     use_tavily = bool(os.getenv("TAVILY_API_KEY"))
     for name, factory, attr in (
         ("churn_agent", CustomerChurnAgent, "churn_agent"),
@@ -214,7 +197,6 @@ def _init_ai_stack() -> None:
         try:
             setattr(state, attr, factory(
                 rag_retriever=state.rag_retriever,
-                knowledge_graph=state.knowledge_graph,
                 use_tavily=use_tavily,
             ))
             logger.info(f"✓ {name} initialized")
@@ -306,8 +288,8 @@ class AskRequest(BaseModel):
     """Request model for general questions"""
     question: str = Field(..., description="Question about churn patterns")
     retriever_type: str = Field(
-        "parent_document", 
-        description="Retrieval method: 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
+        "hybrid", 
+        description="Retrieval method: 'hybrid' (default, measured best), 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
     )
     max_response_length: int = Field(2000, ge=100, le=4000)
 
@@ -501,6 +483,7 @@ async def ask_question(request: AskRequest):
         # Map retriever type to method
         retriever_methods = {
             "naive": rag_retriever.naive_retrieval,
+            "hybrid": rag_retriever.hybrid_retrieval,
             "multi_query": rag_retriever.multi_query_retrieval,
             "parent_document": rag_retriever.parent_document_retrieval,
             "contextual_compression": rag_retriever.contextual_compression_retrieval

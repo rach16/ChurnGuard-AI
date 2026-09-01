@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `91e2b56` · 42 commits since fork.
+Last updated 2026-08-31 · `main` @ `74a7fff` · 44 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,8 +9,7 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. 7.3 complete: the date promise was retracted (ADR-0009) and replaced
-with a likelihood band, now surfaced. Step 1 (4.4) is next: the survival model ranks well
+Nothing. 4.4 and 4.5 complete. Step 1 (4.2, LiteLLM) is next: the survival model ranks well
 but its **dates are 196 days off and not usable**, which blocks 7.4.
 
 ## Completed
@@ -45,6 +44,8 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
 | **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
 | **8.4** | Honest empty states; integrations marked roadmap | `ee8a0cc` | Six fabricated "live" connectors relabelled | AI · Proof mechanisms |
+| **4.4** | Evidence scoped to one customer's record | `731e023` | Explanations keyed by customer_id, so another account's story cannot surface | AI · RAG grounding |
+| **4.5** | Knowledge graph deleted; agents on hybrid | `ffbdccc` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
 | **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
@@ -132,7 +133,6 @@ actual content (IaC, networking, orchestration) is still at zero.
 | **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
 | In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
-| Knowledge graph always `None` | `build_churn_knowledge_graph` expects the legacy Salesforce schema. `churn_agent.py` and `research_team.py` call `get_churn_patterns()`, which contributes nothing. Stale cache removed in `5ff002a`. |
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
 | All LLM calls hardcoded to OpenAI | 8 files construct `ChatOpenAI`/`OpenAIEmbeddings` directly. No provider abstraction. → 4.2 |

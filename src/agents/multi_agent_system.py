@@ -14,7 +14,6 @@ from langchain_openai import ChatOpenAI
 from agents.research_team import ResearchTeam, create_research_team
 from agents.writing_team import WritingTeam, create_writing_team
 from core.rag_retrievers import ChurnRAGRetriever
-from core.knowledge_graph import ChurnKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +87,6 @@ class MultiAgentChurnSystem:
     def __init__(
         self,
         rag_retriever: Optional[ChurnRAGRetriever] = None,
-        knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
         use_tavily: bool = True
     ):
         """
@@ -96,7 +94,6 @@ class MultiAgentChurnSystem:
         
         Args:
             rag_retriever: RAG retriever for both teams
-            knowledge_graph: Knowledge graph for research team
             use_tavily: Enable Tavily search for research team
         """
         logger.info("🤖 Initializing Multi-Agent Churn Analysis System...")
@@ -114,7 +111,6 @@ class MultiAgentChurnSystem:
         logger.info("   Responsible for: High-Level Background Context")
         self.research_team = create_research_team(
             rag_retriever=rag_retriever,
-            knowledge_graph=knowledge_graph,
             use_tavily=use_tavily
         )
         
@@ -427,7 +423,6 @@ Return ONLY the category name."""
 
 def create_multi_agent_system(
     rag_retriever: Optional[ChurnRAGRetriever] = None,
-    knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
     use_tavily: bool = True
 ) -> MultiAgentChurnSystem:
     """
@@ -435,7 +430,6 @@ def create_multi_agent_system(
     
     Args:
         rag_retriever: RAG retriever instance
-        knowledge_graph: Knowledge graph instance
         use_tavily: Enable Tavily search
     
     Returns:
@@ -443,7 +437,6 @@ def create_multi_agent_system(
     """
     return MultiAgentChurnSystem(
         rag_retriever=rag_retriever,
-        knowledge_graph=knowledge_graph,
         use_tavily=use_tavily
     )
 
@@ -463,7 +456,6 @@ if __name__ == "__main__":
     # Create system without dependencies for structure test
     system = create_multi_agent_system(
         rag_retriever=None,
-        knowledge_graph=None,
         use_tavily=False
     )
     
@@ -479,7 +471,6 @@ if __name__ == "__main__":
     
     print("\n💡 To test with full functionality:")
     print("   1. Initialize RAG: retriever = initialize_churn_rag_system()")
-    print("   2. Load KG: kg = build_churn_knowledge_graph()")
     print("   3. Create system: system = create_multi_agent_system(retriever, kg)")
     print("   4. Run analysis: result = system.analyze('What are main churn reasons?')")
     
