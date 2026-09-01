@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
 
+import { ThemeProvider } from './theme-provider';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
 export const metadata: Metadata = {
-  title: 'Customer Churn Analysis',
-  description: 'AI-powered customer churn prediction and analysis',
+  title: 'ChurnGuard',
+  description: 'Predict when a customer will churn, and why',
 };
 
 export default function RootLayout({
@@ -12,9 +15,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    // suppressHydrationWarning is required by next-themes: it sets the class on
+    // <html> before React hydrates, which React would otherwise flag as a mismatch.
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
-
