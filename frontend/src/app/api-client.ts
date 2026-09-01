@@ -6,6 +6,35 @@
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+// Without a timeout a request can hang indefinitely and the caller's `finally`
+// never runs, so the UI spins on skeletons forever with no way to tell that
+// anything is wrong. That is exactly what a deployed build pointed at
+// http://localhost does: the browser blocks a public HTTPS origin from reaching
+// a private address, and the fetch neither resolves nor rejects promptly.
+//
+// Ten seconds is far longer than any endpoint here needs -- the slowest measured
+// path is /book/exposure, which scores 129 accounts well inside a second.
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/** fetch that fails fast instead of hanging, preserving the caller's error handling. */
+async function fetchWithTimeout(input: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e) {
+    // An abort and a refused connection are the same thing to a caller: the
+    // backend could not be reached. Naming it that way keeps the UI honest --
+    // "unreachable" rather than a stack trace or a silent empty list.
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new APIError(0, 'Timeout', `No response from ${API_BASE_URL} within ${REQUEST_TIMEOUT_MS / 1000}s`);
+    }
+    throw new APIError(0, 'Unreachable', `Could not reach ${API_BASE_URL}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Type Definitions
 export interface Source {
   content: string;
@@ -84,7 +113,7 @@ export const apiClient = {
    * Check if the backend API is healthy
    */
   async health(): Promise<HealthResponse> {
-    const response = await fetch(`${API_BASE_URL}/health`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/health`);
     
     if (!response.ok) {
       throw new APIError(
@@ -105,7 +134,7 @@ export const apiClient = {
     retrieverType: string = 'parent_document',
     maxResponseLength: number = 2000
   ): Promise<AskResponse> {
-    const response = await fetch(`${API_BASE_URL}/ask`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/ask`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +166,7 @@ export const apiClient = {
     customerId?: string,
     includeRecommendations: boolean = true
   ): Promise<ChurnAnalysisResponse> {
-    const response = await fetch(`${API_BASE_URL}/analyze-churn`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/analyze-churn`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -170,7 +199,7 @@ export const apiClient = {
     includeBackground: boolean = true,
     includeCitations: boolean = true
   ): Promise<MultiAgentResponse> {
-    const response = await fetch(`${API_BASE_URL}/multi-agent-analyze`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/multi-agent-analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -195,7 +224,7 @@ export const apiClient = {
   },
 
   getEvaluationResults: async (): Promise<EvaluationResponse> => {
-    const response = await fetch(`${API_BASE_URL}/evaluation-results`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/evaluation-results`);
 
     if (!response.ok) {
       throw new APIError(
@@ -212,7 +241,7 @@ export const apiClient = {
    * Get list of at-risk customers
    */
   async getAtRiskCustomers(riskThreshold: number = 60, limit: number = 10): Promise<{ at_risk_customers: AtRiskCustomer[], total_count: number, risk_threshold: number }> {
-    const response = await fetch(`${API_BASE_URL}/at-risk-customers?risk_threshold=${riskThreshold}&limit=${limit}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/at-risk-customers?risk_threshold=${riskThreshold}&limit=${limit}`);
 
     if (!response.ok) {
       throw new APIError(
@@ -229,7 +258,7 @@ export const apiClient = {
    * Get dashboard statistics
    */
   async getDashboardStats(): Promise<DashboardStats> {
-    const response = await fetch(`${API_BASE_URL}/dashboard-stats`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/dashboard-stats`);
 
     if (!response.ok) {
       throw new APIError(
