@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `e5e9e4e` · 51 commits since fork.
+Last updated 2026-09-01 · `main` @ `13b97b1` · 94 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,10 +9,9 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. **5.3 complete, and with it every zero-cost item in the plan.** Phase 3
-consulting is 7 of 7. Everything remaining (3.1–3.4, 2.2a/2.3/2.4/2.6) costs
-money and is excluded by the standing constraint, so there is no further work
-that can start without a decision.
+Nothing. 2.3 complete. **2.4 (CI pipeline to ECR/ECS) is the last remaining $0
+item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1–2),
+2.2a ($5–10), and 2.6 which depends on 2.2a.
 
 ## Completed
 
@@ -34,7 +33,7 @@ that can start without a decision.
 | **4.1** | Hybrid BM25 + semantic retrieval | `f41bfe6` | Single-entity hit 0.735→0.971, recall 0.544→0.941 | AI · Hybrid search |
 | **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
-| **2.3** | API key auth, rate limit, token cap | `2b36abd` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
+| **2.3** | API key auth, rate limit, token cap | `9ab57a2` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -42,20 +41,20 @@ that can start without a decision.
 | Phase | Delivered | Commit | Measurably changed | FDE roadmap |
 |---|---|---|---|---|
 | **A** | Architecture doc + ADR-0008 | `1efc4ff` | Layering settled: warehouse owns numbers, vector store owns narrative. Model approach chosen. | P3 · Agentic deployment architecture |
-| **9.1** | Recommended plays from recorded outcomes | `fc537b1` | The app now answers "what has worked on accounts like this", not only "who is at risk" | P3 · Last-mile integration |
+| **9.1** | Recommended plays from recorded outcomes | `b884e47` | The app now answers "what has worked on accounts like this", not only "who is at risk" | P3 · Last-mile integration |
 | **8.1** | Operator console: rail, queue, detail pane | `3ac11f8` | Accounts visible without scrolling 1.5 → 14. Selection replaces navigation. | P3 · Technical demo |
 | **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
 | **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
 | **8.4** | Honest empty states; integrations marked roadmap | `ee8a0cc` | Six fabricated "live" connectors relabelled | AI · Proof mechanisms |
-| **4.2** | Provider abstraction | `8b3479f` | 9 vendor constructions → 1 factory. 5 providers configurable; `/health` reports which is active. | AI · Model-agnostic |
+| **4.2** | Provider abstraction | `c551ba1` | 9 vendor constructions → 1 factory. 5 providers configurable; `/health` reports which is active. | AI · Model-agnostic |
 | **4.4** | Evidence scoped to one customer's record | `731e023` | Explanations keyed by customer_id, so another account's story cannot surface | AI · RAG grounding |
-| **4.5** | Knowledge graph deleted; agents on hybrid | `ffbdccc` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
-| **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
-| **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
-| **5.4** | Cost of inaction: exposure in dollars | `0050461` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
-| **5.2** | Site survey instrument + PRD | `3e757a8` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
-| **5.3** | MVA (4 tiers, mermaid) + exec status report | `b232d9e` | Measured that **11 of 12 GET routes serve with no LLM key** — detect, value and explain need no model provider. Scoping now leads with the deterministic tiers. | P3 · MVA, exec reporting |
-| **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
+| **4.5** | Knowledge graph deleted; agents on hybrid | `a089a2c` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
+| **7.3** | Walk-forward backtest; date claim retracted | `70be342` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
+| **7.2** | Discrete-time survival model | `7e1a664` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
+| **5.4** | Cost of inaction: exposure in dollars | `f05625e` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
+| **5.2** | Site survey instrument + PRD | `d32e017` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
+| **5.3** | MVA (4 tiers, mermaid) + exec status report | `75b6a50` | Measured that **11 of 12 GET routes serve with no LLM key** — detect, value and explain need no model provider. Scoping now leads with the deterministic tiers. | P3 · MVA, exec reporting |
+| **7.1** | Point-in-time features + survival labels | `4f01b1b` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
 
@@ -107,15 +106,15 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 |---|---|---|
 | **Phase 1 — Data Engineering** | ✅ complete | 1.1–1.4, 0.5 |
 | ├ Medallion, dimensional modeling, advanced SQL | ✅ | `5ce3cbb` |
-| ├ Data quality & observability | ✅ | 52 dbt tests + 28 contracts |
-| └ Distributed compute (Spark/Ray) | ❌ skipped | 1.6 MB dataset — see Deferred |
+| ├ Data quality & observability | ✅ | 67 dbt tests + 28 contracts |
+| └ Distributed compute (Spark/Ray) | ❌ skipped | 2.0 MB dataset — see Deferred |
 | **Applied AI** | ✅ complete | |
-| ├ Predictive modelling | ✅ | 7.1–7.3, `6f9d39b` |
+| ├ Predictive modelling | ✅ | 7.1–7.3, `7e1a664` |
 | ├ Hybrid search (BM25 + vectors) | ✅ | `f41bfe6` |
 | ├ Eval, inner loop | ✅ | golden set + benchmark harness |
 | ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
 | ├ Multi-agent orchestration | ✅ | pre-existing, now served |
-| └ Model-agnostic providers | ✅ | 4.2, `8b3479f` |
+| └ Model-agnostic providers | ✅ | 4.2, `c551ba1` |
 | **Phase 2 — Cloud Architecture** | 🔄 partial | |
 | ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
 | ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
@@ -123,7 +122,7 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
 | **Phase 3 — Consulting** | ✅ **7 of 7 artifacts** | |
 | ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
-| ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
+| ├ ADRs | ✅ | 10 records, `3d208a3` + `1efc4ff` + ADR-0009/0010 |
 | ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
 | ├ Cost of inaction / value case | ✅ | 5.4, `docs/COST_OF_INACTION.md` |
 | ├ Site Survey | ✅ | 5.2, `docs/SITE_SURVEY.md` + worked example |
@@ -138,7 +137,7 @@ actual content (IaC, networking, orchestration) is still at zero.
 
 | Item | Detail |
 |---|---|
-| **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
+| ~~No predictive model~~ **CLOSED** | Was: `risk_score` a weighted sum, `days_until_churn` an `np.interp` over it. Closed by 7.2 — a fitted discrete-time survival model now serves the likelihood band. The heuristic `days_until_churn` remains in `health_scoring.py` and is not surfaced. |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
 | **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
@@ -167,39 +166,52 @@ messages and ADRs, so they never change; the order does, and did. Read the
 The critical path is **point-in-time features → survival model → predictions
 surfaced**. Everything else supports that or waits.
 
-### Phase 7 — Prediction (execute first)
+Phases 7, 4 and 5 are complete and their rows have moved to **Completed**. What
+remains is listed below, in execution order, with cost stated.
+
+### Cancelled
+
+| # | Item | Why |
+|---|---|---|
+| 7.4 | Serve predicted date + interval from the API | **ADR-0009.** The date was retracted after the backtest — 4.36x hazard underprediction, dates 222 days late, structurally unfixable. `/customer/{id}/likelihood` serves a band and a lift instead. |
+| 7.5 | Surface date + interval in the UI | Same. The console shows the band. |
+
+5.4 was specified as *ARR × predicted horizon* and depended on 7.4. With no
+horizon to multiply by it was delivered as **P(churn within a quarter) × ARR** —
+the same question against a figure the data supports. The 7.4 dependency is
+dropped, not outstanding.
+
+### Remaining — free
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **1** | 7.2 | Discrete-time survival model; hazard → survival curve | 2d | $0 | 7.1 | AI · Modelling |
-| **2** | 7.3 | Walk-forward backtest; C-index + calibration | 1d | $0 | 7.2 | AI · Eval |
-| **3** | 7.4 | Serve predicted date + interval from the API | 1d | $0 | 7.2 | — |
-| **4** | 7.5 | Surface date + interval in the UI, replacing the heuristic | 1d | $0 | 7.4 | — |
+| **1** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
 
-### Phase 4 — Explanation layer (execute second)
+### Remaining — costs money
 
-| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|---|
-| **5** | 4.4 | Scope RAG to explaining one customer's prediction | 1d | $0 | 7.4 | AI · RAG grounding |
-| **6** | 4.5 | Delete the knowledge graph; collapse 5 retrievers to hybrid | ½d | $0 | 4.4 | — |
-| **7** | 4.2 | LiteLLM provider abstraction | 1d | $0 | — | AI · Model-agnostic |
-
-### Phase 5 — The "Forward" (execute third)
+Excluded by the standing constraint. Listed so the decision is explicit rather
+than the work being forgotten.
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| ~~8~~ | 5.4 | ~~Cost-of-inaction model~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
-| ~~8~~ | 5.2 | ~~Site survey + PRD~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
-| ~~8~~ | 5.3 | ~~MVA + exec status report~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
+| **2** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
+| **3** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
+| **4** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
+| **5** | 3.3 | OTel → CloudWatch / X-Ray | 1d | **<$1** | 2.2a | AI · Eval, outer loop |
+| **6** | 3.4 | LLM-as-judge on sampled traffic | ½d | **$1–2** | 3.3 | AI · Eval, outer loop |
+| **7** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
 
-**Phase 5 is complete, and it was the last free phase.** Every remaining step
-requires spend. Nothing can proceed without a decision on cost.
+3.2, 2.6 cost nothing themselves but each depends on a paid step.
 
-5.4 was specified as *ARR × predicted horizon* and depended on 7.4. ADR-0009
-retracted dates, so there is no horizon to multiply by and 7.4 was never built.
-Delivered instead as **P(churn within a quarter) × ARR**, which is the same
-question against a figure the data supports. The dependency on 7.4 is dropped, not
-outstanding.
+### Open defects — free, unscheduled
+
+Found in passing and recorded rather than fixed, per the flag-don't-add rule.
+
+| # | Item | Effort |
+|---|---|---|
+| — | `api.py` never calls `load_dotenv`, so `.env` is ignored unless exported | 1 line |
+| — | `/evaluation-results` returns 500 where it intends 404 | 2 lines |
+| — | No test covers the evidence layer's cross-account guarantee | ½h |
 
 ### Phase 3 — Evaluation (execute fourth)
 

@@ -80,6 +80,23 @@ Never anchor an edit to STATUS.md on a commit hash. Resolve the hash from
 `git log --grep` at write time; a hardcoded one silently matches nothing and the
 row is dropped without an error.
 
+**Resolve the hash after the last amend, not before.** Writing a hash into
+STATUS.md and then running `git commit --amend` records the pre-amend hash, which
+is orphaned the moment the amend rewrites the commit. It still resolves locally
+from the reflog, so it looks correct, and it is unreachable from `main` and
+disappears at gc. Ten rows were recorded this way before it was caught on
+2026-09-01. Audit with:
+
+```bash
+python3 - <<'EOF'
+import subprocess, re
+s = open(".claude/STATUS.md").read()
+on_main = subprocess.run(["git","log","--format=%h","main"],capture_output=True,text=True).stdout.split()
+bad = [h for h in set(re.findall(r"`([0-9a-f]{7})`", s)) if h not in on_main]
+print("orphaned:", bad or "none")
+EOF
+```
+
 Superseded facts stay visible, struck through. The history of what a number used
 to be is the point — a figure that silently changes cannot be audited.
 
