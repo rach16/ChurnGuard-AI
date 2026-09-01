@@ -46,6 +46,24 @@ API_KEY_HEADER = "X-API-Key"
 DEFAULT_RATE_LIMIT = 60          # requests per window, per caller
 RATE_WINDOW_SECONDS = 60
 
+# The routes that spend money. Everything else reads CSV, DuckDB or a fitted
+# model and costs nothing per request, so the general limit above is about abuse
+# rather than spend. These are different: each call is a paid API request, and a
+# public deployment hands that bill to anyone who finds the URL.
+LLM_PATHS = frozenset({"/ask", "/analyze-churn", "/multi-agent-analyze"})
+
+# Per caller, per hour. Deliberately low: a person exploring the demo asks a
+# handful of questions, not twenty.
+DEFAULT_LLM_HOURLY_LIMIT = 10
+LLM_WINDOW_SECONDS = 3600
+
+# Across every caller, per day. This is the actual spend ceiling and the reason
+# the module exists -- a per-caller limit alone caps one person, not a crowd or
+# one person rotating addresses. At roughly $0.001 a request this bounds the
+# whole deployment to a few cents a day.
+DEFAULT_LLM_DAILY_BUDGET = 200
+DAY_SECONDS = 86400
+
 
 def configured_keys() -> frozenset[str]:
     """Keys from the environment. Empty means authentication is disabled."""
@@ -136,12 +154,21 @@ class RateLimiter:
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    """Authenticates, then rate limits, then passes the request through."""
+    """Authenticates, rate limits, caps paid requests, then passes through."""
 
     def __init__(self, app, limiter: Optional[RateLimiter] = None):
         super().__init__(app)
         self.limiter = limiter or RateLimiter(
             limit=int(os.getenv("RATE_LIMIT_PER_MINUTE", DEFAULT_RATE_LIMIT))
+        )
+        # Separate budget for the paid routes, on top of the general limit.
+        self.llm_limiter = RateLimiter(
+            limit=int(os.getenv("LLM_RATE_LIMIT_PER_HOUR", DEFAULT_LLM_HOURLY_LIMIT)),
+            window=LLM_WINDOW_SECONDS,
+        )
+        self.llm_daily = RateLimiter(
+            limit=int(os.getenv("LLM_DAILY_BUDGET", DEFAULT_LLM_DAILY_BUDGET)),
+            window=DAY_SECONDS,
         )
 
     async def dispatch(self, request: Request, call_next):
@@ -184,9 +211,40 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(max(1, int(retry_after) + 1))},
             )
 
+        # Paid routes pass two more gates: this caller's hourly allowance, and a
+        # single shared daily budget. The daily one is checked last so a caller
+        # who is already over their own limit does not consume it.
+        if request.url.path in LLM_PATHS:
+            ok, left, retry = self.llm_limiter.check(f"llm:{caller}")
+            if not ok:
+                return JSONResponse(
+                    status_code=429,
+                    content={"error": "llm_rate_limited",
+                             "detail": f"AI questions are limited to "
+                                       f"{self.llm_limiter.limit} per hour per user.",
+                             "retry_after_seconds": round(retry)},
+                    headers={"Retry-After": str(max(1, int(retry) + 1))},
+                )
+
+            ok, budget_left, retry = self.llm_daily.check("llm:global")
+            if not ok:
+                # Deliberately not a retry-and-hope: say the budget is spent, so
+                # a reader understands this is a cost ceiling and not congestion.
+                return JSONResponse(
+                    status_code=429,
+                    content={"error": "llm_budget_exhausted",
+                             "detail": f"The demo's daily AI budget "
+                                       f"({self.llm_daily.limit} questions) is spent. "
+                                       f"Everything else on the site still works.",
+                             "retry_after_seconds": round(retry)},
+                    headers={"Retry-After": str(max(1, int(retry) + 1))},
+                )
+
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.limiter.limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
+        if request.url.path in LLM_PATHS:
+            response.headers["X-LLM-Budget-Remaining"] = str(budget_left)
         return response
 
 
@@ -213,4 +271,7 @@ def status_summary() -> dict:
         "keys_configured": len(configured_keys()),
         "rate_limit_per_minute": int(os.getenv("RATE_LIMIT_PER_MINUTE", DEFAULT_RATE_LIMIT)),
         "rate_limit_scope": "per process — not shared across replicas",
+        "llm_rate_limit_per_hour": int(
+            os.getenv("LLM_RATE_LIMIT_PER_HOUR", DEFAULT_LLM_HOURLY_LIMIT)),
+        "llm_daily_budget": int(os.getenv("LLM_DAILY_BUDGET", DEFAULT_LLM_DAILY_BUDGET)),
     }
