@@ -190,3 +190,68 @@ def test_ollama_uses_its_own_parameter_name():
     from core.llm import PROVIDERS
     assert PROVIDERS["ollama"].max_tokens_arg == "num_predict"
     assert PROVIDERS["openai"].max_tokens_arg == "max_tokens"
+
+
+# ------------------------------------------------------------- LLM spend caps
+
+def llm_app():
+    from fastapi import FastAPI
+
+    app = FastAPI()
+
+    @app.post("/ask")
+    async def ask():
+        return {"ok": True}
+
+    @app.get("/dashboard-stats")
+    async def free():
+        return {"ok": True}
+
+    security.install(app)
+    return app
+
+
+def test_paid_routes_are_capped_per_user(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("LLM_RATE_LIMIT_PER_HOUR", "3")
+    client = TestClient(llm_app())
+    codes = [client.post("/ask").status_code for _ in range(5)]
+    assert codes == [200, 200, 200, 429, 429]
+    assert client.post("/ask").json()["error"] == "llm_rate_limited"
+
+
+def test_free_routes_are_not_affected_by_the_llm_cap(monkeypatch):
+    """The queue and the dashboard read local data and cost nothing. Capping
+    them at the AI rate would break the demo to save money it never spends."""
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("LLM_RATE_LIMIT_PER_HOUR", "1")
+    client = TestClient(llm_app())
+    assert all(client.get("/dashboard-stats").status_code == 200 for _ in range(5))
+
+
+def test_a_shared_daily_budget_caps_the_whole_deployment(monkeypatch):
+    """A per-caller limit caps one person, not a crowd. This is the actual
+    spend ceiling."""
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("LLM_RATE_LIMIT_PER_HOUR", "100")   # not the binding limit
+    monkeypatch.setenv("LLM_DAILY_BUDGET", "2")
+    client = TestClient(llm_app())
+    codes = [client.post("/ask").status_code for _ in range(4)]
+    assert codes == [200, 200, 429, 429]
+    assert client.post("/ask").json()["error"] == "llm_budget_exhausted"
+
+
+def test_the_exhausted_message_says_the_rest_still_works(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("LLM_DAILY_BUDGET", "1")
+    client = TestClient(llm_app())
+    client.post("/ask")
+    assert "still works" in client.post("/ask").json()["detail"]
+
+
+def test_health_reports_both_caps(monkeypatch):
+    monkeypatch.setenv("LLM_RATE_LIMIT_PER_HOUR", "7")
+    monkeypatch.setenv("LLM_DAILY_BUDGET", "42")
+    s = security.status_summary()
+    assert s["llm_rate_limit_per_hour"] == 7
+    assert s["llm_daily_budget"] == 42
