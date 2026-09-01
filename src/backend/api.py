@@ -26,6 +26,7 @@ from agents.churn_agent import CustomerChurnAgent
 from agents.multi_agent_system import MultiAgentChurnSystem
 from core.knowledge_graph import ChurnKnowledgeGraph
 from core.health_scoring import CustomerHealthScorer
+from core.plays import PlaybookEngine
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +55,7 @@ class ServiceState:
         self.churn_agent: Optional[CustomerChurnAgent] = None
         self.multi_agent_system: Optional[MultiAgentChurnSystem] = None
         self.health_scorer: Optional[CustomerHealthScorer] = None
+        self.playbook: Optional[PlaybookEngine] = None
         self.knowledge_graph = None
         self.errors: dict[str, str] = {}
 
@@ -74,6 +76,7 @@ class ServiceState:
     def components(self) -> dict:
         return {
             "health_scorer": self.health_scorer is not None,
+            "playbook": self.playbook is not None,
             "rag_retriever": self.rag_retriever is not None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
@@ -93,6 +96,14 @@ def _init_health_scorer() -> None:
         logger.info("✓ Health scorer initialized")
     except Exception as e:
         state.unavailable("health_scorer", f"{type(e).__name__}: {e}")
+
+    # Recommendations are computed from recorded outcomes, not generated, so they
+    # work without an API key and belong in the degraded-mode tier.
+    try:
+        state.playbook = PlaybookEngine(os.getenv("DATA_FOLDER", "data"))
+        logger.info("✓ Playbook initialized")
+    except Exception as e:
+        state.unavailable("playbook", f"{type(e).__name__}: {e}")
 
 
 AI_COMPONENTS = ("rag_retriever", "churn_agent", "multi_agent_system")
@@ -756,6 +767,40 @@ async def calculate_customer_health(request: CustomerHealthRequest):
             status_code=500,
             detail=f"Failed to calculate customer health: {str(e)}"
         )
+
+
+@app.get("/customer/{customer_id}/plays")
+async def get_customer_plays(customer_id: int):
+    """What has worked on comparable accounts.
+
+    Solutions are ranked by how much evidence supports them, not by how large the
+    recorded effect was -- a big gain from two cases is weaker guidance than a
+    modest one from twelve. Every play carries its case count and measured outcome
+    so the recommendation can be argued with rather than taken on trust.
+    """
+    health_scorer = require_health_scorer()
+
+    if state.playbook is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "playbook is not available",
+                    "reason": state.errors.get("playbook", "not initialized")},
+        )
+
+    customer = health_scorer.get_customer(customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    plays = state.playbook.plays_for(customer["risk_reason"], customer["segment"])
+
+    return {
+        "customer_id": customer["customer_id"],
+        "name": customer["name"],
+        "risk_reason": customer["risk_reason"],
+        "segment": customer["segment"],
+        "plays": [p.to_dict() for p in plays],
+        "basis": "Outcomes recorded on accounts that faced the same challenge",
+    }
 
 
 @app.get("/customer/{customer_id}/detailed-analysis")

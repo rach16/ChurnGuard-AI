@@ -28,6 +28,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { apiClient, type AtRiskCustomer, type DashboardStats } from './api-client';
+
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+interface Play {
+  action: string;
+  cases: number;
+  same_segment_cases: number;
+  median_adoption_gain: number;
+  median_support_reduction: number;
+  confidence: 'strong' | 'moderate' | 'limited';
+}
 import { Rail } from './shell';
 
 function money(value: number): string {
@@ -59,6 +70,7 @@ export function Console() {
   const [selected, setSelected] = useState<AtRiskCustomer | null>(null);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [plays, setPlays] = useState<Play[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +87,17 @@ export function Console() {
       }
     })();
   }, []);
+
+  // Recommendations are computed from recorded outcomes, so this is a cheap
+  // lookup rather than a model call -- it works with the LLM stack disabled.
+  useEffect(() => {
+    if (!selected) return;
+    setPlays(null);
+    fetch(`${API}/customer/${selected.id}/plays`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setPlays(d.plays ?? []))
+      .catch(() => setPlays([]));
+  }, [selected]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -205,6 +228,52 @@ export function Console() {
                   </div>
                 ))}
               </dl>
+
+              <Separator className="my-6" />
+
+              {/* The point of the whole screen. "Who is at risk" is a report;
+                  "what has worked on accounts like this" is the job. Every play
+                  carries its case count so it can be argued with rather than
+                  taken on trust. */}
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold">What has worked</h2>
+                  <span className="text-xs text-muted-foreground">
+                    on accounts facing {selected.risk_reason.toLowerCase()}
+                  </span>
+                </div>
+
+                {plays === null ? (
+                  <p className="mt-3 text-sm text-muted-foreground">Looking for comparable cases…</p>
+                ) : plays.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No resolved case has enough evidence behind it to recommend. Better
+                    to say so than to invent a play.
+                  </p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {plays.map((p) => (
+                      <div key={p.action} className="rounded-md border p-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <span className="text-sm font-medium">{p.action}</span>
+                          <Badge
+                            variant={p.confidence === 'strong' ? 'default' : 'outline'}
+                            className="shrink-0 text-[11px] capitalize"
+                          >
+                            {p.confidence}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          {p.cases} comparable {p.cases === 1 ? 'case' : 'cases'}
+                          {p.same_segment_cases > 0 && `, ${p.same_segment_cases} in ${selected.segment}`}
+                          {' · '}adoption <span className="tabular">+{p.median_adoption_gain}</span> pts
+                          {' · '}support <span className="tabular">−{p.median_support_reduction}%</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <Separator className="my-6" />
 
