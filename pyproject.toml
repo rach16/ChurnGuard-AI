@@ -8,6 +8,11 @@ requires-python = ">=3.12"
 # Everything else moved to an extra -- see [project.optional-dependencies].
 # The eval, notebook and plotting stack was ~450 MB of an image that never uses it.
 dependencies = [
+    # Reads the gold layer to serve the likelihood band and exposure. Embedded,
+    # so no server and no credentials. Was warehouse-extra-only until the first
+    # real deployment came up degraded without it.
+    "duckdb>=1.1.0",
+
     # Web Framework
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
@@ -41,8 +46,11 @@ dependencies = [
 
 
 [project.optional-dependencies]
-# Survival model training and inference. scikit-learn was removed from runtime in
-# 2.5 as unused; it is used again here, but only by the training path.
+# Survival model training AND inference. scikit-learn was removed from runtime in
+# 2.5 as unused; that stopped being true in 7.2. Loading the fitted model
+# unpickles a scikit-learn pipeline, so the serving image needs this extra too --
+# without it /customer/{id}/likelihood and /book/exposure return 503 and the
+# comment above is quietly wrong. Found on the first real deployment.
 model = [
     "scikit-learn>=1.5.0",
     "joblib>=1.3.2",
@@ -67,7 +75,10 @@ notebook = [
 ]
 
 warehouse = [
-    # Local analytical warehouse. DuckDB is embedded -- no server, no credentials.
+    # dbt only. duckdb moved to runtime dependencies -- the API queries the
+    # warehouse to serve the likelihood band and the exposure figures, so it is
+    # not an optional build-time tool. Kept listed here so `--extra warehouse`
+    # still pulls everything a warehouse build needs.
     "duckdb>=1.1.0",
     "dbt-core>=1.9.0",
     "dbt-duckdb>=1.9.0",

@@ -32,6 +32,13 @@ services:
       - key: DATA_FOLDER
         value: data
 
+      # No Qdrant server on the free tier. ':memory:' builds an in-process store
+      # at startup, which costs one embedding pass over 771 documents -- roughly
+      # a cent, and ~60s added to a cold start. Point this at a hosted Qdrant to
+      # avoid re-embedding on every wake.
+      - key: QDRANT_URL
+        value: ":memory:"
+
       # Spend ceilings. The daily budget is the real one -- a per-visitor limit
       # caps one person, not a crowd.
       - key: LLM_MAX_TOKENS
@@ -52,8 +59,6 @@ services:
       # Leave OPENAI_API_KEY unset and the site still works; only the AI question
       # box reports itself unavailable.
       - key: OPENAI_API_KEY
-        sync: false
-      - key: QDRANT_URL
         sync: false
       - key: QDRANT_API_KEY
         sync: false

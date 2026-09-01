@@ -573,6 +573,7 @@ name = "customer-churn-rag"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "duckdb" },
     { name = "fastapi" },
     { name = "langchain" },
     { name = "langchain-cohere" },
@@ -628,6 +629,7 @@ requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.7.0" },
     { name = "dbt-core", marker = "extra == 'warehouse'", specifier = ">=1.9.0" },
     { name = "dbt-duckdb", marker = "extra == 'warehouse'", specifier = ">=1.9.0" },
+    { name = "duckdb", specifier = ">=1.1.0" },
     { name = "duckdb", marker = "extra == 'warehouse'", specifier = ">=1.1.0" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "ipywidgets", marker = "extra == 'notebook'", specifier = ">=8.1.1" },
