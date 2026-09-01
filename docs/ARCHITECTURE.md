@@ -22,6 +22,15 @@ retrieval rather than prediction.
 
 ## Layers, and what each is authoritative for
 
+> **Superseded in part, 2026-09-01.** The presentation layer below shows a
+> "predicted churn date and interval". That promise was retracted by
+> [ADR-0009](adr/0009-predict-a-horizon-band-not-a-date.md) after the walk-forward
+> backtest: the model underpredicts hazard by 4.36x and 95% of predicted dates
+> landed late by a median of 222 days, for reasons no calibration fixes. The
+> layer now serves **P(churn within one quarter)** as a band and a lift. The
+> diagram is annotated rather than redrawn so the supersession stays visible —
+> the same reason the 94.7% retraction is still in the README.
+
 ```
                     ┌────────────────────────────────────────┐
    presentation     │  API / UI — customers ranked by         │
