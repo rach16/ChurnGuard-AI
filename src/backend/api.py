@@ -27,7 +27,9 @@ from agents.multi_agent_system import MultiAgentChurnSystem
 from core.health_scoring import CustomerHealthScorer
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
+from core.llm import active_configuration
 from model.survival import ChurnSurvivalModel
+from core.llm import chat_model
 
 # Configure logging
 logging.basicConfig(
@@ -309,6 +311,7 @@ class HealthResponse(BaseModel):
     degraded: bool = False
     components: dict = {}
     errors: dict = {}
+    llm: dict = {}
 
 
 class ChurnAnalysisResponse(BaseModel):
@@ -353,6 +356,9 @@ async def health_check():
         degraded=not state.ai_ready,
         components=state.components(),
         errors=state.errors,
+        # Which provider is actually configured, so a deployment can be audited
+        # without reading the environment. Never includes a credential.
+        llm=active_configuration(),
     )
 
 
@@ -522,10 +528,9 @@ async def ask_question(request: AskRequest):
         
         # Generate answer using LLM
         logger.info("🤖 Generating answer...")
-        from langchain_openai import ChatOpenAI
         from langchain.prompts import ChatPromptTemplate
         
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+        llm = chat_model(temperature=0.7)
         
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a customer churn analysis expert. Answer questions based on the provided context about customer churn data.

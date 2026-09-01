@@ -10,10 +10,11 @@ from typing import TypedDict, List, Dict, Optional, Annotated
 import operator
 
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.documents import Document
 
 from core.rag_retrievers import ChurnRAGRetriever
+from core.llm import chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class WritingTeamState(TypedDict):
 class DocumentWriterAgent:
     """Sub-Agent: Document Writer for initial drafting"""
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: BaseChatModel):
         self.llm = llm
         logger.info("  ✓ Document Writer Agent initialized")
     
@@ -95,7 +96,7 @@ Write 4-6 paragraphs."""
 class CopyEditorAgent:
     """Sub-Agent: Copy Editor for editing and refinement"""
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: BaseChatModel):
         self.llm = llm
         logger.info("  ✓ Copy Editor Agent initialized")
     
@@ -139,7 +140,7 @@ Return the edited version with improvements. Maintain the same structure but enh
 class NoteTakerAgent:
     """Sub-Agent: Note Taker for citations and research notes"""
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: BaseChatModel):
         self.llm = llm
         logger.info("  ✓ Note Taker Agent initialized")
     
@@ -192,7 +193,7 @@ class NoteTakerAgent:
 class EmpathyEditorAgent:
     """Sub-Agent: Empathy Editor for compassion and customer understanding"""
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: BaseChatModel):
         self.llm = llm
         logger.info("  ✓ Empathy Editor Agent initialized")
     
@@ -243,7 +244,7 @@ Return the enhanced version."""
 class StyleGuideAgent:
     """Sub-Agent: Style Guide Checker for brand consistency"""
     
-    def __init__(self, llm: ChatOpenAI):
+    def __init__(self, llm: BaseChatModel):
         self.llm = llm
         logger.info("  ✓ Style Guide Agent initialized")
     
@@ -303,11 +304,7 @@ class WritingTeam:
         logger.info("📝 Initializing Document Writing Team...")
         
         # Initialize LLM (higher temperature for creative writing)
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.7,
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0.7)
         
         # Store RAG retriever
         self.rag_retriever = rag_retriever
