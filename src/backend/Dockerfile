@@ -78,25 +78,6 @@ RUN uv sync --no-dev --no-install-project --extra warehouse --extra model \
  && cd /app && uv run python scripts/train_survival_model.py
 
 # Stage 2: FastAPI Backend Service
-FROM base AS backend
-
-# The warehouse feeds the likelihood band and the exposure figures; without it
-# /customer/{id}/likelihood and /book/exposure return 503 and the demo loses the
-# two things it is actually for.
-COPY --from=artifacts /app/warehouse/churnguard.duckdb ./warehouse/churnguard.duckdb
-COPY --from=artifacts /app/models/ ./models/
-
-# Expose port
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run the full API server with multi-agent RAG system
-CMD ["uv", "run", "python", "/app/src/backend/api.py"]
-
-# Stage 3: Jupyter Notebook Server
 FROM base AS jupyter
 
 # Jupyter, plotting and evaluation are extras now, so this stage installs them.
@@ -120,3 +101,30 @@ RUN echo "c.ServerApp.ip = '0.0.0.0'" >> /root/.jupyter/jupyter_lab_config.py \
 # Default command (can be overridden in docker-compose)
 CMD ["uv", "run", "jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
 
+
+
+# Stage order matters. A build with no --target builds the LAST stage, and
+# that is what Render and most managed hosts do. With jupyter last, such a
+# build produced an image with the data but no model and no warehouse, and
+# the service came up reporting 'no model at models/survival.joblib' while
+# the correct commit was deployed. Backend is last so the default is right.
+
+FROM base AS backend
+
+# The warehouse feeds the likelihood band and the exposure figures; without it
+# /customer/{id}/likelihood and /book/exposure return 503 and the demo loses the
+# two things it is actually for.
+COPY --from=artifacts /app/warehouse/churnguard.duckdb ./warehouse/churnguard.duckdb
+COPY --from=artifacts /app/models/ ./models/
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the full API server with multi-agent RAG system
+CMD ["uv", "run", "python", "/app/src/backend/api.py"]
+
+# Stage 3: Jupyter Notebook Server
