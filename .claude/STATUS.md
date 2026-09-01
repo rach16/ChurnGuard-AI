@@ -209,33 +209,11 @@ than the work being forgotten.
 
 Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 
-| # | Item | Effort |
-|---|---|---|
-| — | `api.py` never calls `load_dotenv`, so `.env` is ignored unless exported | 1 line |
-| — | `/evaluation-results` returns 500 where it intends 404 | 2 lines |
-| — | No test covers the evidence layer's cross-account guarantee | ½h |
-
-### Phase 3 — Evaluation (execute fourth)
-
-| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|---|
-| **11** | 3.1 | Full 65-question RAGAS baseline | ½d | **$2–5** | 4.4 | AI · Eval, inner loop |
-| **12** | 3.2 | pytest regression gate | ½d | $0 | 3.1 | AI · Eval, inner loop |
-| **13** | 3.3 | OTel → CloudWatch / X-Ray | 1d | <$1 | 2.2a | AI · Eval, outer loop |
-| **14** | 3.4 | LLM-as-judge on sampled traffic | ½d | $1–2 | 3.3 | AI · Eval, outer loop |
-
-### Phase 2 — Deployment (execute last)
-
-Deployment is no longer the critical path. There is no point deploying a system
-whose core prediction does not exist yet. Terraform is written and validated, so
-this is ready whenever it is worth doing.
-
-| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|---|
-| ~~15~~ | 2.3 | ~~API key, rate limit, token cap~~ — **done**, see Completed | — | $0 | — | P2 · Enterprise security |
-| **9** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
-| **17** | 2.2a | `terraform apply`, verify, destroy | ½d | **$5–10** | 2.3 | P2 · Orchestration |
-| **18** | 2.6 | Cognito user accounts (signup/login) | 2d | $0 | 2.2a | P2 · Enterprise security |
+| # | Item | Effort | Status |
+|---|---|---|---|
+| — | ~~`api.py` never calls `load_dotenv`~~ | 1 line | **Fixed** `6a377e8` — health 5/8 → 8/8 components |
+| — | `/evaluation-results` returns 500 where it intends 404 | 2 lines | open |
+| — | No test covers the evidence layer's cross-account guarantee | ½h | open |
 
 ## Deferred
 
