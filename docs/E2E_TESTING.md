@@ -1,3 +1,10 @@
+> **Historical.** Written against the pre-rebuild system and not maintained. It
+> references `api_simple.py` (deleted), the 25-document corpus (now 771), and
+> evaluation figures measured against an ungrounded golden set. Kept because the
+> ADRs cite what the project used to do; do not follow it as instructions.
+>
+> Current: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [ADRs](adr/)
+
 # End-to-End Testing Guide
 
 Complete guide for testing the Customer Churn RAG system with Docker Compose.

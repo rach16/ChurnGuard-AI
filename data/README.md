@@ -1,85 +1,48 @@
-# Data Folder
+# Data
 
-Place your customer churn data files here.
+Every file here is **generated**, not collected. `scripts/generate_synthetic_rag_data.py`
+produces all of it deterministically from a fixed seed and a fixed `AS_OF_DATE`, so
+two runs are byte-identical.
 
-## 🎉 Flexible Data Format
-
-**Your data works as-is!** Whether you have:
-- ✅ Salesforce pulse/health history
-- ✅ Custom CRM exports
-- ✅ Customer engagement metrics
-- ✅ Support ticket data
-- ✅ Any CSV with customer information
-
-The system adapts to your data structure. See `SALESFORCE_DATA_GUIDE.md` for SFDC-specific instructions.
-
-## Expected Data Structure
-
-### CSV Files (Customer Data)
-```
-customer_churn_data.csv
-├── customer_id          (string) - Unique customer identifier
-├── tenure_months        (int) - Customer tenure in months
-├── monthly_charges      (float) - Monthly service charges
-├── total_charges        (float) - Total charges to date
-├── churn_label          (int) - 1 if churned, 0 if retained
-├── contract_type        (string) - Month-to-month, One year, Two year
-├── payment_method       (string) - Electronic check, Credit card, etc.
-├── internet_service     (string) - DSL, Fiber optic, No
-├── support_tickets      (int) - Number of support tickets
-└── ... (additional features)
+```bash
+python3 scripts/generate_synthetic_rag_data.py   # regenerate
+python3 scripts/validate_dataset.py              # 28 contract checks
 ```
 
-### PDF Documents
-- **Retention Policies**: Business policies and procedures for customer retention
-- **Churn Analysis Reports**: Historical analysis of churn patterns
-- **Industry Research**: External research and benchmarking reports
+## Shape
 
-### Text Files
-- **Customer Feedback**: Unstructured customer feedback and comments
-- **Support Transcripts**: Customer support conversation logs
-- **Survey Responses**: Free-text survey responses
+`customers.csv` is the dimension. Every other table references `customer_id` and
+inherits segment and ARR from it rather than carrying its own copy.
 
-## Sample Data
+| File | Grain | Rows |
+|---|---|---|
+| `customers.csv` | one per customer | 200 (71 churned, 35.5%) |
+| `engagement_snapshots.csv` | customer × week | 15,840 |
+| `customer_interactions.csv` | one per touchpoint | 2,953 |
+| `support_tickets.csv` | one per ticket | 1,311 |
+| `churn_analyses.csv` | one per analysis | 111 |
+| `success_stories.csv` | one per retained account | 60 |
+| `churn_analysis_docs/` | one `.txt` per analysis | 111 |
 
-If you don't have data yet, you can:
+`churned_customers_cleaned.csv` is a legacy 25-row export in a different schema
+(`Account Name`, Salesforce-shaped). It joins to nothing and is kept only as a
+second source system to reconcile against.
 
-1. **Generate synthetic data** using the provided notebook:
-   ```python
-   # In Jupyter notebook
-   from src.utils.data_loader import generate_sample_churn_data
-   df = generate_sample_churn_data(n_customers=1000)
-   df.to_csv('data/customer_churn_data.csv', index=False)
-   ```
+## Why the generator is the way it is
 
-2. **Use public datasets**:
-   - [Kaggle Telco Customer Churn](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)
-   - [UCI ML Churn Dataset](https://archive.ics.uci.edu/ml/datasets/Churn+Modelling)
+Each customer carries a latent health trajectory. Engagement, ticket volume, CSAT,
+adoption **and the churn label** are all derived from it, so the published features
+genuinely predict the target — five separate at AUC 0.72–0.80, with tenure
+deliberately uninformative at 0.51 so feature selection is a real exercise.
 
-## Data Privacy
+An earlier version built every file's company names independently from a random stem
+plus a random suffix, with different suffix pools per file. That produced 157 "companies"
+of which 16 appeared in two tables, and 89 carried conflicting segments. Nothing joined,
+so nothing downstream could be trusted. See ADR-0001.
 
-⚠️ **Important**: Ensure all customer data is:
-- Anonymized (no PII)
-- Compliant with data privacy regulations (GDPR, CCPA, etc.)
-- Authorized for use in development/analysis
+## Contracts
 
-## File Formats Supported
-
-| Format | Use Case | Loader |
-|--------|----------|--------|
-| `.csv` | Structured customer data | `pandas.read_csv()` |
-| `.pdf` | Reports and policies | `PyMuPDF` or `pypdf` |
-| `.txt` | Unstructured feedback | `TextLoader` |
-| `.json` | API responses | `json.load()` |
-
-## Processing Pipeline
-
-1. **Load** → Load raw data from files
-2. **Clean** → Handle missing values, normalize
-3. **Transform** → Create text representations for RAG
-4. **Embed** → Generate vector embeddings
-5. **Store** → Save to Qdrant vector database
-
-See `src/utils/data_loader.py` for implementation details.
-
----
+`scripts/validate_dataset.py` asserts referential integrity, attribute consistency,
+temporal ordering (no event post-dates its customer's churn), business rules, and that
+the features still separate the label. It exits non-zero, so it can gate CI, and the
+same rules exist as dbt tests in `warehouse/`.

@@ -1,3 +1,10 @@
+> **Historical.** Written against the pre-rebuild system and not maintained. It
+> references `api_simple.py` (deleted), the 25-document corpus (now 771), and
+> evaluation figures measured against an ungrounded golden set. Kept because the
+> ADRs cite what the project used to do; do not follow it as instructions.
+>
+> Current: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [ADRs](adr/)
+
 # Retrieval Method QA Test Questions
 
 **Purpose**: Systematically test and compare retrieval methods to identify strengths, weaknesses, and optimal use cases.
