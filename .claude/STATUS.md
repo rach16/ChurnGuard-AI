@@ -53,6 +53,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | **7.2** | Discrete-time survival model | `7e1a664` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **5.4** | Cost of inaction: exposure in dollars | `f05625e` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
 | **5.2** | Site survey instrument + PRD | `d32e017` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
+| **7.5b** | Heuristic churn date removed from the queue | `422347b` | The queue showed `~180d` from `np.interp` over a heuristic score, unlabelled, on the screen operators work from. Replaced by the modelled band where one exists. | AI · Proof mechanisms |
 | **5.3** | MVA (4 tiers, mermaid) + exec status report | `75b6a50` | Measured that **11 of 12 GET routes serve with no LLM key** — detect, value and explain need no model provider. Scoping now leads with the deterministic tiers. | P3 · MVA, exec reporting |
 | **7.1** | Point-in-time features + survival labels | `4f01b1b` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
@@ -174,7 +175,7 @@ remains is listed below, in execution order, with cost stated.
 | # | Item | Why |
 |---|---|---|
 | 7.4 | Serve predicted date + interval from the API | **ADR-0009.** The date was retracted after the backtest — 4.36x hazard underprediction, dates 222 days late, structurally unfixable. `/customer/{id}/likelihood` serves a band and a lift instead. |
-| 7.5 | Surface date + interval in the UI | Same. The console shows the band. |
+| 7.5 | Surface date + interval in the UI | **Partly.** The *date* is cancelled for the same reason. "Replace the heuristic" was live and unfinished — the queue still rendered a bare `~180d` from `np.interp` over the risk score. Closed separately, see Completed. |
 
 5.4 was specified as *ARR × predicted horizon* and depended on 7.4. With no
 horizon to multiply by it was delivered as **P(churn within a quarter) × ARR** —
