@@ -34,6 +34,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | **2.1** | Async unblocked; data baked into image | `f3c2570` | 5 concurrent requests 2.03s→0.42s (4.9x). Container runs standalone with no volumes. | P2 · Deployment readiness |
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
 | **2.3** | API key auth, rate limit, token cap | `9ab57a2` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
+| **2.4** | CI on every push; deploy pipeline written | `PLACEHOLDER_24` | 3 CI jobs (contracts+warehouse+65 tests, typecheck+build, terraform validate) on free public runners. Deploy is `workflow_dispatch` only and authenticates by OIDC — no long-lived AWS key in a public repo. | P2 · DevSecOps |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -185,9 +186,7 @@ dropped, not outstanding.
 
 ### Remaining — free
 
-| Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
-|---|---|---|---|---|---|---|
-| **1** | 2.4 | GitHub Actions → ECR → ECS | 1d | $0 | 2.2w | P2 · DevSecOps |
+**None.** Every zero-cost item in the plan is complete.
 
 ### Remaining — costs money
 
