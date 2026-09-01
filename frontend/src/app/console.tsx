@@ -31,6 +31,13 @@ import { apiClient, type AtRiskCustomer, type DashboardStats } from './api-clien
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+interface Likelihood {
+  band: 'Very high' | 'High' | 'Moderate' | 'Low';
+  lift: number;
+  probability: number;
+  horizon_weeks: number;
+}
+
 interface Play {
   action: string;
   cases: number;
@@ -71,6 +78,7 @@ export function Console() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [plays, setPlays] = useState<Play[] | null>(null);
+  const [likelihood, setLikelihood] = useState<Likelihood | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -97,6 +105,12 @@ export function Console() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setPlays(d.plays ?? []))
       .catch(() => setPlays([]));
+
+    setLikelihood(null);
+    fetch(`${API}/customer/${selected.id}/likelihood`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setLikelihood)
+      .catch(() => setLikelihood(null));
   }, [selected]);
 
   const filtered = useMemo(() => {
@@ -211,7 +225,12 @@ export function Console() {
 
               <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
                 {[
-                  ['Predicted horizon', `~${selected.days_until_churn} days`],
+                  [
+                    'Churn likelihood, 1 quarter',
+                    likelihood
+                      ? `${likelihood.band}${likelihood.lift >= 1 ? ` · ${likelihood.lift.toFixed(1)}× average` : ''}`
+                      : '—',
+                  ],
                   ['Primary driver', selected.risk_reason],
                   ['Adoption', `${Math.round(selected.feature_adoption_rate * 100)}%`],
                   ['Tickets / 30d', String(selected.support_tickets_30d)],
@@ -295,9 +314,12 @@ export function Console() {
               </div>
 
               <p className="mt-8 text-xs leading-relaxed text-muted-foreground">
-                Horizon is derived from the current heuristic score, not the survival
-                model. Dates carry no confidence interval until phase 7.3 completes
-                calibration.
+                Likelihood is a band and a lift against the book average over one
+                quarter, not a date. The survival model ranks accounts well but its
+                median-survival date is unusable, and its absolute probability runs
+                about 2&times; low, so a lift is reported instead &mdash; it is
+                unaffected by that bias. Roughly 40% of accounts sit at the low end
+                of the calibrator and carry no ordering between them. See ADR-0009.
               </p>
             </div>
           </ScrollArea>

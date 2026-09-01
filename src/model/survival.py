@@ -83,6 +83,12 @@ LABEL = "event_in_next_period"
 # carry the fact separately, so the model can use "unknown" as information.
 NO_CONTACT_SENTINEL = 9999
 
+# Isotonic regression maps an entire input region to exactly zero when no event
+# was observed in it. With roughly 280 events across the training window that is
+# thin evidence, not proof of impossibility, and a hazard of exactly 0 makes the
+# survival curve flat forever and any ratio against it undefined. Floor it.
+MIN_HAZARD = 1e-4
+
 
 @dataclass
 class SurvivalPrediction:
@@ -122,6 +128,7 @@ class ChurnSurvivalModel:
         self.max_periods = max_periods
         self.random_state = random_state
         self.pipeline = None
+        self.calibrator = None
         self.feature_names_: list[str] = []
 
     # ------------------------------------------------------------------ setup
@@ -174,18 +181,56 @@ class ChurnSurvivalModel:
 
     # --------------------------------------------------------------- training
 
-    def fit(self, train: pd.DataFrame) -> "ChurnSurvivalModel":
-        """Fit the hazard model on customer-week rows."""
+    def fit(self, train: pd.DataFrame, calibrate: bool = False) -> "ChurnSurvivalModel":
+        """Fit the hazard model on customer-week rows.
+
+        Args:
+            train: customer-week observations with the hazard label
+            calibrate: fit an isotonic calibrator on a held-out tail of the training
+                window. The raw model ranks well and underpredicts -- 1.7% against an
+                observed 4.65% in 7.2 -- and an underpredicted hazard makes the
+                survival curve decay too slowly, which is what puts the dates months
+                late. Isotonic rather than Platt because the miscalibration is not a
+                monotone squeeze of a sigmoid; it is a level shift that varies across
+                the range.
+
+                The calibration slice is split by time, not at random, for the same
+                reason the backtest is: a customer either side of a random split
+                leaks its own future.
+        """
         data = self.prepare(train)
         columns = list(CATEGORICAL) + [c for c in FEATURES if c in data.columns]
         if "never_contacted" in data:
             columns.append("never_contacted")
 
-        X, y = data[columns], data[LABEL]
+        if calibrate and "week_start" in data.columns:
+            cutoff = data["week_start"].quantile(0.75)
+            fit_part = data[data["week_start"] <= cutoff]
+            cal_part = data[data["week_start"] > cutoff]
+            # A calibrator needs both classes present or it cannot learn a mapping.
+            if len(cal_part) < 200 or cal_part[LABEL].nunique() < 2:
+                calibrate = False
+        else:
+            calibrate = False
+            fit_part, cal_part = data, None
+
+        X, y = (fit_part if calibrate else data)[columns], (fit_part if calibrate else data)[LABEL]
         self.feature_names_ = columns
 
         self.pipeline = self._build_pipeline()
         self.pipeline.fit(X, y)
+
+        self.calibrator = None
+        if calibrate:
+            from sklearn.isotonic import IsotonicRegression
+
+            raw = self.pipeline.predict_proba(cal_part[columns])[:, 1]
+            self.calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
+            self.calibrator.fit(raw, cal_part[LABEL].to_numpy())
+            logger.info(
+                f"Calibrated on {len(cal_part):,} held-out rows "
+                f"(raw mean {raw.mean():.4f} -> observed {cal_part[LABEL].mean():.4f})"
+            )
 
         logger.info(
             f"Fitted on {len(X):,} customer-weeks, {int(y.sum())} events "
@@ -199,7 +244,10 @@ class ChurnSurvivalModel:
         """P(churn within the next period) for each row."""
         if self.pipeline is None:
             raise RuntimeError("Model is not fitted")
-        return self.pipeline.predict_proba(self.prepare(rows)[self.feature_names_])[:, 1]
+        raw = self.pipeline.predict_proba(self.prepare(rows)[self.feature_names_])[:, 1]
+        if getattr(self, "calibrator", None) is not None:
+            return np.clip(self.calibrator.predict(raw), MIN_HAZARD, 1.0)
+        return raw
 
     def survival_curve(self, row: pd.Series) -> np.ndarray:
         """Project one customer forward, returning S(t) for t = 1..max_periods.
@@ -221,6 +269,60 @@ class ChurnSurvivalModel:
 
         hazards = self.hazard(frame)
         return np.cumprod(1.0 - hazards)
+
+    def churn_probability(self, row: pd.Series, weeks: int = 13) -> float:
+        """P(churn within `weeks`), from the chained hazards.
+
+        This is what the model actually supports. The median of the survival curve
+        is structurally far out whenever the hazard is small -- at 0.04 per period
+        it does not cross 0.5 for 482 days -- so a predicted date is unusable here
+        however well the model ranks. A probability over a fixed window is the same
+        information without the statistic that breaks. See ADR-0009.
+        """
+        periods = max(1, int(np.ceil(weeks / PERIOD_WEEKS)))
+        curve = self.survival_curve(row)
+        return float(1.0 - curve[min(periods, len(curve)) - 1])
+
+    def churn_probabilities(self, rows: pd.DataFrame, weeks: int = 13) -> np.ndarray:
+        """Vectorised churn_probability.
+
+        Holds features constant while advancing tenure, so this compounds one
+        hazard rather than re-predicting per period. Equivalent for a flat
+        projection and far cheaper across a whole book.
+        """
+        periods = max(1, int(np.ceil(weeks / PERIOD_WEEKS)))
+        h = self.hazard(rows)
+        return 1.0 - (1.0 - h) ** periods
+
+    @staticmethod
+    def band(lift: float) -> str:
+        """Likelihood band from a lift against the book average.
+
+        The calibrated probability still underpredicts the absolute level by
+        roughly two, because the hazard rate rises across the observation window
+        and a model fitted on an earlier period cannot know that. A lift is
+        invariant to a multiplicative level error -- both sides shift together --
+        so a band derived from it survives the bias that a printed percentage
+        would not.
+        """
+        if lift >= 3.0:
+            return "Very high"
+        if lift >= 1.75:
+            return "High"
+        if lift >= 1.0:
+            return "Moderate"
+        return "Low"
+
+    def rank_book(self, rows: pd.DataFrame, weeks: int = 13) -> pd.DataFrame:
+        """Probability, lift against the book average, and band, for every row."""
+        p = self.churn_probabilities(rows, weeks=weeks)
+        reference = float(np.mean(p)) or MIN_HAZARD
+        lift = p / reference
+        return pd.DataFrame({
+            "probability": p,
+            "lift": lift,
+            "band": [self.band(x) for x in lift],
+        }, index=rows.index)
 
     @staticmethod
     def _crossing(curve: np.ndarray, threshold: float) -> Optional[int]:
@@ -285,7 +387,7 @@ class ChurnSurvivalModel:
         import joblib
         path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump({"pipeline": self.pipeline, "features": self.feature_names_,
-                     "max_periods": self.max_periods}, path)
+                     "max_periods": self.max_periods, "calibrator": self.calibrator}, path)
         logger.info(f"Saved model to {path}")
 
     @classmethod
@@ -295,6 +397,7 @@ class ChurnSurvivalModel:
         model = cls(max_periods=blob["max_periods"])
         model.pipeline = blob["pipeline"]
         model.feature_names_ = blob["features"]
+        model.calibrator = blob.get("calibrator")
         return model
 
 

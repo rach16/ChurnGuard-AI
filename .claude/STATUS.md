@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `fc30742` · 40 commits since fork.
+Last updated 2026-08-31 · `main` @ `91e2b56` · 42 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,7 +9,8 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Phase 9 (recommended plays) complete. Step 1 (7.3) is next: the survival model ranks well
+Nothing. 7.3 complete: the date promise was retracted (ADR-0009) and replaced
+with a likelihood band, now surfaced. Step 1 (4.4) is next: the survival model ranks well
 but its **dates are 196 days off and not usable**, which blocks 7.4.
 
 ## Completed
@@ -44,6 +45,7 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
 | **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
 | **8.4** | Honest empty states; integrations marked roadmap | `ee8a0cc` | Six fabricated "live" connectors relabelled | AI · Proof mechanisms |
+| **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
@@ -125,7 +127,8 @@ actual content (IaC, networking, orchestration) is still at zero.
 |---|---|
 | **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
-| **Predicted dates are systematically late** | Median 196d absolute error; 5 of 15 held-out churners predicted beyond 2 years. The model ranks well but its hazards are too low, so curves decay too slowly. Blocks 7.4. → 7.3 |
+| **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
+| **40% of accounts sit at the calibrator floor** | Isotonic collapses everything below its lowest knot, so the Low band carries no ordering inside it. |
 | **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
 | In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |

@@ -51,7 +51,9 @@ def main() -> int:
     print(f"train: {len(train):,} rows to {cutoff.date()}, {int(train['event_in_next_period'].sum())} events")
     print(f"test:  {len(test):,} rows from {cutoff.date()}, {int(test['event_in_next_period'].sum())} events\n")
 
-    model = ChurnSurvivalModel().fit(train)
+    # Calibration is on: it is the probability we now surface, and the date it
+    # used to harm is no longer produced. See ADR-0009.
+    model = ChurnSurvivalModel().fit(train, calibrate=True)
 
     print("\nheld-out by time (the realistic case: predicting forward for known customers)")
     for k, v in model.score(test).items():
@@ -70,7 +72,7 @@ def main() -> int:
     held = set(customers[::4])
     gtrain = df[~df["customer_id"].isin(held)]
     gtest = df[df["customer_id"].isin(held)]
-    grouped = ChurnSurvivalModel().fit(gtrain)
+    grouped = ChurnSurvivalModel().fit(gtrain, calibrate=True)
 
     print(f"\nheld-out by customer ({len(held)} unseen customers)")
     for k, v in grouped.score(gtest).items():
