@@ -80,9 +80,17 @@ Never anchor an edit to STATUS.md on a commit hash. Resolve the hash from
 `git log --grep` at write time; a hardcoded one silently matches nothing and the
 row is dropped without an error.
 
-**Resolve the hash after the last amend, not before.** Writing a hash into
-STATUS.md and then running `git commit --amend` records the pre-amend hash, which
-is orphaned the moment the amend rewrites the commit. It still resolves locally
+**Never `git commit --amend` after writing a hash into STATUS.md.** The amend
+rewrites the commit and orphans the hash just written. Resolving the hash again
+and amending a second time does not help -- that amend rewrites it too. The only
+stable sequence is:
+
+1. Commit the code.
+2. Resolve `git log -1 --format=%h`.
+3. Write it into STATUS.md and commit **that as its own commit**, never `--amend`.
+
+The STATUS row then points at the commit holding the change, which is what it
+should reference anyway. It still resolves locally
 from the reflog, so it looks correct, and it is unreachable from `main` and
 disappears at gc. Ten rows were recorded this way before it was caught on
 2026-09-01. Audit with:
