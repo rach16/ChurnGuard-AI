@@ -27,6 +27,7 @@ from agents.multi_agent_system import MultiAgentChurnSystem
 from core.knowledge_graph import ChurnKnowledgeGraph
 from core.health_scoring import CustomerHealthScorer
 from core.plays import PlaybookEngine
+from model.survival import ChurnSurvivalModel
 
 # Configure logging
 logging.basicConfig(
@@ -56,6 +57,8 @@ class ServiceState:
         self.multi_agent_system: Optional[MultiAgentChurnSystem] = None
         self.health_scorer: Optional[CustomerHealthScorer] = None
         self.playbook: Optional[PlaybookEngine] = None
+        self.survival: Optional[ChurnSurvivalModel] = None
+        self.survival_frame = None
         self.knowledge_graph = None
         self.errors: dict[str, str] = {}
 
@@ -77,6 +80,7 @@ class ServiceState:
         return {
             "health_scorer": self.health_scorer is not None,
             "playbook": self.playbook is not None,
+            "survival_model": self.survival is not None,
             "rag_retriever": self.rag_retriever is not None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
@@ -104,6 +108,41 @@ def _init_health_scorer() -> None:
         logger.info("✓ Playbook initialized")
     except Exception as e:
         state.unavailable("playbook", f"{type(e).__name__}: {e}")
+
+    # The likelihood band is read from a model artefact and the warehouse, neither
+    # of which needs an API key, so it belongs in the CSV-backed tier too.
+    _init_survival()
+
+
+def _init_survival() -> None:
+    """Load the trained survival model and the feature rows it scores."""
+    model_path = Path(os.getenv("SURVIVAL_MODEL_PATH", "models/survival.joblib"))
+    warehouse = Path(os.getenv("DUCKDB_PATH", "warehouse/churnguard.duckdb"))
+
+    if not model_path.exists():
+        state.unavailable("survival_model", f"no model at {model_path}; run scripts/train_survival_model.py")
+        return
+    if not warehouse.exists():
+        state.unavailable("survival_model", f"no warehouse at {warehouse}; run dbt")
+        return
+
+    try:
+        import duckdb
+
+        state.survival = ChurnSurvivalModel.load(model_path)
+        con = duckdb.connect(str(warehouse), read_only=True)
+        try:
+            # One row per customer: their most recent observation.
+            state.survival_frame = con.execute("""
+                select * from main_gold.train_survival
+                qualify row_number() over (partition by customer_id order by week_start desc) = 1
+            """).df()
+        finally:
+            con.close()
+        logger.info(f"✓ Survival model loaded ({len(state.survival_frame)} customers scored)")
+    except Exception as e:
+        state.survival = None
+        state.unavailable("survival_model", f"{type(e).__name__}: {e}")
 
 
 AI_COMPONENTS = ("rag_retriever", "churn_agent", "multi_agent_system")
@@ -767,6 +806,53 @@ async def calculate_customer_health(request: CustomerHealthRequest):
             status_code=500,
             detail=f"Failed to calculate customer health: {str(e)}"
         )
+
+
+@app.get("/customer/{customer_id}/likelihood")
+async def get_customer_likelihood(customer_id: int):
+    """How likely this account is to churn within a quarter.
+
+    Reported as a band and a lift against the book average, not a date and not a
+    bare percentage. The model ranks well and underpredicts the absolute level by
+    roughly two, because the hazard rate rises across the observation window. A
+    lift is invariant to that -- both sides shift together -- so it survives a bias
+    a printed percentage would inherit. See ADR-0009.
+    """
+    health_scorer = require_health_scorer()
+
+    if state.survival is None or state.survival_frame is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "survival_model is not available",
+                    "reason": state.errors.get("survival_model", "not initialized")},
+        )
+
+    customer = health_scorer.get_customer(customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    frame = state.survival_frame
+    row = frame[frame["customer_id"] == customer["customer_id"]]
+    if row.empty:
+        raise HTTPException(status_code=404, detail="No feature row for this customer")
+
+    ranked = await run_in_threadpool(state.survival.rank_book, frame, 13)
+    mine = ranked.loc[row.index[0]]
+
+    return {
+        "customer_id": customer["customer_id"],
+        "name": customer["name"],
+        "horizon_weeks": 13,
+        "band": mine["band"],
+        "lift": round(float(mine["lift"]), 2),
+        "probability": round(float(mine["probability"]), 4),
+        "as_of": str(row.iloc[0]["week_start"])[:10],
+        "caveat": (
+            "Lift against the book average over one quarter. The absolute "
+            "probability underpredicts by roughly 2x; the band and lift are the "
+            "figures to act on."
+        ),
+    }
 
 
 @app.get("/customer/{customer_id}/plays")

@@ -83,6 +83,12 @@ LABEL = "event_in_next_period"
 # carry the fact separately, so the model can use "unknown" as information.
 NO_CONTACT_SENTINEL = 9999
 
+# Isotonic regression maps an entire input region to exactly zero when no event
+# was observed in it. With roughly 280 events across the training window that is
+# thin evidence, not proof of impossibility, and a hazard of exactly 0 makes the
+# survival curve flat forever and any ratio against it undefined. Floor it.
+MIN_HAZARD = 1e-4
+
 
 @dataclass
 class SurvivalPrediction:
@@ -240,7 +246,7 @@ class ChurnSurvivalModel:
             raise RuntimeError("Model is not fitted")
         raw = self.pipeline.predict_proba(self.prepare(rows)[self.feature_names_])[:, 1]
         if getattr(self, "calibrator", None) is not None:
-            return self.calibrator.predict(raw)
+            return np.clip(self.calibrator.predict(raw), MIN_HAZARD, 1.0)
         return raw
 
     def survival_curve(self, row: pd.Series) -> np.ndarray:
@@ -263,6 +269,60 @@ class ChurnSurvivalModel:
 
         hazards = self.hazard(frame)
         return np.cumprod(1.0 - hazards)
+
+    def churn_probability(self, row: pd.Series, weeks: int = 13) -> float:
+        """P(churn within `weeks`), from the chained hazards.
+
+        This is what the model actually supports. The median of the survival curve
+        is structurally far out whenever the hazard is small -- at 0.04 per period
+        it does not cross 0.5 for 482 days -- so a predicted date is unusable here
+        however well the model ranks. A probability over a fixed window is the same
+        information without the statistic that breaks. See ADR-0009.
+        """
+        periods = max(1, int(np.ceil(weeks / PERIOD_WEEKS)))
+        curve = self.survival_curve(row)
+        return float(1.0 - curve[min(periods, len(curve)) - 1])
+
+    def churn_probabilities(self, rows: pd.DataFrame, weeks: int = 13) -> np.ndarray:
+        """Vectorised churn_probability.
+
+        Holds features constant while advancing tenure, so this compounds one
+        hazard rather than re-predicting per period. Equivalent for a flat
+        projection and far cheaper across a whole book.
+        """
+        periods = max(1, int(np.ceil(weeks / PERIOD_WEEKS)))
+        h = self.hazard(rows)
+        return 1.0 - (1.0 - h) ** periods
+
+    @staticmethod
+    def band(lift: float) -> str:
+        """Likelihood band from a lift against the book average.
+
+        The calibrated probability still underpredicts the absolute level by
+        roughly two, because the hazard rate rises across the observation window
+        and a model fitted on an earlier period cannot know that. A lift is
+        invariant to a multiplicative level error -- both sides shift together --
+        so a band derived from it survives the bias that a printed percentage
+        would not.
+        """
+        if lift >= 3.0:
+            return "Very high"
+        if lift >= 1.75:
+            return "High"
+        if lift >= 1.0:
+            return "Moderate"
+        return "Low"
+
+    def rank_book(self, rows: pd.DataFrame, weeks: int = 13) -> pd.DataFrame:
+        """Probability, lift against the book average, and band, for every row."""
+        p = self.churn_probabilities(rows, weeks=weeks)
+        reference = float(np.mean(p)) or MIN_HAZARD
+        lift = p / reference
+        return pd.DataFrame({
+            "probability": p,
+            "lift": lift,
+            "band": [self.band(x) for x in lift],
+        }, index=rows.index)
 
     @staticmethod
     def _crossing(curve: np.ndarray, threshold: float) -> Optional[int]:
