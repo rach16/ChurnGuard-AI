@@ -54,6 +54,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | **5.4** | Cost of inaction: exposure in dollars | `f05625e` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
 | **5.2** | Site survey instrument + PRD | `d32e017` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
 | **7.5b** | Heuristic churn date removed from the queue | `b2e4cfe` | The queue showed `~180d` from `np.interp` over a heuristic score, unlabelled, on the screen operators work from. Replaced by the modelled band where one exists. | AI · Proof mechanisms |
+| **0.9** | Vercel Root Directory set to `frontend` | settings change, no commit | Build no longer auto-detects the repo as FastAPI. `vercel build` in `frontend/` returns `status: ok`. **Not yet confirmed on Vercel** — `main` is unpushed, so the last deployment is still commit `62191ad`. | — |
 | **5.3** | MVA (4 tiers, mermaid) + exec status report | `75b6a50` | Measured that **11 of 12 GET routes serve with no LLM key** — detect, value and explain need no model provider. Scoping now leads with the deterministic tiers. | P3 · MVA, exec reporting |
 | **7.1** | Point-in-time features + survival labels | `4f01b1b` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
@@ -240,7 +241,6 @@ this is ready whenever it is worth doing.
 
 | Item | Reason |
 |---|---|
-| 0.9 Vercel fix | **Diagnosis confirmed 2026-09-01.** Root Directory must be `frontend`; the original note was right. Build logs show Vercel auto-detecting the repo as **FastAPI** (`pyproject.toml` at root) and erroring before Next.js is considered — a symptom of the root directory, not a separate fault. A root `vercel.json` with `framework: nextjs` does **not** work: it makes Vercel look for `next` in the root `package.json`. Verified `cd frontend && vercel build` succeeds. Blocked on one project-settings change. |
 | 4.3 Vector migration off Qdrant | No target until Phase 2 deploys. OpenSearch Serverless has a 2-OCU minimum ≈ **$350/mo** for 137 KB — use pgvector (~$15/mo) or Qdrant Cloud free tier instead. |
 | Phase 6 air-gap / edge | Only worth it for defence or regulated clients. |
 | Knowledge graph rebuild | Superseded — ARCHITECTURE.md schedules deletion in 4.5, not a rebuild. |
