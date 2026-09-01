@@ -25,6 +25,7 @@ from core.rag_retrievers import ChurnRAGRetriever
 from agents.churn_agent import CustomerChurnAgent
 from agents.multi_agent_system import MultiAgentChurnSystem
 from core.health_scoring import CustomerHealthScorer
+from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
 from core.llm import active_configuration
@@ -62,6 +63,7 @@ class ServiceState:
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
+        self.exposure: Optional[ExposureModel] = None
         self.errors: dict[str, str] = {}
 
     def unavailable(self, component: str, reason: str) -> None:
@@ -83,6 +85,7 @@ class ServiceState:
             "health_scorer": self.health_scorer is not None,
             "playbook": self.playbook is not None,
             "survival_model": self.survival is not None,
+            "exposure": self.exposure is not None,
             "evidence": self.evidence is not None,
             "rag_retriever": self.rag_retriever is not None,
             "churn_agent": self.churn_agent is not None,
@@ -155,6 +158,14 @@ def _init_survival() -> None:
     except Exception as e:
         state.survival = None
         state.unavailable("survival_model", f"{type(e).__name__}: {e}")
+        return
+
+    # Exposure needs the model for probability and the playbook for the recovery
+    # sensitivity. It degrades to exposure-only without the playbook rather than
+    # failing, because the money figure is useful on its own.
+    state.exposure = ExposureModel(state.survival, state.playbook)
+    if state.playbook is None:
+        logger.info("Exposure: no playbook, so no recovery estimate")
 
 
 AI_COMPONENTS = ("rag_retriever", "churn_agent", "multi_agent_system")
@@ -919,6 +930,76 @@ async def get_customer_plays(customer_id: int):
         "segment": customer["segment"],
         "plays": [p.to_dict() for p in plays],
         "basis": "Outcomes recorded on accounts that faced the same challenge",
+    }
+
+
+@app.get("/book/exposure")
+async def get_book_exposure(horizon_weeks: int = 13, top_n: int = 10):
+    """What the risk in the book is worth this quarter.
+
+    Expected loss is P(churn within the horizon) x ARR, summed. That is an
+    expectation over a book, not a forecast for any one account -- each account
+    either renews or does not.
+
+    Two figures carry more weight than the headline total. The **share of loss by
+    band** is a ratio, so it is unaffected by the calibration bias the dollar
+    totals inherit. And **recoverable** is the model's response to adoption moving
+    by the median gain recorded on comparable accounts: a sensitivity, biased
+    upward because only successful interventions were ever written down.
+    """
+    health_scorer = require_health_scorer()
+
+    if state.exposure is None or state.survival_frame is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "exposure is not available",
+                    "reason": state.errors.get("survival_model", "not initialized")},
+        )
+
+    book = await run_in_threadpool(
+        state.exposure.for_book,
+        state.survival_frame,
+        health_scorer.score_active_customers(),
+        horizon_weeks,
+        top_n,
+    )
+    return book.to_dict()
+
+
+@app.get("/customer/{customer_id}/exposure")
+async def get_customer_exposure(customer_id: int, horizon_weeks: int = 13):
+    """One account's ARR weighted by its probability of leaving this quarter."""
+    health_scorer = require_health_scorer()
+
+    if state.exposure is None or state.survival_frame is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "exposure is not available",
+                    "reason": state.errors.get("survival_model", "not initialized")},
+        )
+
+    customer = health_scorer.get_customer(customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    one = await run_in_threadpool(
+        state.exposure.for_customer,
+        state.survival_frame,
+        health_scorer.score_active_customers(),
+        customer["customer_id"],
+        horizon_weeks,
+    )
+    if one is None:
+        raise HTTPException(status_code=404, detail="No feature row for this customer")
+
+    return {
+        **one.to_dict(),
+        "horizon_weeks": horizon_weeks,
+        "caveat": (
+            "Expected loss is a probability times ARR. Over a book that is a "
+            "meaningful total; for one account it is neither a forecast nor a "
+            "figure to quote to that customer."
+        ),
     }
 
 

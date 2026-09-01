@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `98df5bf` · 45 commits since fork.
+Last updated 2026-09-01 · `main` @ `b8a8781` · 45 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,8 +9,9 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. Phase 4 complete. Step 1 (5.4, cost-of-inaction) is next: the survival model ranks well
-but its **dates are 196 days off and not usable**, which blocks 7.4.
+Nothing. 5.4 complete. Next free work is 5.2 (site survey + PRD) and 5.3 (MVA +
+exec status report). Everything remaining outside Phase 5 costs money and is
+excluded by the user's standing constraint.
 
 ## Completed
 
@@ -49,6 +50,7 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | **4.5** | Knowledge graph deleted; agents on hybrid | `ffbdccc` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
 | **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
+| **5.4** | Cost of inaction: exposure in dollars | `0050461` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
@@ -71,6 +73,9 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | Survival model — held out by time | AUC 0.665, Brier 0.049 | 2026-08-31 | same — underpredicts, see gaps |
 | Predicted churn date accuracy | **196 days median abs error** | 2026-08-31 | 10 held-out churners, predicted 180d ahead |
 | DuckDB vs Athena | 6/6 queries agree | 2026-08-30 | `warehouse/verify_athena.py` |
+| Expected quarterly loss | **$1,208,213** (8.81% of ARR) | 2026-09-01 | `scripts/report_exposure.py` |
+| Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
+| Distinct calibrated probabilities (200 rows) | **12** | 2026-09-01 | `rank_book` on `train_survival` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
 
@@ -100,21 +105,22 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Data quality & observability | ✅ | 52 dbt tests + 28 contracts |
 | └ Distributed compute (Spark/Ray) | ❌ skipped | 1.6 MB dataset — see Deferred |
 | **Applied AI** | ✅ complete | |
-| ├ Predictive modelling | ❌ **no model exists** | Phase 7 — the critical path |
+| ├ Predictive modelling | ✅ | 7.1–7.3, `6f9d39b` |
 | ├ Hybrid search (BM25 + vectors) | ✅ | `f41bfe6` |
 | ├ Eval, inner loop | ✅ | golden set + benchmark harness |
 | ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
 | ├ Multi-agent orchestration | ✅ | pre-existing, now served |
-| └ Model-agnostic providers | ❌ | 4.2 |
+| └ Model-agnostic providers | ✅ | 4.2, `8b3479f` |
 | **Phase 2 — Cloud Architecture** | 🔄 partial | |
 | ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
 | ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
 | ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
-| **Phase 3 — Consulting** | 🔄 2 of 5 artifacts | |
+| **Phase 3 — Consulting** | 🔄 4 of 6 artifacts | |
 | ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
 | ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
 | ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
+| ├ Cost of inaction / value case | ✅ | 5.4, `docs/COST_OF_INACTION.md` |
 | ├ Site Survey | ❌ | 5.2 |
 | ├ Technical Scoping / PRD | ❌ | 5.2 |
 | └ MVA + Exec Status Report | ❌ | 5.3 |
@@ -130,6 +136,10 @@ actual content (IaC, networking, orchestration) is still at zero.
 | **No predictive model** | `risk_score` is a weighted sum; `days_until_churn` is `np.interp` over it. Never fitted to observed churn timing. → 7.2 |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
+| **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
+| **`api.py` never calls `load_dotenv`** | A key in `.env` is ignored unless exported, so RAG, the agent and the multi-agent system come up unavailable on a stock checkout. Pre-existing, verified against `main` on 2026-09-01. Contradicts the `.env` instruction in CLAUDE.md. One-line fix, not applied — out of scope for 5.4. |
+| **Recoverable figure is survivorship-biased** | `success_stories.csv` records only interventions that worked. The recovery estimate is an upper bound and is labelled as one everywhere it is returned. Removing the bias needs a recorded failure set. |
+| **No renewal calendar in exposure** | A 13-week horizon is applied uniformly; `contract_end_date` exists but is unused, so an account 3 weeks from renewal is weighted like one 11 months out. |
 | **40% of accounts sit at the calibrator floor** | Isotonic collapses everything below its lowest knot, so the Low band carries no ordering inside it. |
 | **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
 | In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
@@ -170,9 +180,15 @@ surfaced**. Everything else supports that or waits.
 
 | Step | # | Item | Effort | Cost | Depends on | FDE roadmap |
 |---|---|---|---|---|---|---|
-| **8** | 5.4 | Cost-of-inaction model (ARR at risk × predicted horizon) | ½d | $0 | 7.4 | P3 · Artifacts |
-| **9** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
-| **10** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+| ~~8~~ | 5.4 | ~~Cost-of-inaction model~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
+| **8** | 5.2 | Site survey + PRD | ½d | $0 | — | P3 · Artifacts |
+| **9** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+
+5.4 was specified as *ARR × predicted horizon* and depended on 7.4. ADR-0009
+retracted dates, so there is no horizon to multiply by and 7.4 was never built.
+Delivered instead as **P(churn within a quarter) × ARR**, which is the same
+question against a figure the data supports. The dependency on 7.4 is dropped, not
+outstanding.
 
 ### Phase 3 — Evaluation (execute fourth)
 
