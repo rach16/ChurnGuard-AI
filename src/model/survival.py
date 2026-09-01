@@ -122,6 +122,7 @@ class ChurnSurvivalModel:
         self.max_periods = max_periods
         self.random_state = random_state
         self.pipeline = None
+        self.calibrator = None
         self.feature_names_: list[str] = []
 
     # ------------------------------------------------------------------ setup
@@ -174,18 +175,56 @@ class ChurnSurvivalModel:
 
     # --------------------------------------------------------------- training
 
-    def fit(self, train: pd.DataFrame) -> "ChurnSurvivalModel":
-        """Fit the hazard model on customer-week rows."""
+    def fit(self, train: pd.DataFrame, calibrate: bool = False) -> "ChurnSurvivalModel":
+        """Fit the hazard model on customer-week rows.
+
+        Args:
+            train: customer-week observations with the hazard label
+            calibrate: fit an isotonic calibrator on a held-out tail of the training
+                window. The raw model ranks well and underpredicts -- 1.7% against an
+                observed 4.65% in 7.2 -- and an underpredicted hazard makes the
+                survival curve decay too slowly, which is what puts the dates months
+                late. Isotonic rather than Platt because the miscalibration is not a
+                monotone squeeze of a sigmoid; it is a level shift that varies across
+                the range.
+
+                The calibration slice is split by time, not at random, for the same
+                reason the backtest is: a customer either side of a random split
+                leaks its own future.
+        """
         data = self.prepare(train)
         columns = list(CATEGORICAL) + [c for c in FEATURES if c in data.columns]
         if "never_contacted" in data:
             columns.append("never_contacted")
 
-        X, y = data[columns], data[LABEL]
+        if calibrate and "week_start" in data.columns:
+            cutoff = data["week_start"].quantile(0.75)
+            fit_part = data[data["week_start"] <= cutoff]
+            cal_part = data[data["week_start"] > cutoff]
+            # A calibrator needs both classes present or it cannot learn a mapping.
+            if len(cal_part) < 200 or cal_part[LABEL].nunique() < 2:
+                calibrate = False
+        else:
+            calibrate = False
+            fit_part, cal_part = data, None
+
+        X, y = (fit_part if calibrate else data)[columns], (fit_part if calibrate else data)[LABEL]
         self.feature_names_ = columns
 
         self.pipeline = self._build_pipeline()
         self.pipeline.fit(X, y)
+
+        self.calibrator = None
+        if calibrate:
+            from sklearn.isotonic import IsotonicRegression
+
+            raw = self.pipeline.predict_proba(cal_part[columns])[:, 1]
+            self.calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
+            self.calibrator.fit(raw, cal_part[LABEL].to_numpy())
+            logger.info(
+                f"Calibrated on {len(cal_part):,} held-out rows "
+                f"(raw mean {raw.mean():.4f} -> observed {cal_part[LABEL].mean():.4f})"
+            )
 
         logger.info(
             f"Fitted on {len(X):,} customer-weeks, {int(y.sum())} events "
@@ -199,7 +238,10 @@ class ChurnSurvivalModel:
         """P(churn within the next period) for each row."""
         if self.pipeline is None:
             raise RuntimeError("Model is not fitted")
-        return self.pipeline.predict_proba(self.prepare(rows)[self.feature_names_])[:, 1]
+        raw = self.pipeline.predict_proba(self.prepare(rows)[self.feature_names_])[:, 1]
+        if getattr(self, "calibrator", None) is not None:
+            return self.calibrator.predict(raw)
+        return raw
 
     def survival_curve(self, row: pd.Series) -> np.ndarray:
         """Project one customer forward, returning S(t) for t = 1..max_periods.
@@ -285,7 +327,7 @@ class ChurnSurvivalModel:
         import joblib
         path.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump({"pipeline": self.pipeline, "features": self.feature_names_,
-                     "max_periods": self.max_periods}, path)
+                     "max_periods": self.max_periods, "calibrator": self.calibrator}, path)
         logger.info(f"Saved model to {path}")
 
     @classmethod
@@ -295,6 +337,7 @@ class ChurnSurvivalModel:
         model = cls(max_periods=blob["max_periods"])
         model.pipeline = blob["pipeline"]
         model.feature_names_ = blob["features"]
+        model.calibrator = blob.get("calibrator")
         return model
 
 
