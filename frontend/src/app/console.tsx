@@ -173,12 +173,7 @@ export function Console() {
                       {Math.round(c.risk_score)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-medium">{c.name}</span>
-                        <span className="shrink-0 text-xs tabular text-muted-foreground">
-                          ~{c.days_until_churn}d
-                        </span>
-                      </span>
+                      <span className="block truncate text-sm font-medium">{c.name}</span>
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                         {c.segment} · {money(c.arr)} · {c.risk_reason}
                       </span>
@@ -339,7 +334,11 @@ export function Console() {
                   size="sm"
                   onClick={() =>
                     navigator.clipboard.writeText(
-                      `Follow up with ${selected.name}\nRisk ${Math.round(selected.risk_score)} · ~${selected.days_until_churn}d\nDriver: ${selected.risk_reason}`
+                      `Follow up with ${selected.name}\nRisk ${Math.round(selected.risk_score)}${
+                        likelihood
+                          ? ` · ${likelihood.band} likelihood this quarter, ${likelihood.lift.toFixed(1)}× book average`
+                          : ''
+                      }\nDriver: ${selected.risk_reason}`
                     )
                   }
                 >
