@@ -1,0 +1,134 @@
+# Build the backend image, push it to ECR, and roll the ECS service.
+#
+# DELIBERATELY MANUAL. This is workflow_dispatch only -- it does not run on
+# push, and it does not run on a tag.
+#
+# Two reasons, and the first is the important one:
+#
+# 1. The infrastructure does not exist yet. `terraform apply` (phase 2.2a) has
+#    never been run, so there is no ECR repository, no cluster and no service to
+#    deploy to. A push-triggered pipeline would fail on every commit and train
+#    everyone to ignore a red X.
+#
+# 2. Pushing images costs money -- ECR storage, and a running Fargate task after
+#    the service scales up. Automatic deploys would start that bill silently.
+#
+# Change `on:` to include `push: branches: [main]` once 2.2a has run and the
+# spend is intended. Nothing else here needs to change.
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag to build and deploy (defaults to the commit SHA)"
+        required: false
+        type: string
+
+permissions:
+  # OIDC. The workflow exchanges a short-lived GitHub token for AWS credentials,
+  # so no long-lived access key is ever stored in this repository. The trust
+  # policy is in infra/github_oidc.tf and is scoped to this repo.
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: churnguard-backend
+  ECS_CLUSTER: churnguard
+  ECS_SERVICE: churnguard-backend
+  CONTAINER_NAME: backend
+
+jobs:
+  deploy:
+    name: Build, push, roll
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fail with an instruction rather than a stack of AWS errors. Someone
+      # running this before 2.2a needs to be told that, not shown a 403.
+      - name: Check the deployment role is configured
+        run: |
+          if [ -z "${{ secrets.AWS_DEPLOY_ROLE_ARN }}" ]; then
+            echo "::error::AWS_DEPLOY_ROLE_ARN is not set."
+            echo "Run phase 2.2a (terraform apply) first, then add the role ARN"
+            echo "from the github_actions_role_arn output as a repository secret."
+            exit 1
+          fi
+
+      - name: Assume the deployment role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve the tag
+        id: tag
+        run: echo "value=${{ inputs.image_tag || github.sha }}" >> "$GITHUB_OUTPUT"
+
+      # The data is baked into the image (phase 2.1), so the container runs with
+      # no volumes and the deployed artefact is self-contained and reproducible.
+      - name: Build and push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          docker build -f src/backend/Dockerfile -t "$REGISTRY/$ECR_REPOSITORY:$TAG" .
+          docker push "$REGISTRY/$ECR_REPOSITORY:$TAG"
+          echo "image=$REGISTRY/$ECR_REPOSITORY:$TAG" >> "$GITHUB_ENV"
+
+      # Terraform owns the task definition; this registers a new revision of it
+      # with only the image changed. That is real drift: the next `terraform
+      # apply` will want to reset image_tag. Living with it deliberately --
+      # pinning every deploy through Terraform means a plan/apply per commit,
+      # which is slower and needs far broader credentials in CI. Set
+      # `var.image_tag` to match before the next apply.
+      - name: Read the current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_SERVICE" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render the new image into it
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.image }}
+
+      - name: Deploy and wait for the service to stabilise
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          # Waiting is the point. Without it the job goes green while the task
+          # is still crash-looping, and the pipeline reports a deploy that did
+          # not happen.
+          wait-for-service-stability: true
+
+      # /health is liveness and answers even when the LLM stack is down.
+      # /ready is the one that reflects whether components actually came up, so
+      # that is what a deploy should be judged on.
+      - name: Smoke test the deployment
+        run: |
+          URL=$(aws elbv2 describe-load-balancers \
+            --names churnguard \
+            --query 'LoadBalancers[0].DNSName' --output text)
+          echo "Checking http://$URL/ready"
+          for i in $(seq 1 10); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "http://$URL/ready" || true)
+            echo "  attempt $i: $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::/ready never returned 200"
+          exit 1

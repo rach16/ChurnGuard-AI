@@ -1,0 +1,107 @@
+# Everything that must hold before a change is merged.
+#
+# Runs on every push and pull request. Costs nothing: the repository is public,
+# so GitHub-hosted runners are free, and no job touches AWS or any paid API.
+#
+# The ordering is deliberate. Data contracts run first because when the dataset
+# is wrong every downstream failure is a symptom, and reading 40 dbt errors to
+# rediscover that is a waste of a CI run.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A newer push makes an in-flight run irrelevant. Cancelling keeps the queue
+  # short without hiding failures on main.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  backend:
+    name: Contracts, warehouse, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      # Stdlib only, so this needs no environment at all. 28 assertions over
+      # referential integrity, temporal ordering and predictive signal.
+      - name: Data contracts
+        run: python3 scripts/validate_dataset.py
+
+      # The DuckDB file is not committed -- it is derived, and a committed
+      # binary would drift from the models silently. CI rebuilds it, which also
+      # proves the warehouse builds from a clean checkout.
+      - name: Build the warehouse
+        working-directory: warehouse
+        run: DBT_PROFILES_DIR=$PWD uv run --project .. --extra warehouse dbt build
+
+      # No OPENAI_API_KEY and no Qdrant. Every test must pass without them:
+      # the LLM-backed paths are constructed and never called, and QDRANT_URL
+      # accepts :memory: precisely so CI needs no container.
+      - name: Tests
+        env:
+          QDRANT_URL: ":memory:"
+        run: uv run --extra dev --extra warehouse pytest tests/ -q
+
+  frontend:
+    name: Typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # Separate from the build because tsc failing and next build failing mean
+      # different things, and a combined step hides which one broke.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+
+  infra:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - run: terraform fmt -check -recursive
+
+      # -backend=false so this needs no credentials and no state bucket. It
+      # checks syntax, types and references, not what is deployed.
+      - name: Init without a backend
+        run: terraform init -backend=false
+
+      - run: terraform validate
