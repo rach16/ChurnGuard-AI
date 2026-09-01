@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `67c7c28` · 47 commits since fork.
+Last updated 2026-09-01 · `main` @ `765fcf3` · 49 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,9 +9,10 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. 5.2 complete. **5.3 (MVA + exec status report) is the last free item in
-the plan.** Everything after it costs money and is excluded by the standing
-constraint.
+Nothing. **5.3 complete, and with it every zero-cost item in the plan.** Phase 3
+consulting is 7 of 7. Everything remaining (3.1–3.4, 2.2a/2.3/2.4/2.6) costs
+money and is excluded by the standing constraint, so there is no further work
+that can start without a decision.
 
 ## Completed
 
@@ -52,6 +53,7 @@ constraint.
 | **7.2** | Discrete-time survival model | `6f9d39b` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
 | **5.4** | Cost of inaction: exposure in dollars | `0050461` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
 | **5.2** | Site survey instrument + PRD | `3e757a8` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
+| **5.3** | MVA (4 tiers, mermaid) + exec status report | `b232d9e` | Measured that **11 of 12 GET routes serve with no LLM key** — detect, value and explain need no model provider. Scoping now leads with the deterministic tiers. | P3 · MVA, exec reporting |
 | **7.1** | Point-in-time features + survival labels | `e72b1d5` | 15,711 training rows, 284 hazard positives (1.81%). Leakage verified by rebuild-on-truncated-data. | P1 · Feature engineering |
 
 ## Current metrics
@@ -117,14 +119,14 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
 | ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
 | └ Container orchestration | 🔄 defined; never applied | 2.2a |
-| **Phase 3 — Consulting** | 🔄 6 of 7 artifacts | |
+| **Phase 3 — Consulting** | ✅ **7 of 7 artifacts** | |
 | ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
 | ├ ADRs | ✅ | 8 records, `3d208a3` + `1efc4ff` |
 | ├ Agentic deployment architecture | ✅ | `docs/ARCHITECTURE.md` |
 | ├ Cost of inaction / value case | ✅ | 5.4, `docs/COST_OF_INACTION.md` |
 | ├ Site Survey | ✅ | 5.2, `docs/SITE_SURVEY.md` + worked example |
 | ├ Technical Scoping / PRD | ✅ | 5.2, `docs/PRD.md` |
-| └ MVA + Exec Status Report | ❌ | 5.3 |
+| └ MVA + Exec Status Report | ✅ | 5.3, `docs/MVA.md` + `docs/EXEC_STATUS.md` |
 | **Air-gapped / tactical edge** | ❌ | Phase 6, deferred |
 
 Note: 2.1 and 2.5 are deployment readiness, not Phase 2 competency. Phase 2's
@@ -146,7 +148,7 @@ actual content (IaC, networking, orchestration) is still at zero.
 | **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
 | In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
-| No committed eval baseline | `/evaluation-results` returns 404 by design |
+| **`/evaluation-results` returns 500, not 404** | ~~Returns 404 by design~~ — **wrong, corrected 2026-09-01.** A bare `except Exception` catches the deliberately raised `HTTPException(404)` and re-emits it as a 500 with the 404 text in the body. Same shape as the knowledge-graph bug: a broad except swallowing a meaningful error. Two-line fix (re-raise `HTTPException` before the generic handler), not applied — out of scope for 5.3. |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
 | No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
@@ -184,7 +186,10 @@ surfaced**. Everything else supports that or waits.
 |---|---|---|---|---|---|---|
 | ~~8~~ | 5.4 | ~~Cost-of-inaction model~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
 | ~~8~~ | 5.2 | ~~Site survey + PRD~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
-| **8** | 5.3 | MVA diagram + exec status report | ½d | $0 | — | P3 · Artifacts |
+| ~~8~~ | 5.3 | ~~MVA + exec status report~~ — **done**, see Completed | — | $0 | — | P3 · Artifacts |
+
+**Phase 5 is complete, and it was the last free phase.** Every remaining step
+requires spend. Nothing can proceed without a decision on cost.
 
 5.4 was specified as *ARR × predicted horizon* and depended on 7.4. ADR-0009
 retracted dates, so there is no horizon to multiply by and 7.4 was never built.
