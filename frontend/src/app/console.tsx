@@ -82,6 +82,7 @@ export function Console() {
   const [plays, setPlays] = useState<Play[] | null>(null);
   const [likelihood, setLikelihood] = useState<Likelihood | null>(null);
   const [evidence, setEvidence] = useState<EvidenceItem[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -93,6 +94,12 @@ export function Console() {
         setCustomers(c.at_risk_customers);
         setStats(s);
         setSelected(c.at_risk_customers[0] ?? null);
+        setLoadError(null);
+      } catch (e) {
+        // Previously there was no catch at all, so a failure left the queue
+        // empty and silent -- indistinguishable from a book with no at-risk
+        // accounts, which is the opposite of the truth.
+        setLoadError(e instanceof Error ? e.message : 'Could not reach the backend');
       } finally {
         setLoading(false);
       }
@@ -150,14 +157,29 @@ export function Console() {
         </div>
 
         <ScrollArea className="flex-1">
-          {loading
-            ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="border-b px-4 py-3">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="mt-2 h-3 w-56" />
-                </div>
-              ))
-            : filtered.map((c) => {
+          {loading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="border-b px-4 py-3">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="mt-2 h-3 w-56" />
+              </div>
+            ))
+          ) : loadError ? (
+            <div className="px-4 py-8 text-sm">
+              <p className="font-medium">Backend unreachable</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {loadError}
+              </p>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                This build calls the address baked in at build time. A deployed
+                frontend cannot reach a backend running on your own machine —
+                browsers block a public page from calling a private address. Run
+                both locally, or point <code>NEXT_PUBLIC_BACKEND_URL</code> at a
+                deployed API and rebuild.
+              </p>
+            </div>
+          ) : (
+            filtered.map((c) => {
                 const sev = severity(c.risk_score);
                 const active = selected?.id === c.id;
                 return (
@@ -180,7 +202,8 @@ export function Console() {
                     </span>
                   </button>
                 );
-              })}
+            })
+          )}
         </ScrollArea>
       </div>
 
