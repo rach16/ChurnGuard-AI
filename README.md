@@ -21,7 +21,8 @@ where something has not been measured, it says so rather than guessing.
 
 | | |
 |---|---|
-| **Scores retention risk** | A weighted model over observed engagement, adoption, trend, support volume and CSAT. Ranks customers who actually churned at **AUC 0.79**. |
+| **Predicts when a customer will churn** | Discrete-time survival over 15,711 customer-weeks. Hazards chain into a survival curve; its median is the date, its quartiles the interval. Ranks unseen customers at **AUC 0.877**. |
+| **Scores retention risk today** | A documented weighted model over observed engagement, adoption, trend, support volume and CSAT. Ranks actual churners at **AUC 0.791**. |
 | **Answers questions over the corpus** | RAG across 771 documents — customer profiles, churn analyses, success stories, support and interaction history. |
 | **Generates retention plans** | LangGraph agents combine the score, retrieved context and an LLM into specific recommendations. |
 | **Publishes to a warehouse** | dbt models land in DuckDB locally and S3 + Athena in the cloud, from one set of definitions. |
@@ -39,8 +40,9 @@ README was not.
 | Warehouse correctness | ✅ **52** dbt tests |
 | DuckDB and Athena agree | ✅ 6/6 queries, `warehouse/verify_athena.py` |
 | Retrieval quality | ✅ **0.971 hit rate, 0.941 recall** on single-entity questions (`scripts/benchmark_retrieval.py`, 2026-08-31) |
+| Survival model — ranking | ✅ AUC **0.877** held out by unseen customers, calibrated (2.26% predicted vs 1.93% actual) |
+| Survival model — **predicted dates** | ❌ **196 days median error.** Ranks well, dates unusable. Calibration pending |
 | End-to-end latency | ❌ not benchmarked |
-| Churn *prediction* accuracy | ❌ no predictive model has been trained. The score is a weighted heuristic, not a classifier. |
 
 > **On the previous "94.7% accuracy" claim.** Earlier revisions of this README
 > advertised 94.7% retrieval accuracy. That figure came from an evaluation run
@@ -66,6 +68,11 @@ A further 4 questions have no expected context at all.
 ---
 
 ## Architecture
+
+The design of record is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). In short: the
+**warehouse is authoritative for every number, the vector store for narrative**.
+Retrieval explains a prediction; it does not produce one.
+
 
 ```
 ┌──────────────┐         ┌─────────────────────────────────────────────┐
@@ -172,12 +179,15 @@ src/
 │   ├── health_scoring.py    weighted risk model (mirrors the SQL)
 │   ├── rag_retrievers.py    5 retrieval strategies over Qdrant
 │   └── knowledge_graph.py   NetworkX entity graph
+├── model/survival.py        discrete-time survival model
 ├── agents/                  LangGraph research + writing teams
 └── evaluation/              RAGAS harness
 
-warehouse/                   dbt project — bronze / silver / gold
-scripts/                     data generation, validation, S3 publish
-frontend/                    Next.js 14 dashboard
+warehouse/                   dbt — bronze / silver / gold, incl. point-in-time features
+infra/                       Terraform for ECS Fargate (written, never applied)
+scripts/                     generation, validation, retrieval benchmark, S3 publish
+frontend/                    Next.js 14 operator console (shadcn/ui, light + dark)
+docs/adr/                    8 architecture decision records
 ```
 
 ## Testing
@@ -192,12 +202,20 @@ cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt test
 
 Tracked, not hidden:
 
+- **Predicted churn dates are 196 days out** and not surfaced anywhere. The model
+  ranks correctly; its hazards are too low, so survival curves decay too slowly
+- **The hazard rate is non-stationary** — it rises from 0% to 5.2% across quarters
+  because the generator gives every customer a declining trajectory. A model fitted
+  on an early period underpredicts a later one
 - Aggregate questions (27 of 65) are not answerable by retrieval; no SQL routing exists
 - No committed evaluation baseline; `/evaluation-results` returns 404 by design
 - Reranking requires `COHERE_API_KEY`; without it the fallback scores 0.0 recall
-- LLM calls are synchronous inside async handlers, so one worker serialises requests
 - The knowledge graph builder still expects a legacy schema and is not rebuilt
-- `/integrations` is a static page, not live connections
+- Terraform is written and validated but has never been applied, so orchestration
+  and IAM are unproven
+- The data is synthetic with no ingestion path — the largest gap between this and
+  something a customer could use
+- No keyboard navigation in the queue
 
 ## Design decisions
 
