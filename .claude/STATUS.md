@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `13b97b1` · 94 commits since fork.
+Last updated 2026-09-01 · `main` @ `4772f47` · 115 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,9 +9,20 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. 2.3 complete. **2.4 (CI pipeline to ECR/ECS) is the last remaining $0
-item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1–2),
-2.2a ($5–10), and 2.6 which depends on 2.2a.
+Nothing.
+
+**Every zero-cost item in the plan is complete, and every recorded defect is
+closed.** Nothing further can start without a decision on spend.
+
+Remaining work totals **$8–18**, and 2.2a (`terraform apply`, $5–10) unblocks
+most of it. Verified against AWS on 2026-09-01: no ECS, EC2, load balancer or
+NAT gateway exists, so nothing is accruing while that decision waits.
+
+| Live | State |
+|---|---|
+| CI | green, 3 jobs, free public runners |
+| Vercel | green, one project, serving real data |
+| Local stack | 8/8 components healthy |
 
 ## Completed
 
@@ -87,8 +98,16 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | Distinct calibrated probabilities (200 rows) | **12** | 2026-09-01 | `rank_book` on `train_survival` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
+| AWS spend to date | **< $0.01** | 2026-09-01 | S3 139.5 KiB / 40 objects; Glue 4 tables (free tier); Athena 20 queries, 9,876 bytes scanned but billed at a 10 MB per-query floor ⇒ ~$0.001. No ECS/EC2/ALB/NAT exists. |
+| OpenAI spend to date | **unverified** | — | No programmatic access to billing. Read at platform.openai.com/usage. |
+| Vercel spend | $0 | 2026-09-01 | Hobby plan |
 
 Superseded:
+
+- Total spend ~~"~$0.05"~~ — repeated across several summaries and **never
+  measured**. Replaced by the verified AWS figure above plus an explicitly
+  unverified OpenAI figure. A number restated often enough starts to look
+  sourced; this one was not.
 
 - Retrieval context recall ~~0.150 (2026-08-30, RAGAS, 10-question subset)~~ —
   a different metric on a different sample; not comparable to the current
