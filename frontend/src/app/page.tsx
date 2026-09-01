@@ -122,8 +122,16 @@ export default function Home() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        await apiClient.health();
+        const health = await apiClient.health();
         setBackendStatus('online');
+        // /health has reported per-component status since 0.1 and nothing read it.
+        // A missing LLM stack is a configuration state, not an outage.
+        const errors = (health as { errors?: Record<string, string> }).errors ?? {};
+        setAiReason(
+          (health as { degraded?: boolean }).degraded
+            ? errors.rag_retriever ?? errors.multi_agent_system ?? 'AI stack unavailable'
+            : null
+        );
       } catch {
         setBackendStatus('offline');
       }
@@ -207,7 +215,9 @@ export default function Home() {
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
-      setBackendStatus('offline');
+      // Deliberately does not touch backendStatus. A request that came back at all
+      // proves the service is reachable -- a 503 from an LLM route means the model
+      // stack is missing, not that the API is down.
     } finally {
       setLoading(false);
       setIsTyping(false);

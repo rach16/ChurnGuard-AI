@@ -274,14 +274,19 @@ export default function Chatbot({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask me anything about customer churn..."
             disabled={loading || backendStatus === 'offline' || Boolean(aiReason)}
-            className="flex-1 px-4 py-3 border border-hair rounded focus:ring-1 focus:ring-ink focus:border-ink disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex-1 px-4 py-3 border border-hair rounded focus:ring-1 focus:ring-ink focus:border-ink disabled:bg-sand disabled:text-faint disabled:cursor-not-allowed"
           />
+          {/* An unavailable control should look decided, not faded. Opacity-50 on a
+              near-white ground reads as a rendering fault -- the reader cannot tell
+              whether it is disabled or broken. A filled grey button with legible
+              text says "not now" and stays readable. It was also bg-sand with white
+              text, so it was white-on-white even when enabled. */}
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading || !query.trim() || backendStatus === 'offline' || Boolean(aiReason)}
-            className="px-6 py-3 bg-sand text-white rounded hover:shadow-paper disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold flex items-center gap-2"
+            className="px-6 py-3 bg-ink text-white rounded transition-colors font-medium flex items-center gap-2 disabled:bg-hair disabled:text-mute disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
