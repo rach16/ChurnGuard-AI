@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `4772f47` · 115 commits since fork.
+Last updated 2026-09-01 · `main` @ `5ba24eb` · 120 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,7 +9,13 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing.
+**Hosting the backend on Render's free tier**, so the Vercel site works for
+visitors rather than only on this laptop. Blueprint pushed, first build running.
+
+2.2a (`terraform apply`) was **declined 2026-09-01**: it costs $5–10 and does not
+achieve the actual goal. The ALB is HTTP-only and a browser blocks an HTTPS page
+from calling it, so deploying to AWS would not have made the public site work.
+Render supplies HTTPS free. The Terraform stays as the IaC artifact.
 
 **Every zero-cost item in the plan is complete, and every recorded defect is
 closed.** Nothing further can start without a decision on spend.
@@ -48,6 +54,8 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | **2.4** | CI on every push; deploy pipeline written | `a423dbc` | 3 CI jobs (contracts+warehouse+65 tests, typecheck+build, terraform validate) on free public runners. Deploy is `workflow_dispatch` only and authenticates by OIDC — no long-lived AWS key in a public repo. | P2 · DevSecOps |
 | **D1** | Evaluation 404 + evidence tests | `aea2a34` | `/evaluation-results` 500→404. Evidence gains 10 tests, which exposed BM25 returning **zero evidence** when a customer has few passages — IDF collapses to 0 on a tiny corpus. | AI · RAG grounding |
 | **3.2a** | Retrieval regression gate in CI | `1273a62` | Retrieval could have degraded 0.971→0.6 with every test still green. Now fails the build. Keyword-only, so **$0 per run** — verified it fires on a degraded retriever and not on a working one. | AI · Eval, inner loop |
+| **2.7** | LLM spend caps for a public deployment | `ee4b907` | Paid routes gain a per-visitor hourly limit and a **shared daily budget** — a per-caller limit caps one person, not a crowd. ~$0.20/day ceiling. Free routes untouched. | P2 · Enterprise security |
+| **2.8** | Render blueprint; bind the host-assigned PORT | `f0623da` | App read `BACKEND_PORT` only; every managed host assigns `PORT`, so the container was unreachable. Free-tier deploy, secrets `sync:false`, health check on `/health` not `/ready`. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -86,7 +94,7 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → **80/80 pass** | 2026-09-01 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → **85/85 pass** | 2026-09-01 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -241,6 +249,8 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 
 | Item | Reason |
 |---|---|
+| 2.2a `terraform apply` | **Declined 2026-09-01 on goal, not cost.** The goal is a link a recruiter can open. The ALB is HTTP-only — HTTPS needs a certificate, which needs a domain — and browsers block an HTTPS page from fetching HTTP, so the deployed AWS backend could not have served the Vercel site. Render gives HTTPS on a free tier. Terraform remains written and validated as the IaC artifact; running it would prove orchestration and nothing else. |
+| Precomputed static snapshot | Considered as a $0 alternative to hosting a backend at all — 2.2 MB of precomputed responses shipped with the site. Not needed once Render was chosen, since that keeps the AI question box working, which a snapshot cannot. Revisit if the free tier's cold starts prove unacceptable. |
 | Duplicate `frontend` Vercel project | **Self-inflicted, resolved 2026-09-01.** Running `vercel build` from inside `frontend/` silently created and Git-linked a second Vercel project named after the directory. It had no Root Directory set, so it failed on every push while `churn-guard-ai` succeeded — one red X and one green on the same commit. Project deleted and `frontend/.vercel` removed. Lesson: `vercel build` is not read-only; it links. |
 | 4.3 Vector migration off Qdrant | No target until Phase 2 deploys. OpenSearch Serverless has a 2-OCU minimum ≈ **$350/mo** for 137 KB — use pgvector (~$15/mo) or Qdrant Cloud free tier instead. |
 | Phase 6 air-gap / edge | Only worth it for defence or regulated clients. |
