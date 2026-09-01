@@ -1,60 +1,102 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* After fin.ai: white ground, black ink, no accent colour. A light display serif
-   carries the page title and nothing else; everything functional is small neutral
-   sans. Their faces (Serrif, Saans) are proprietary -- Instrument Serif and Inter
-   are the closest free equivalents in weight and contrast.
+/* Paired tokens: every surface has a matching foreground, so a background can
+   never be set without its text colour following. Three theme flips in this repo
+   each shipped white-on-white somewhere -- this structure makes that class of
+   bug hard to write rather than easy to miss.
 
-   The one addition is a severity ramp. Fin is a marketing site and needs no
-   colour; a triage screen does, so a single red carries alarm and everything else
-   stays greyscale. One colour with one meaning. */
-:root {
-  --paper: #ffffff;
-  --ink:   #000000;
-  --mute:  #6b6b6b;
-  --faint: #9a9a9a;
-  --hair:  #e6e4e0;
-  --sand:  #f7f5f2;   /* the cream Fin uses behind hero and nav bands */
+   Slate-tinted neutrals, one accent, and a severity ramp that holds in both
+   modes. Operator console, not a marketing page. */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 22% 11%;
 
-  --critical: #c1362c;
-  --warning:  #8a6a24;
+    --card: 0 0% 100%;
+    --card-foreground: 222 22% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 22% 11%;
 
-  --display: 'Instrument Serif', ui-serif, Georgia, serif;
-  --ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    /* Muted is the console's workhorse: rails, headers, hover rows. */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 94%;
+    --accent-foreground: 222 22% 11%;
+
+    --primary: 222 22% 14%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 22% 11%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 222 22% 14%;
+
+    /* Severity. Named for meaning, not colour, so the ramp can be retuned per
+       theme without touching a component. */
+    --sev-critical: 0 72% 45%;
+    --sev-high: 25 85% 42%;
+    --sev-medium: 43 74% 38%;
+    --sev-low: 220 9% 46%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Not pure black. #0e0f11-ish keeps the panel separation legible, and text is
+       off-white so long sessions do not glare. */
+    --background: 222 18% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 222 16% 10%;
+    --card-foreground: 210 20% 92%;
+    --popover: 222 16% 10%;
+    --popover-foreground: 210 20% 92%;
+
+    --muted: 222 14% 14%;
+    --muted-foreground: 217 11% 62%;
+    --accent: 222 14% 17%;
+    --accent-foreground: 210 20% 92%;
+
+    --primary: 210 20% 92%;
+    --primary-foreground: 222 18% 9%;
+    --secondary: 222 14% 14%;
+    --secondary-foreground: 210 20% 92%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 222 18% 7%;
+
+    --border: 222 12% 19%;
+    --input: 222 12% 19%;
+    --ring: 210 20% 80%;
+
+    /* Lifted for a dark ground -- the light-mode ramp disappears against it. */
+    --sev-critical: 4 90% 66%;
+    --sev-high: 28 90% 62%;
+    --sev-medium: 43 85% 60%;
+    --sev-low: 217 11% 62%;
+  }
 }
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--ui);
-  font-size: 14px;              /* Fin sets the whole UI at 14 */
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-/* Display type only. Light weight, very tight tracking, line-height below 1 --
-   that combination is what makes it read as a masthead rather than a heading. */
-.display {
-  font-family: var(--display);
-  font-weight: 400;
-  letter-spacing: -0.04em;
-  line-height: 0.95;
-}
+/* Numerals in a queue must align to be comparable down the column. */
+.tabular { font-variant-numeric: tabular-nums; }
 
-.label {
-  font-family: var(--ui);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--faint);
-}
-
-/* Tabular figures so risk scores align down the column, which is the whole
-   point of the list. */
-.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-
-h1, h2, h3 { font-weight: 500; letter-spacing: -0.02em; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-border; border-radius: 5px; }
