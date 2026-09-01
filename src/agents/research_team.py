@@ -9,11 +9,11 @@ from typing import TypedDict, List, Dict, Optional, Annotated
 import operator
 
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from core.rag_retrievers import ChurnRAGRetriever
+from core.llm import chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +55,7 @@ class ResearchTeam:
         logger.info("🔬 Initializing Research Team Agent...")
         
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.3,  # Lower temperature for factual research
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0.3)
         
         # Store tools
         self.rag_retriever = rag_retriever

@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-08-31 · `main` @ `74a7fff` · 44 commits since fork.
+Last updated 2026-09-01 · `main` @ `98df5bf` · 45 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,7 +9,7 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. 4.4 and 4.5 complete. Step 1 (4.2, LiteLLM) is next: the survival model ranks well
+Nothing. Phase 4 complete. Step 1 (5.4, cost-of-inaction) is next: the survival model ranks well
 but its **dates are 196 days off and not usable**, which blocks 7.4.
 
 ## Completed
@@ -44,6 +44,7 @@ but its **dates are 196 days off and not usable**, which blocks 7.4.
 | **8.2** | All pages on shadcn + shared shell; light/dark | `554236c` | 5 routes on one design system; charts read theme tokens | P3 · Technical demo |
 | **8.3** | Degraded ≠ offline in the UI | `6f078b8` | A 503 from an LLM route no longer claims the backend is down | — |
 | **8.4** | Honest empty states; integrations marked roadmap | `ee8a0cc` | Six fabricated "live" connectors relabelled | AI · Proof mechanisms |
+| **4.2** | Provider abstraction | `8b3479f` | 9 vendor constructions → 1 factory. 5 providers configurable; `/health` reports which is active. | AI · Model-agnostic |
 | **4.4** | Evidence scoped to one customer's record | `731e023` | Explanations keyed by customer_id, so another account's story cannot surface | AI · RAG grounding |
 | **4.5** | Knowledge graph deleted; agents on hybrid | `ffbdccc` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
 | **7.3** | Walk-forward backtest; date claim retracted | `d00c14a` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
@@ -98,7 +99,7 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Medallion, dimensional modeling, advanced SQL | ✅ | `5ce3cbb` |
 | ├ Data quality & observability | ✅ | 52 dbt tests + 28 contracts |
 | └ Distributed compute (Spark/Ray) | ❌ skipped | 1.6 MB dataset — see Deferred |
-| **Applied AI** | 🔄 partial | |
+| **Applied AI** | ✅ complete | |
 | ├ Predictive modelling | ❌ **no model exists** | Phase 7 — the critical path |
 | ├ Hybrid search (BM25 + vectors) | ✅ | `f41bfe6` |
 | ├ Eval, inner loop | ✅ | golden set + benchmark harness |
@@ -135,7 +136,6 @@ actual content (IaC, networking, orchestration) is still at zero.
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
 | No committed eval baseline | `/evaluation-results` returns 404 by design |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |
-| All LLM calls hardcoded to OpenAI | 8 files construct `ChatOpenAI`/`OpenAIEmbeddings` directly. No provider abstraction. → 4.2 |
 | No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |

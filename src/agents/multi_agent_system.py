@@ -9,11 +9,11 @@ from typing import TypedDict, Dict, Optional, List, Annotated
 import operator
 
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 
 from agents.research_team import ResearchTeam, create_research_team
 from agents.writing_team import WritingTeam, create_writing_team
 from core.rag_retrievers import ChurnRAGRetriever
+from core.llm import chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +100,7 @@ class MultiAgentChurnSystem:
         logger.info("="*80)
         
         # Initialize LLM for coordination
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.5,
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0.5)
         
         # Initialize Agent Teams
         logger.info("\n🔬 Team 1: Research Team with Policy Expertise")

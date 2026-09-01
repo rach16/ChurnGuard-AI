@@ -11,7 +11,6 @@ import operator
 import logging
 
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_core.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
@@ -19,6 +18,7 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 from core.rag_retrievers import ChurnRAGRetriever
+from core.llm import chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +67,7 @@ class CustomerChurnAgent:
         logger.info("Initializing Customer Churn Agent...")
         
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.7,
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0.7)
         
         # Store components
         self.rag_retriever = rag_retriever

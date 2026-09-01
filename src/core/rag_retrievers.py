@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import List, Optional, Dict
 import logging
 
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_qdrant import QdrantVectorStore
 from langchain.retrievers import ContextualCompressionRetriever, ParentDocumentRetriever, MultiQueryRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
@@ -48,6 +47,7 @@ except ImportError:
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 from utils.data_loader import ChurnDataLoader
+from core.llm import chat_model, embedding_model
 
 
 class ChurnRAGRetriever:
@@ -74,17 +74,10 @@ class ChurnRAGRetriever:
         logger.info(f"Initializing Churn RAG Retriever with Qdrant at {self.qdrant_url}")
 
         # Initialize embeddings
-        self.embeddings = OpenAIEmbeddings(
-            model="text-embedding-3-small",
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.embeddings = embedding_model()
 
         # Initialize LLM for query generation and compression
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0,
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0)
 
         self.client = self._make_client(self.qdrant_url)
 

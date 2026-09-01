@@ -6,9 +6,9 @@ Provides RAG retrieval functionality for the API
 import os
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
+from core.llm import embedding_model
 
 # Load environment variables
 load_dotenv()
@@ -34,7 +34,7 @@ class RAGRetriever:
                 return
 
             # Initialize embeddings and client (connect to Qdrant server)
-            embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+            embeddings = embedding_model()
             client = QdrantClient(url=self.qdrant_url)
 
             # Check if collection exists

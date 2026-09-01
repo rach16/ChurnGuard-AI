@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from core.rag_retrievers import ChurnRAGRetriever
 from evaluation.ragas_evaluation import ChurnRAGEvaluator
-from langchain_openai import ChatOpenAI
+from core.llm import chat_model
 
 # Configure logging
 logging.basicConfig(
@@ -51,11 +51,7 @@ class EvaluationRunner:
         self.evaluator = ChurnRAGEvaluator()
         
         logger.info("Initializing LLM for answer generation...")
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            temperature=0.3,
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.llm = chat_model(temperature=0.3)
         
         # Load golden dataset
         logger.info(f"Loading golden dataset from {golden_dataset_path}...")
