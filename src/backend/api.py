@@ -21,6 +21,20 @@ import uvicorn
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Load .env before anything reads the environment.
+#
+# This was missing, so every key in .env was invisible unless the operator had
+# also exported it, and the API came up reporting "OPENAI_API_KEY is not set"
+# next to a .env file that plainly contained one. Every script in scripts/ did
+# this; the entrypoint did not.
+#
+# Anchored to the repo root rather than the working directory: find_dotenv()
+# walks up from the caller and fails when the process is started from stdin or
+# from another directory, which is how this is normally run.
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+
 from core.rag_retrievers import ChurnRAGRetriever
 from agents.churn_agent import CustomerChurnAgent
 from agents.multi_agent_system import MultiAgentChurnSystem
