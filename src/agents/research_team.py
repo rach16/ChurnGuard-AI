@@ -14,7 +14,6 @@ from langchain_core.documents import Document
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 from core.rag_retrievers import ChurnRAGRetriever
-from core.knowledge_graph import ChurnKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,6 @@ class ResearchTeam:
     def __init__(
         self,
         rag_retriever: Optional[ChurnRAGRetriever] = None,
-        knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
         use_tavily: bool = True
     ):
         """
@@ -52,7 +50,6 @@ class ResearchTeam:
         
         Args:
             rag_retriever: RAG retriever for company knowledge base
-            knowledge_graph: Knowledge graph for entity relationships
             use_tavily: Enable Tavily search for external research
         """
         logger.info("🔬 Initializing Research Team Agent...")
@@ -66,7 +63,6 @@ class ResearchTeam:
         
         # Store tools
         self.rag_retriever = rag_retriever
-        self.knowledge_graph = knowledge_graph
         
         # Initialize Tavily Search
         self.tavily_search = None
@@ -136,22 +132,6 @@ class ResearchTeam:
             logger.info(f"✓ Retrieved {len(docs)} internal documents")
             
             # Extract key insights from knowledge graph if available
-            if self.knowledge_graph:
-                # Get segment patterns
-                segments = ["Commercial", "SMB", "Mid-Market", "Strategic", "Enterprise"]
-                insights = []
-                
-                for segment in segments:
-                    patterns = self.knowledge_graph.get_churn_patterns(segment)
-                    if patterns and patterns.get("customer_count", 0) > 0:
-                        insights.append(
-                            f"{segment}: {patterns['customer_count']} customers, "
-                            f"top reason: {patterns.get('top_reasons', ['N/A'])[0] if patterns.get('top_reasons') else 'N/A'}"
-                        )
-                
-                state["key_insights"] = insights
-                logger.info(f"✓ Extracted {len(insights)} key insights from knowledge graph")
-            
         except Exception as e:
             logger.error(f"Internal knowledge gathering failed: {e}")
             state["rag_documents"] = []
@@ -343,7 +323,6 @@ Write 3-4 paragraphs of well-structured background context."""
 
 def create_research_team(
     rag_retriever: Optional[ChurnRAGRetriever] = None,
-    knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
     use_tavily: bool = True
 ) -> ResearchTeam:
     """
@@ -351,7 +330,6 @@ def create_research_team(
     
     Args:
         rag_retriever: RAG retriever instance
-        knowledge_graph: Knowledge graph instance
         use_tavily: Enable Tavily search
     
     Returns:
@@ -359,7 +337,6 @@ def create_research_team(
     """
     return ResearchTeam(
         rag_retriever=rag_retriever,
-        knowledge_graph=knowledge_graph,
         use_tavily=use_tavily
     )
 

@@ -27,15 +27,6 @@ except Exception as e:
 # Test 2: Knowledge Graph
 print("\n2️⃣ Testing Knowledge Graph...")
 try:
-    from src.core.knowledge_graph import build_churn_knowledge_graph
-    kg = build_churn_knowledge_graph("data/")
-    print(f"   ✅ Built graph: {kg.graph.number_of_nodes()} nodes, {kg.graph.number_of_edges()} edges")
-    
-    commercial = kg.query_customers_by_segment("Commercial")
-    print(f"   ✅ Query test: {len(commercial)} Commercial customers")
-    
-    patterns = kg.get_churn_patterns("Commercial")
-    print(f"   ✅ Pattern analysis: ${patterns['avg_arr_lost']:,.2f} avg ARR lost")
 except Exception as e:
     print(f"   ❌ FAILED: {e}")
     sys.exit(1)
@@ -54,10 +45,8 @@ except Exception as e:
 # Test 4: Implementation Files
 print("\n4️⃣ Checking Implementation Files...")
 files = {
-    "Knowledge Graph": "src/core/knowledge_graph.py",
     "RAG Retrievers": "src/core/rag_retrievers.py",
     "Data Loader": "src/utils/data_loader.py",
-    "Cache": "cache/churn_knowledge_graph.pkl"
 }
 
 for name, filepath in files.items():

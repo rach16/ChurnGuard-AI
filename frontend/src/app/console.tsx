@@ -38,6 +38,8 @@ interface Likelihood {
   horizon_weeks: number;
 }
 
+interface EvidenceItem { text: string; source: string; doc_id: string }
+
 interface Play {
   action: string;
   cases: number;
@@ -79,6 +81,7 @@ export function Console() {
   const [loading, setLoading] = useState(true);
   const [plays, setPlays] = useState<Play[] | null>(null);
   const [likelihood, setLikelihood] = useState<Likelihood | null>(null);
+  const [evidence, setEvidence] = useState<EvidenceItem[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -105,6 +108,12 @@ export function Console() {
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => setPlays(d.plays ?? []))
       .catch(() => setPlays([]));
+
+    setEvidence(null);
+    fetch(`${API}/customer/${selected.id}/evidence`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => setEvidence(d.evidence ?? []))
+      .catch(() => setEvidence([]));
 
     setLikelihood(null);
     fetch(`${API}/customer/${selected.id}/likelihood`)
@@ -249,6 +258,31 @@ export function Console() {
               </dl>
 
               <Separator className="my-6" />
+
+              {/* Why the score is what it is, quoted from this account's own
+                  record. Selected by key rather than similarity, so another
+                  customer's story cannot appear here. */}
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold">Why</h2>
+                {evidence === null ? (
+                  <p className="mt-2 text-sm text-muted-foreground">Reading the record…</p>
+                ) : evidence.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Nothing in this account&rsquo;s record speaks to {selected.risk_reason.toLowerCase()}.
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {evidence.map((e) => (
+                      <div key={e.doc_id} className="border-l-2 pl-3">
+                        <p className="text-sm leading-relaxed text-muted-foreground">{e.text}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground/70">
+                          {e.source} · {e.doc_id}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* The point of the whole screen. "Who is at risk" is a report;
                   "what has worked on accounts like this" is the job. Every play

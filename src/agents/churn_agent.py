@@ -19,7 +19,6 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 from core.rag_retrievers import ChurnRAGRetriever
-from core.knowledge_graph import ChurnKnowledgeGraph
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,6 @@ class CustomerChurnAgent:
     def __init__(
         self,
         rag_retriever: Optional[ChurnRAGRetriever] = None,
-        knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
         use_tavily: bool = True
     ):
         """
@@ -64,7 +62,6 @@ class CustomerChurnAgent:
         
         Args:
             rag_retriever: RAG retriever instance (optional, will initialize if not provided)
-            knowledge_graph: Knowledge graph instance (optional)
             use_tavily: Whether to use Tavily search (requires API key)
         """
         logger.info("Initializing Customer Churn Agent...")
@@ -78,7 +75,6 @@ class CustomerChurnAgent:
         
         # Store components
         self.rag_retriever = rag_retriever
-        self.knowledge_graph = knowledge_graph
         
         # Initialize Tavily if enabled
         self.tavily_search = None
@@ -113,7 +109,6 @@ class CustomerChurnAgent:
         # Add nodes
         workflow.add_node("understand_query", self._understand_query)
         workflow.add_node("retrieve_documents", self._retrieve_documents)
-        workflow.add_node("query_knowledge_graph", self._query_knowledge_graph)
         workflow.add_node("search_web", self._search_web)
         workflow.add_node("analyze_churn", self._analyze_churn_risk)
         workflow.add_node("generate_recommendations", self._generate_recommendations)
@@ -124,11 +119,11 @@ class CustomerChurnAgent:
         
         # Add edges
         workflow.add_edge("understand_query", "retrieve_documents")
-        workflow.add_edge("retrieve_documents", "query_knowledge_graph")
+
         
         # Conditional edge: search web if needed
         workflow.add_conditional_edges(
-            "query_knowledge_graph",
+            "retrieve_documents",
             self._should_search_web,
             {
                 "search_web": "search_web",
@@ -232,14 +227,10 @@ Return ONLY a JSON object:
             # Select retrieval method based on query type
             if query_type == "risk_assessment":
                 # Use metadata filtering for targeted retrieval
-                if state.get("customer_id"):
-                    docs = self.rag_retriever.retrieve_with_metadata_filter(
-                        query=query,
-                        k=5
-                    )
-                else:
-                    docs = self.rag_retriever.naive_retrieval(query, k=5)
-                method = "metadata_filtered"
+                # Was retrieve_with_metadata_filter with no filters passed, so it
+                # fell through to naive retrieval while reporting "metadata_filtered".
+                docs = self.rag_retriever.hybrid_retrieval(query, k=5)
+                method = "hybrid"
             
             elif query_type == "pattern_analysis":
                 # Use multi-query for diverse perspectives
@@ -258,7 +249,7 @@ Return ONLY a JSON object:
             
             else:
                 # Default to naive retrieval
-                docs = self.rag_retriever.naive_retrieval(query, k=5)
+                docs = self.rag_retriever.hybrid_retrieval(query, k=5)
                 method = "naive"
             
             state["documents"] = docs
@@ -270,71 +261,6 @@ Return ONLY a JSON object:
             state["documents"] = []
             state["retrieval_method"] = "failed"
             state["errors"] = [f"Retrieval error: {str(e)}"]
-        
-        return state
-    
-    def _query_knowledge_graph(self, state: ChurnAgentState) -> ChurnAgentState:
-        """
-        Query knowledge graph for entity relationships
-        
-        Extracts:
-        - Customers matching criteria
-        - Churn reasons and patterns
-        - Competitor switches
-        - Segment-specific insights
-        """
-        logger.info("Querying knowledge graph...")
-        
-        if not self.knowledge_graph:
-            logger.warning("Knowledge graph not initialized, skipping")
-            state["kg_results"] = {}
-            return state
-        
-        try:
-            query_type = state.get("query_type", "pattern_analysis")
-            kg_results = {}
-            
-            # Extract insights based on query type
-            if query_type == "pattern_analysis":
-                # Get segment patterns
-                for segment in ["Commercial", "SMB", "Mid-Market", "Strategic", "Enterprise"]:
-                    patterns = self.knowledge_graph.get_churn_patterns(segment)
-                    if patterns and patterns.get("customer_count", 0) > 0:
-                        kg_results[segment] = patterns
-            
-            elif query_type == "competitive_intel":
-                # Get competitor insights
-                competitors = self.knowledge_graph.get_entity_by_type("Competitor")
-                kg_results["competitors"] = competitors[:10]
-                
-                # Get top competitors by customer count
-                competitor_counts = {}
-                for comp in competitors[:10]:
-                    customers = self.knowledge_graph.query_customers_by_competitor(comp)
-                    if customers:
-                        competitor_counts[comp] = len(customers)
-                kg_results["competitor_counts"] = competitor_counts
-            
-            elif query_type == "retention_strategy":
-                # Get churn reasons
-                reasons = self.knowledge_graph.get_entity_by_type("ChurnReason")
-                kg_results["churn_reasons"] = reasons[:15]
-            
-            # Always include summary stats
-            kg_results["summary"] = {
-                "total_customers": len(self.knowledge_graph.get_entity_by_type("Customer")),
-                "segments": len(self.knowledge_graph.get_entity_by_type("Segment")),
-                "churn_reasons": len(self.knowledge_graph.get_entity_by_type("ChurnReason")),
-                "competitors": len(self.knowledge_graph.get_entity_by_type("Competitor"))
-            }
-            
-            state["kg_results"] = kg_results
-            logger.info(f"✓ Knowledge graph query complete: {len(kg_results)} result groups")
-            
-        except Exception as e:
-            logger.error(f"Knowledge graph query failed: {e}")
-            state["kg_results"] = {}
-            state["errors"] = [f"KG query error: {str(e)}"]
         
         return state
     
@@ -542,7 +468,6 @@ Return as a JSON array:
             kg_results = state.get("kg_results")
             if kg_results:
                 sources.append({
-                    "type": "knowledge_graph",
                     "entities": len(kg_results),
                     "relevance": "high"
                 })
@@ -632,7 +557,6 @@ Return as a JSON array:
 
 def create_churn_agent(
     rag_retriever: Optional[ChurnRAGRetriever] = None,
-    knowledge_graph: Optional[ChurnKnowledgeGraph] = None,
     use_tavily: bool = True
 ) -> CustomerChurnAgent:
     """
@@ -640,7 +564,6 @@ def create_churn_agent(
     
     Args:
         rag_retriever: Optional RAG retriever instance
-        knowledge_graph: Optional knowledge graph instance
         use_tavily: Whether to enable Tavily search
     
     Returns:
@@ -648,7 +571,6 @@ def create_churn_agent(
     """
     return CustomerChurnAgent(
         rag_retriever=rag_retriever,
-        knowledge_graph=knowledge_graph,
         use_tavily=use_tavily
     )
 
@@ -663,7 +585,7 @@ if __name__ == "__main__":
     print("="*80)
     
     # Create agent without dependencies for structure test
-    agent = create_churn_agent(rag_retriever=None, knowledge_graph=None, use_tavily=False)
+    agent = create_churn_agent(rag_retriever=None, use_tavily=False)
     
     print(f"\n✅ Agent created successfully")
     print(f"   - StateGraph nodes: 7")
@@ -672,7 +594,6 @@ if __name__ == "__main__":
     
     print("\n💡 To test with full functionality:")
     print("   1. Initialize RAG retriever: retriever = initialize_churn_rag_system()")
-    print("   2. Load knowledge graph: kg = build_churn_knowledge_graph()")
     print("   3. Create agent: agent = create_churn_agent(retriever, kg)")
     print("   4. Run query: result = agent.run('What are main churn reasons?')")
     

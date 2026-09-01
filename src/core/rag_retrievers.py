@@ -326,45 +326,6 @@ class ChurnRAGRetriever:
         logger.info(f"✓ Retrieved {len(docs)} parent documents")
         return docs
     
-    def retrieve_with_metadata_filter(
-        self, 
-        query: str, 
-        segment: Optional[str] = None,
-        min_arr: Optional[float] = None,
-        max_arr: Optional[float] = None,
-        churn_reason: Optional[str] = None,
-        k: int = 5
-    ) -> List[Document]:
-        """
-        Retrieve documents with metadata filtering
-        
-        Args:
-            query: Search query
-            segment: Filter by customer segment
-            min_arr: Minimum ARR lost
-            max_arr: Maximum ARR lost
-            churn_reason: Filter by churn reason
-            k: Number of documents
-        
-        Returns:
-            Filtered documents
-        """
-        filters = {}
-        
-        if segment:
-            filters["segment"] = segment
-        if churn_reason:
-            filters["churn_reason"] = churn_reason
-        if min_arr:
-            filters["arr_lost"] = {"$gte": min_arr}
-        if max_arr:
-            if "arr_lost" in filters:
-                filters["arr_lost"]["$lte"] = max_arr
-            else:
-                filters["arr_lost"] = {"$lte": max_arr}
-        
-        return self.naive_retrieval(query, k=k, filters=filters if filters else None)
-    
     def hybrid_retrieval(self, query: str, k: int = 5,
                          semantic_weight: float = DEFAULT_SEMANTIC_WEIGHT) -> List[Document]:
         """
@@ -581,7 +542,7 @@ if __name__ == "__main__":
     # Test 4: Metadata Filtering
     print("\n\n4️⃣ METADATA FILTERING (Commercial Segment):")
     print("-" * 80)
-    filtered_docs = retriever.retrieve_with_metadata_filter(
+    filtered_docs = retriever.hybrid_retrieval(
         query=test_query,
         segment="Commercial",
         k=3

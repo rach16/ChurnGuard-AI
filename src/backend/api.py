@@ -24,9 +24,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 from core.rag_retrievers import ChurnRAGRetriever
 from agents.churn_agent import CustomerChurnAgent
 from agents.multi_agent_system import MultiAgentChurnSystem
-from core.knowledge_graph import ChurnKnowledgeGraph
 from core.health_scoring import CustomerHealthScorer
 from core.plays import PlaybookEngine
+from core.evidence import CustomerEvidence
 from model.survival import ChurnSurvivalModel
 
 # Configure logging
@@ -59,7 +59,7 @@ class ServiceState:
         self.playbook: Optional[PlaybookEngine] = None
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
-        self.knowledge_graph = None
+        self.evidence: Optional[CustomerEvidence] = None
         self.errors: dict[str, str] = {}
 
     def unavailable(self, component: str, reason: str) -> None:
@@ -81,10 +81,10 @@ class ServiceState:
             "health_scorer": self.health_scorer is not None,
             "playbook": self.playbook is not None,
             "survival_model": self.survival is not None,
+            "evidence": self.evidence is not None,
             "rag_retriever": self.rag_retriever is not None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
-            "knowledge_graph": self.knowledge_graph is not None,
         }
 
 
@@ -108,6 +108,16 @@ def _init_health_scorer() -> None:
         logger.info("✓ Playbook initialized")
     except Exception as e:
         state.unavailable("playbook", f"{type(e).__name__}: {e}")
+
+    # Evidence selects a customer's own documents by key and ranks passages with
+    # BM25, so it needs neither an API key nor the vector store.
+    try:
+        from utils.data_loader import ChurnDataLoader
+        docs = ChurnDataLoader(os.getenv("DATA_FOLDER", "data")).get_all_documents()
+        state.evidence = CustomerEvidence(docs)
+        logger.info("✓ Evidence index initialized")
+    except Exception as e:
+        state.unavailable("evidence", f"{type(e).__name__}: {e}")
 
     # The likelihood band is read from a model artefact and the warehouse, neither
     # of which needs an API key, so it belongs in the CSV-backed tier too.
@@ -179,20 +189,6 @@ def _init_ai_stack() -> None:
         _ai_unavailable(f"{type(e).__name__}: {e}")
         return
 
-    kg_path = Path(os.getenv("KNOWLEDGE_GRAPH_PATH", "cache/churn_knowledge_graph.pkl"))
-    if kg_path.exists():
-        try:
-            # load_graph is an instance method that mutates in place; there has never
-            # been a ChurnKnowledgeGraph.load() classmethod.
-            kg = ChurnKnowledgeGraph()
-            kg.load_graph(str(kg_path))
-            state.knowledge_graph = kg
-            logger.info("✓ Loaded knowledge graph from cache")
-        except Exception as e:
-            state.unavailable("knowledge_graph", f"{type(e).__name__}: {e}")
-    else:
-        state.unavailable("knowledge_graph", f"no cached graph at {kg_path}")
-
     use_tavily = bool(os.getenv("TAVILY_API_KEY"))
     for name, factory, attr in (
         ("churn_agent", CustomerChurnAgent, "churn_agent"),
@@ -201,7 +197,6 @@ def _init_ai_stack() -> None:
         try:
             setattr(state, attr, factory(
                 rag_retriever=state.rag_retriever,
-                knowledge_graph=state.knowledge_graph,
                 use_tavily=use_tavily,
             ))
             logger.info(f"✓ {name} initialized")
@@ -293,8 +288,8 @@ class AskRequest(BaseModel):
     """Request model for general questions"""
     question: str = Field(..., description="Question about churn patterns")
     retriever_type: str = Field(
-        "parent_document", 
-        description="Retrieval method: 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
+        "hybrid", 
+        description="Retrieval method: 'hybrid' (default, measured best), 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
     )
     max_response_length: int = Field(2000, ge=100, le=4000)
 
@@ -488,6 +483,7 @@ async def ask_question(request: AskRequest):
         # Map retriever type to method
         retriever_methods = {
             "naive": rag_retriever.naive_retrieval,
+            "hybrid": rag_retriever.hybrid_retrieval,
             "multi_query": rag_retriever.multi_query_retrieval,
             "parent_document": rag_retriever.parent_document_retrieval,
             "contextual_compression": rag_retriever.contextual_compression_retrieval
@@ -806,6 +802,38 @@ async def calculate_customer_health(request: CustomerHealthRequest):
             status_code=500,
             detail=f"Failed to calculate customer health: {str(e)}"
         )
+
+
+@app.get("/customer/{customer_id}/evidence")
+async def get_customer_evidence(customer_id: int):
+    """What in this account's record supports its risk score.
+
+    Scoped to the customer by key, not by similarity, so another account's story
+    cannot be returned. Retrieval explains the prediction here; it does not produce
+    one -- see docs/ARCHITECTURE.md.
+    """
+    health_scorer = require_health_scorer()
+
+    if state.evidence is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "evidence is not available",
+                    "reason": state.errors.get("evidence", "not initialized")},
+        )
+
+    customer = health_scorer.get_customer(customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    found = state.evidence.for_customer(customer["customer_id"], customer["risk_reason"])
+
+    return {
+        "customer_id": customer["customer_id"],
+        "name": customer["name"],
+        "risk_reason": customer["risk_reason"],
+        "evidence": [e.to_dict() for e in found],
+        "basis": "Passages from this account's own record, ranked against its risk driver",
+    }
 
 
 @app.get("/customer/{customer_id}/likelihood")

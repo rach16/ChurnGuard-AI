@@ -15,7 +15,6 @@ from agents.multi_agent_system import create_multi_agent_system
 from agents.research_team import create_research_team
 from agents.writing_team import create_writing_team
 from core.rag_retrievers import initialize_churn_rag_system
-from core.knowledge_graph import build_churn_knowledge_graph
 
 # Configure logging
 logging.basicConfig(
@@ -36,132 +35,9 @@ def test_research_team():
         logger.info("Initializing RAG retriever...")
         rag_retriever = initialize_churn_rag_system()
         
-        logger.info("Loading knowledge graph...")
-        kg_path = Path("cache/churn_knowledge_graph.pkl")
-        if kg_path.exists():
-            from core.knowledge_graph import ChurnKnowledgeGraph
-            kg = ChurnKnowledgeGraph.load(str(kg_path))
-        else:
-            logger.warning("Knowledge graph not found, building from scratch...")
-            kg = build_churn_knowledge_graph()
-        
-        # Create research team
-        research_team = create_research_team(
-            rag_retriever=rag_retriever,
-            knowledge_graph=kg,
-            use_tavily=bool(os.getenv("TAVILY_API_KEY"))
-        )
-        
-        # Test query
-        test_query = "What are the main reasons customers churn in the Commercial segment?"
-        
-        print(f"\n📋 Test Query: {test_query}")
-        print("\nRunning research team...")
-        
-        result = research_team.research(test_query)
-        
-        print("\n✅ RESEARCH TEAM RESULTS:")
-        print("-" * 80)
-        print(f"\nBackground Context ({len(result['background_context'])} chars):")
-        print(result['background_context'][:500] + "..." if len(result['background_context']) > 500 else result['background_context'])
-        
-        print(f"\n\nKey Insights ({len(result['key_insights'])} found):")
-        for i, insight in enumerate(result['key_insights'], 1):
-            print(f"  {i}. {insight}")
-        
-        print(f"\n\nSources ({len(result['sources'])} found):")
-        for i, source in enumerate(result['sources'][:5], 1):
-            print(f"  {i}. {source}")
-        
-        print(f"\n\nMetrics:")
-        print(f"  - Documents Retrieved: {result['documents_retrieved']}")
-        print(f"  - Web Results: {result['web_results']}")
-        print(f"  - Errors: {len(result.get('errors', []))}")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Research team test failed: {e}", exc_info=True)
-        return False
-
-
-def test_writing_team():
-    """Test Writing Team independently"""
-    print("\n" + "="*80)
-    print("📝 TESTING WRITING TEAM")
-    print("="*80)
-    
-    try:
-        # Initialize components
-        logger.info("Initializing RAG retriever...")
-        rag_retriever = initialize_churn_rag_system()
-        
-        # Create writing team
-        writing_team = create_writing_team(rag_retriever=rag_retriever)
-        
-        # Test query and background context
-        test_query = "What are the main reasons customers churn in the Commercial segment?"
-        background_context = """Based on our internal data and industry research, customer churn in the Commercial segment 
-        is influenced by several key factors including pricing concerns, lack of feature adoption, competitive alternatives, 
-        and insufficient customer success engagement. The data shows that Commercial customers have a higher price sensitivity 
-        compared to Enterprise customers, with approximately 35% of churned Commercial customers citing pricing as a primary factor."""
-        
-        print(f"\n📋 Test Query: {test_query}")
-        print(f"\n📚 Background Context Provided: {len(background_context)} chars")
-        print("\nRunning writing team (5 sub-agents)...")
-        
-        result = writing_team.write(test_query, background_context)
-        
-        print("\n✅ WRITING TEAM RESULTS:")
-        print("-" * 80)
-        print(f"\nFinal Response ({len(result['final_response'])} chars):")
-        print(result['final_response'])
-        
-        print(f"\n\nCitations ({len(result['citations'])} found):")
-        for i, citation in enumerate(result['citations'][:5], 1):
-            print(f"  {i}. {citation}")
-        
-        print(f"\n\nStyle Notes ({len(result['style_notes'])} found):")
-        for i, note in enumerate(result['style_notes'], 1):
-            print(f"  {i}. {note}")
-        
-        print(f"\n\nMetrics:")
-        print(f"  - Use Cases Found: {result['use_cases_found']}")
-        print(f"  - Draft Response Length: {len(result.get('draft_response', ''))} chars")
-        print(f"  - Final Response Length: {len(result['final_response'])} chars")
-        print(f"  - Errors: {len(result.get('errors', []))}")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Writing team test failed: {e}", exc_info=True)
-        return False
-
-
-def test_multi_agent_system():
-    """Test complete multi-agent system"""
-    print("\n" + "="*80)
-    print("🤖 TESTING COMPLETE MULTI-AGENT SYSTEM")
-    print("="*80)
-    
-    try:
-        # Initialize components
-        logger.info("Initializing RAG retriever...")
-        rag_retriever = initialize_churn_rag_system()
-        
-        logger.info("Loading knowledge graph...")
-        kg_path = Path("cache/churn_knowledge_graph.pkl")
-        if kg_path.exists():
-            from core.knowledge_graph import ChurnKnowledgeGraph
-            kg = ChurnKnowledgeGraph.load(str(kg_path))
-        else:
-            logger.warning("Knowledge graph not found, building from scratch...")
-            kg = build_churn_knowledge_graph()
-        
         # Create multi-agent system
         system = create_multi_agent_system(
             rag_retriever=rag_retriever,
-            knowledge_graph=kg,
             use_tavily=bool(os.getenv("TAVILY_API_KEY"))
         )
         
