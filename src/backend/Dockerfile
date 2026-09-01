@@ -44,7 +44,7 @@ COPY uv.lock* ./
 # Install dependencies using uv (much faster than pip)
 # Runtime dependencies only. The evaluation, notebook and plotting extras are
 # deliberately excluded -- they were ~450 MB of an image that never imports them.
-RUN uv sync --no-dev --no-install-project || uv pip install --system -e .
+RUN uv sync --no-dev --no-install-project --extra model || uv pip install --system -e .
 
 # Copy source code
 COPY src/ ./src/
@@ -59,8 +59,32 @@ COPY golden-masters/ ./golden-masters/
 # Written to at runtime, so created rather than copied.
 RUN mkdir -p cache notebooks metrics
 
+# Stage 1b: Derived artifacts.
+#
+# The warehouse and the fitted model are derived from data/, not committed --
+# a committed binary drifts from the code that produced it, silently. So they
+# are built here instead, which also proves on every image build that both
+# rebuild from a clean checkout.
+#
+# A separate stage on purpose: dbt and the training dependencies are ~200 MB and
+# the running service imports neither. Only the two artifacts are copied forward.
+FROM base AS artifacts
+
+COPY warehouse/ ./warehouse/
+COPY scripts/ ./scripts/
+
+RUN uv sync --no-dev --no-install-project --extra warehouse --extra model \
+ && cd warehouse && DBT_PROFILES_DIR=$PWD uv run dbt build \
+ && cd /app && uv run python scripts/train_survival_model.py
+
 # Stage 2: FastAPI Backend Service
 FROM base AS backend
+
+# The warehouse feeds the likelihood band and the exposure figures; without it
+# /customer/{id}/likelihood and /book/exposure return 503 and the demo loses the
+# two things it is actually for.
+COPY --from=artifacts /app/warehouse/churnguard.duckdb ./warehouse/churnguard.duckdb
+COPY --from=artifacts /app/models/ ./models/
 
 # Expose port
 EXPOSE 8000
