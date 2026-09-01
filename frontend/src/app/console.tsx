@@ -14,14 +14,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle,
-  BarChart3,
   Building2,
-  LifeBuoy,
   MessageSquare,
-  Plug,
   Search,
-  TrendingDown,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -30,11 +25,10 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import { apiClient, type AtRiskCustomer, type DashboardStats } from './api-client';
-import { ThemeToggle } from './theme-toggle';
+import { Rail } from './shell';
 
 function money(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
@@ -48,43 +42,6 @@ function severity(score: number) {
   if (score >= 60) return { label: 'High', cls: 'text-sev-high' };
   if (score >= 40) return { label: 'Medium', cls: 'text-sev-medium' };
   return { label: 'Low', cls: 'text-sev-low' };
-}
-
-function Rail() {
-  const items = [
-    { icon: AlertTriangle, label: 'At risk', href: '/', active: true },
-    { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-    { icon: LifeBuoy, label: 'Evaluation', href: '/evaluations' },
-    { icon: Plug, label: 'Integrations', href: '/integrations' },
-  ];
-  return (
-    <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r bg-muted/40 py-3">
-      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-        <TrendingDown className="h-4 w-4" />
-      </div>
-      {items.map(({ icon: Icon, label, href, active }) => (
-        <Tooltip key={label}>
-          <TooltipTrigger asChild>
-            <a
-              href={href}
-              className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-md transition-colors',
-                active
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <Icon className="h-4 w-4" />
-            </a>
-          </TooltipTrigger>
-          <TooltipContent side="right">{label}</TooltipContent>
-        </Tooltip>
-      ))}
-      <div className="mt-auto">
-        <ThemeToggle />
-      </div>
-    </nav>
-  );
 }
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -199,7 +156,7 @@ export function Console() {
             <Stat label="Median warning" value={stats ? `${Math.round(stats.avg_days_to_churn)}d` : '—'} />
           </div>
           <Button variant="outline" size="sm" asChild>
-            <a href="/analytics">
+            <a href="/ask">
               <MessageSquare className="mr-2 h-4 w-4" />
               Ask
             </a>

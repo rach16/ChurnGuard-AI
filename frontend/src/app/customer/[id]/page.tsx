@@ -1,440 +1,332 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+/**
+ * Customer detail.
+ *
+ * The engagement timeline is the argument this page makes -- an account declining
+ * from 0.7 to near zero over eighteen months is more convincing than any score --
+ * so it gets the width and everything else supports it.
+ *
+ * Contributing factors are shown as weight x adverse fraction rather than a
+ * single number, because a customer success lead should be able to see which
+ * signal drove the score and disagree with the weighting.
+ */
+
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import {
-  ArrowLeft,
-  TrendingDown,
-  TrendingUp,
-  AlertTriangle,
-  Calendar,
-  Users,
-  MessageSquare,
-  Activity,
-  Target,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Minus,
-  BarChart3,
-  PieChart,
-} from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
 } from 'recharts';
 
-interface CustomerAnalysis {
-  customer: any;
-  analysis: {
-    engagement_history: any[];
-    support_tickets: any[];
-    feature_usage: any[];
-    interactions: any[];
-    predictions: any;
-    recommended_actions?: any[];
-  };
-  health_indicators: {
-    engagement: string;
-    product_usage: string;
-    support_health: string;
-    relationship_strength: string;
-  };
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+import { Shell } from '../../shell';
+
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+function money(v: number) {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
 }
 
-export default function CustomerDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const customerId = params?.id;
+function sevClass(score: number) {
+  if (score >= 80) return 'text-sev-critical';
+  if (score >= 60) return 'text-sev-high';
+  if (score >= 40) return 'text-sev-medium';
+  return 'text-sev-low';
+}
 
-  const [analysis, setAnalysis] = useState<CustomerAnalysis | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Detail {
+  customer: Record<string, any>;
+  analysis: {
+    engagement_history: { date: string; engagement_score: number; feature_adoption_rate: number }[];
+    support_tickets: Record<string, any>[];
+    feature_usage: { feature: string; usage_rate: number }[];
+    interactions: { date: string; type: string; content: string }[];
+    predictions: {
+      churn_probability: number;
+      days_until_churn: number;
+      contributing_factors: {
+        factor: string;
+        weight: number;
+        adverse_fraction: number;
+        contribution: number;
+      }[];
+    };
+  };
+  health_indicators: Record<string, string>;
+}
+
+export default function CustomerPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [data, setData] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (customerId) {
-      fetchCustomerAnalysis(Number(customerId));
-    }
-  }, [customerId]);
+    fetch(`${API}/customer/${id}/detailed-analysis`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(setData)
+      .catch((e) => setError(String(e.message ?? e)));
+  }, [id]);
 
-  const fetchCustomerAnalysis = async (id: number) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/customer/${id}/detailed-analysis`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch customer analysis');
-      }
-
-      const data = await response.json();
-      setAnalysis(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-sand flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-hair mx-auto mb-4"></div>
-          <p className="text-mute font-medium">Loading customer analysis...</p>
+      <Shell title="Customer" description={`Could not load account ${id}`}>
+        <div className="mx-auto max-w-md px-6 py-24 text-center">
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => router.push('/')}>
+            Back to queue
+          </Button>
         </div>
-      </div>
+      </Shell>
     );
   }
 
-  if (error || !analysis) {
+  if (!data) {
     return (
-      <div className="min-h-screen bg-sand flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="w-16 h-16 text-critical mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-ink mb-2">Error Loading Customer</h2>
-          <p className="text-mute mb-4">{error || 'Customer not found'}</p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-ink text-white rounded hover:bg-ink transition-colors"
-          >
-            Back to Dashboard
-          </button>
+      <Shell title="Customer" description="Loading">
+        <div className="space-y-4 p-6">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-64 w-full" />
         </div>
-      </div>
+      </Shell>
     );
   }
 
-  const { customer, analysis: customerAnalysis, health_indicators } = analysis;
-
-  const getRiskColor = (score: number) => {
-    if (score >= 80) return 'text-critical bg-sand border-hair';
-    if (score >= 60) return 'text-brass bg-sand border-hair';
-    if (score >= 40) return 'text-brass bg-sand border-hair';
-    return 'text-mute bg-sand border-hair';
-  };
-
-  const getHealthColor = (health: string) => {
-    if (health === 'Poor' || health === 'At Risk' || health === 'Weak' || health === 'Low') {
-      return 'text-critical bg-sand';
-    }
-    if (health === 'Fair' || health === 'Moderate' || health === 'Normal' || health === 'Medium') {
-      return 'text-brass bg-sand';
-    }
-    return 'text-mute bg-sand';
-  };
-
-  const getPriorityColor = (priority: string) => {
-    if (priority === 'Critical') return 'bg-critical text-white';
-    if (priority === 'High') return 'bg-ink text-white';
-    return 'bg-ink text-white';
-  };
+  const { customer: c, analysis: a, health_indicators: hi } = data;
+  const factors = [...a.predictions.contributing_factors].sort(
+    (x, y) => y.contribution - x.contribution
+  );
 
   return (
-    <div className="min-h-screen bg-sand pb-12">
-      {/* Header */}
-      <div className="bg-paper border-b border-hair sticky top-0 z-10 shadow-paper">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-mute hover:text-ink mb-4 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Dashboard</span>
-          </button>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-ink">{customer.name}</h1>
-              <div className="flex items-center gap-4 mt-2">
-                <span className="px-3 py-1 bg-sand text-mute rounded-full text-sm font-medium">
-                  {customer.segment}
-                </span>
-                <span className="text-mute">ARR: ${customer.arr.toLocaleString()}</span>
-                <span className="text-mute">Tenure: {customer.tenure_years} years</span>
-              </div>
-            </div>
-
-            <div className={`px-6 py-4 rounded-xl border-2 ${getRiskColor(customer.risk_score)}`}>
-              <div className="text-center">
-                <p className="text-sm font-medium opacity-75 mb-1">Risk Score</p>
-                <p className="text-4xl font-bold">{customer.risk_score}%</p>
-                <p className="text-sm mt-1">{customer.risk_reason}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Health Indicators */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          {Object.entries(health_indicators).map(([key, value]) => (
-            <motion.div
-              key={key}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-xl ${getHealthColor(value)} border-2`}
-            >
-              <p className="text-sm font-medium opacity-75 mb-1 capitalize">
-                {key.replace('_', ' ')}
+    <Shell
+      title={c.name}
+      description={`${c.segment} · ${money(c.arr)} ARR · ${c.tenure_years}y tenure · ${c.industry}`}
+      actions={
+        <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Queue
+        </Button>
+      }
+    >
+      <div className="mx-auto max-w-6xl space-y-6 p-6">
+        {/* Score and the indicators that produced it */}
+        <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-6">
+              <p className={cn('text-5xl font-semibold tabular', sevClass(c.risk_score))}>
+                {Math.round(c.risk_score)}
               </p>
-              <p className="text-2xl font-bold">{value}</p>
-            </motion.div>
-          ))}
+              <Badge variant="outline" className="mt-2">
+                {c.risk_level}
+              </Badge>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                ~{a.predictions.days_until_churn} days · heuristic, not modelled
+              </p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {Object.entries(hi).map(([k, v]) => (
+              <Card key={k}>
+                <CardContent className="p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {k.replace(/_/g, ' ')}
+                  </p>
+                  <p
+                    className={cn(
+                      'mt-1 text-lg font-semibold',
+                      /poor|weak|at risk/i.test(v) && 'text-sev-critical'
+                    )}
+                  >
+                    {v}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
-        {/* Engagement Timeline */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-paper rounded shadow-paper border border-hair p-6 mb-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <Activity className="w-6 h-6 text-mute" />
-            <h2 className="text-xl font-bold text-ink">Engagement Timeline</h2>
-          </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={customerAnalysis.engagement_history}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis domain={[0, 1]} tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="engagement_score"
-                stroke="#000000"
-                strokeWidth={3}
-                dot={{ fill: '#000000', r: 4 }}
-                name="Engagement Score"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Feature Usage */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-paper rounded shadow-paper border border-hair p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <BarChart3 className="w-6 h-6 text-mute" />
-              <h2 className="text-xl font-bold text-ink">Feature Usage</h2>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={customerAnalysis.feature_usage} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" domain={[0, 1]} tick={{ fontSize: 12 }} />
-                <YAxis type="category" dataKey="feature" tick={{ fontSize: 12 }} width={100} />
-                <Tooltip />
-                <Bar dataKey="usage_rate" fill="#000000" name="Usage Rate" />
-              </BarChart>
-            </ResponsiveContainer>
-          </motion.div>
-
-          {/* Contributing Factors */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-paper rounded shadow-paper border border-hair p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <PieChart className="w-6 h-6 text-mute" />
-              <h2 className="text-xl font-bold text-ink">Risk Contributing Factors</h2>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={customerAnalysis.predictions.contributing_factors}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="factor" tick={{ fontSize: 12 }} />
-                <PolarRadiusAxis domain={[0, 1]} tick={{ fontSize: 12 }} />
-                <Radar
-                  name="Weight"
-                  dataKey="weight"
-                  stroke="#000000"
-                  fill="#000000"
-                  fillOpacity={0.6}
+        {/* The argument */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Engagement</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {a.engagement_history.length} weekly observations
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={a.engagement_history} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="eng" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="hsl(var(--chart-grid))" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  stroke="hsl(var(--chart-axis))"
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  minTickGap={48}
                 />
-              </RadarChart>
+                <YAxis
+                  domain={[0, 1]}
+                  stroke="hsl(var(--chart-axis))"
+                  tick={{ fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <RTooltip
+                  contentStyle={{
+                    background: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    color: 'hsl(var(--popover-foreground))',
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="engagement_score"
+                  stroke="hsl(var(--chart-1))"
+                  strokeWidth={2}
+                  fill="url(#eng)"
+                  isAnimationActive={false}
+                  name="Engagement"
+                />
+              </AreaChart>
             </ResponsiveContainer>
-            <div className="mt-4 space-y-2">
-              {customerAnalysis.predictions.contributing_factors.map((factor: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between text-sm">
-                  <span className="text-mute">{factor.factor}</span>
-                  <span className={`px-2 py-1 rounded ${
-                    factor.impact === 'High' ? 'bg-red-100 text-critical' :
-                    factor.impact === 'Medium' ? 'bg-sand text-mute' :
-                    'bg-sand text-mute'
-                  } font-medium`}>
-                    {factor.impact}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Predictions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-sand rounded border border-hair p-6 mb-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Target className="w-6 h-6 text-mute" />
-            <h2 className="text-xl font-bold text-ink">Churn Prediction</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-sm text-mute mb-2">Churn Probability</p>
-              <p className="text-4xl font-bold text-mute">
-                {(customerAnalysis.predictions.churn_probability * 100).toFixed(0)}%
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* How the score was reached */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Why this score</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Weight applied to how adverse each signal is
               </p>
-            </div>
-            <div>
-              <p className="text-sm text-mute mb-2">Predicted Churn Date</p>
-              <p className="text-2xl font-bold text-ink">
-                {customerAnalysis.predictions.days_until_churn} days
-              </p>
-              <p className="text-sm text-faint mt-1">
-                point estimate &middot; interval arrives with the survival model
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-mute mb-2">Urgency Level</p>
-              <p className={`text-2xl font-bold ${
-                customer.risk_score >= 80 ? 'text-critical' :
-                customer.risk_score >= 60 ? 'text-mute' :
-                'text-mute'
-              }`}>
-                {customer.risk_score >= 80 ? 'Critical' : customer.risk_score >= 60 ? 'High' : 'Medium'}
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Recommended Actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-paper rounded shadow-paper border border-hair p-6 mb-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <CheckCircle2 className="w-6 h-6 text-mute" />
-            <h2 className="text-xl font-bold text-ink">Recommended Actions</h2>
-          </div>
-          <div className="space-y-4">
-            {(customerAnalysis.recommended_actions ?? []).map((action: any, idx: number) => (
-              <div
-                key={idx}
-                className="flex items-start gap-4 p-4 bg-sand rounded border border-hair hover:border-hair transition-colors"
-              >
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getPriorityColor(action.priority)}`}>
-                  {action.priority}
-                </span>
-                <div className="flex-1">
-                  <p className="font-semibold text-ink mb-1">{action.action}</p>
-                  <div className="flex items-center gap-4 text-sm text-mute">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      Deadline: {action.deadline}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="w-4 h-4" />
-                      {action.owner}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {factors.map((f) => (
+                <div key={f.factor}>
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span>{f.factor}</span>
+                    <span className="tabular text-muted-foreground">
+                      {(f.weight * 100).toFixed(0)}% × {(f.adverse_fraction * 100).toFixed(0)}% ={' '}
+                      <span className="font-medium text-foreground">
+                        {f.contribution.toFixed(1)}
+                      </span>
                     </span>
                   </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-foreground/70"
+                      style={{ width: `${Math.min(100, (f.contribution / 35) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Support history */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Support</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {a.support_tickets.length} tickets on record
+              </p>
+            </CardHeader>
+            <CardContent className="px-0">
+              <div className="max-h-[260px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-6">Date</TableHead>
+                      <TableHead>Issue</TableHead>
+                      <TableHead>Severity</TableHead>
+                      <TableHead className="pr-6 text-right">CSAT</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {a.support_tickets.slice(0, 12).map((t) => (
+                      <TableRow key={t.ticket_id}>
+                        <TableCell className="pl-6 tabular text-muted-foreground">{t.date}</TableCell>
+                        <TableCell className="max-w-[180px] truncate">{t.type}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              ['High', 'Critical'].includes(t.severity) ? 'destructive' : 'secondary'
+                            }
+                          >
+                            {t.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="pr-6 text-right tabular">{t.csat_score}/5</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent contact */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Recent contact</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0">
+            {a.interactions.slice(0, 6).map((i, n) => (
+              <div key={n}>
+                {n > 0 && <Separator />}
+                <div className="flex gap-4 py-3">
+                  <span className="w-24 shrink-0 tabular text-xs text-muted-foreground">{i.date}</span>
+                  <Badge variant="outline" className="h-5 shrink-0 text-[11px]">
+                    {i.type}
+                  </Badge>
+                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">{i.content}</span>
                 </div>
               </div>
             ))}
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
 
-        {/* Two Column: Support Tickets & Interactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Support Tickets */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-paper rounded shadow-paper border border-hair p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <AlertTriangle className="w-6 h-6 text-mute" />
-              <h2 className="text-xl font-bold text-ink">Recent Support Tickets</h2>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {customerAnalysis.support_tickets.map((ticket: any, idx: number) => (
-                <div key={idx} className="p-3 bg-sand rounded border border-hair">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-ink">{ticket.type}</span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      ticket.status === 'Resolved' ? 'bg-sand text-mute' :
-                      ticket.status === 'Open' ? 'bg-red-100 text-critical' :
-                      'bg-sand text-mute'
-                    }`}>
-                      {ticket.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-mute">
-                    <span>{ticket.date}</span>
-                    <span className={`px-2 py-0.5 rounded ${
-                      ticket.priority === 'High' ? 'bg-red-100 text-critical' : 'bg-hair text-mute'
-                    }`}>
-                      {ticket.priority}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Recent Interactions */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-paper rounded shadow-paper border border-hair p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <MessageSquare className="w-6 h-6 text-mute" />
-              <h2 className="text-xl font-bold text-ink">Recent Interactions</h2>
-            </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {customerAnalysis.interactions.map((interaction: any, idx: number) => (
-                <div key={idx} className="p-3 bg-sand rounded border border-hair">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-ink">{interaction.type}</span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      interaction.sentiment === 'Positive' ? 'bg-sand text-mute' :
-                      interaction.sentiment === 'Negative' ? 'bg-red-100 text-critical' :
-                      'bg-hair text-mute'
-                    }`}>
-                      {interaction.sentiment}
-                    </span>
-                  </div>
-                  <p className="text-xs text-mute mb-1">{interaction.notes}</p>
-                  <span className="text-xs text-faint">{interaction.date}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
+        <p className="pb-2 text-xs leading-relaxed text-muted-foreground">
+          Feature usage is spread deterministically around the observed adoption rate;
+          the dataset records one overall figure rather than per-feature telemetry.
+          The predicted horizon comes from the heuristic score and carries no
+          confidence interval until the survival model is calibrated.
+        </p>
       </div>
-    </div>
+    </Shell>
   );
 }
