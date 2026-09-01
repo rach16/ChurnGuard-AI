@@ -35,6 +35,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | **2.5** | Runtime deps split from eval/notebook/viz | `5a8a33f` | Backend image 1.99 GB → 1.11 GB (−44%). 5 unused packages dropped. | P2 · Deployment readiness |
 | **2.3** | API key auth, rate limit, token cap | `9ab57a2` | Auth + sliding-window limit on all non-probe routes; output capped at 1024 tokens in one factory, not 6 call sites. Wired into the ECS task definition; `terraform validate` passes. 20 new tests. | P2 · Enterprise security |
 | **2.4** | CI on every push; deploy pipeline written | `a423dbc` | 3 CI jobs (contracts+warehouse+65 tests, typecheck+build, terraform validate) on free public runners. Deploy is `workflow_dispatch` only and authenticates by OIDC — no long-lived AWS key in a public repo. | P2 · DevSecOps |
+| **D1** | Evaluation 404 + evidence tests | `PLACEHOLDER_EV` | `/evaluation-results` 500→404. Evidence gains 10 tests, which exposed BM25 returning **zero evidence** when a customer has few passages — IDF collapses to 0 on a tiny corpus. | AI · RAG grounding |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -73,7 +74,7 @@ item.** After it everything left costs money: 3.1 ($2–5), 3.3 (<$1), 3.4 ($1�
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → **65/65 pass** | 2026-09-01 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → **75/75 pass** | 2026-09-01 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -211,8 +212,10 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 | # | Item | Effort | Status |
 |---|---|---|---|
 | — | ~~`api.py` never calls `load_dotenv`~~ | 1 line | **Fixed** `6a377e8` — health 5/8 → 8/8 components |
-| — | `/evaluation-results` returns 500 where it intends 404 | 2 lines | open |
-| — | No test covers the evidence layer's cross-account guarantee | ½h | open |
+| — | ~~`/evaluation-results` returns 500 where it intends 404~~ | 2 lines | **Fixed** `PLACEHOLDER_EV` — also anchored its path to the repo root and dropped a stale "54 test questions" note |
+| — | ~~No test covers the evidence layer's cross-account guarantee~~ | ½h | **Fixed** `PLACEHOLDER_EV` — 10 tests; found and fixed a real BM25 IDF collapse |
+
+**All recorded defects are closed.**
 
 ## Deferred
 

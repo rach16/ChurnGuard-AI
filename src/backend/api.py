@@ -33,7 +33,13 @@ sys.path.append(str(Path(__file__).parent.parent))
 # from another directory, which is how this is normally run.
 from dotenv import load_dotenv  # noqa: E402
 
-load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+# Repo root. Every file this process reads is anchored here rather than to the
+# working directory, because the service is started from several places -- a
+# shell, docker, uvicorn's reloader -- and a relative path silently resolves
+# differently in each.
+ROOT = Path(__file__).resolve().parent.parent.parent
+
+load_dotenv(ROOT / ".env")
 
 from core.rag_retrievers import ChurnRAGRetriever
 from agents.churn_agent import CustomerChurnAgent
@@ -690,27 +696,35 @@ async def multi_agent_analyze(request: MultiAgentRequest):
         )
 
 
-# Root endpoint
 @app.get("/evaluation-results")
 async def get_evaluation_results():
-    """
-    Get RAGAS evaluation results for all retrieval methods
-    
-    Returns comparison metrics for 5 retrieval strategies
+    """RAGAS scores per retrieval strategy, if a run has been committed.
+
+    Returns 404 when no baseline exists, which is the normal state: the full
+    65-question RAGAS run is phase 3.1 and costs money, so it has not been run.
+    No baseline is committed deliberately -- the previous one was scored over a
+    25-document corpus with questions referencing customers that existed in no
+    data file, and it produced the retracted 94.7% claim. See ADR-0007.
     """
     import pandas as pd
-    from pathlib import Path
-    
+
+    # Anchored to the repo root, not the working directory. A relative path here
+    # resolves against wherever the process was started, so the file was found
+    # or not depending on the caller's cwd -- the same defect as the missing
+    # load_dotenv.
+    metrics_path = ROOT / "metrics" / "ragas_evaluation_results.csv"
+
+    if not metrics_path.exists():
+        # Raised outside the try below. Inside it, the bare `except Exception`
+        # caught this deliberate 404 and re-emitted it as a 500 carrying the 404
+        # text in its body -- the same shape as the knowledge-graph bug, a broad
+        # except swallowing a meaningful signal.
+        raise HTTPException(
+            status_code=404,
+            detail="No evaluation baseline committed. Run phase 3.1 to produce one.",
+        )
+
     try:
-        # Load evaluation results
-        metrics_path = Path("metrics/ragas_evaluation_results.csv")
-        
-        if not metrics_path.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Evaluation results not found. Run evaluation first."
-            )
-        
         df = pd.read_csv(metrics_path)
         
         # Convert to list of dictionaries with formatted values
@@ -739,14 +753,20 @@ async def get_evaluation_results():
                 "answer_correctness": "Factual accuracy (0-100%)",
                 "semantic_similarity": "Semantic match quality (0-100%)"
             },
-            "note": "Based on RAGAS evaluation with 54 test questions"
+            # Derived from the file rather than asserted. The previous text
+            # claimed "54 test questions", which was the LLM-generated set where
+            # 0 of 54 were grounded in real data. Hardcoding a sample size in a
+            # response is how a retracted number outlives its retraction.
+            "note": f"RAGAS scores read from {metrics_path.name}",
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error loading evaluation results: {e}")
+        logger.error(f"Error loading evaluation results: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to load evaluation results: {str(e)}"
+            detail=f"Failed to read the evaluation baseline: {type(e).__name__}",
         )
 
 

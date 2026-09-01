@@ -125,6 +125,20 @@ class CustomerEvidence:
         tokenised = [re.findall(r"[a-z0-9]+", p.lower()) for p, _ in candidates]
         scores = BM25Okapi(tokenised).get_scores(terms)
 
+        # BM25's IDF collapses on a tiny corpus. With two passages, a term in one
+        # of them scores log((2-1+0.5)/(1+0.5)) = log(1) = 0, so every score is
+        # zero and the caller below reads that as "nothing relevant" and returns
+        # an empty list. A customer with few documents would silently get no
+        # evidence at all, which is the failure mode this module exists to avoid.
+        #
+        # IDF is meaningless at this corpus size anyway -- it measures how
+        # surprising a term is across documents, and three documents cannot say.
+        # Fall back to how many distinct driver terms each passage actually
+        # contains, which is what IDF was standing in for.
+        if not any(score > 0 for score in scores):
+            wanted = set(terms)
+            scores = [float(len(wanted & set(tokens))) for tokens in tokenised]
+
         ranked = sorted(zip(scores, range(len(candidates))), key=lambda x: -x[0])
 
         results: List[Evidence] = []
