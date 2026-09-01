@@ -54,9 +54,15 @@ jobs:
       # No OPENAI_API_KEY and no Qdrant. Every test must pass without them:
       # the LLM-backed paths are constructed and never called, and QDRANT_URL
       # accepts :memory: precisely so CI needs no container.
+      # The retrieval regression check runs keyword-only, so it computes no
+      # embeddings and calls no paid API. OPENAI_API_KEY is a placeholder: the
+      # retriever constructs a chat and an embedding model up front and both
+      # refuse to construct without a credential, but neither is ever invoked.
+      # A real key here would be a secret in a public repo's CI for no gain.
       - name: Tests
         env:
           QDRANT_URL: ":memory:"
+          OPENAI_API_KEY: test-key-not-called
         run: uv run --extra dev --extra warehouse pytest tests/ -q
 
   frontend:
