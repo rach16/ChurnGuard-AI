@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `5ba24eb` · 120 commits since fork.
+Last updated 2026-09-01 · `main` @ `89b618f` · 127 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,8 +9,20 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-**Hosting the backend on Render's free tier**, so the Vercel site works for
-visitors rather than only on this laptop. Blueprint pushed, first build running.
+Nothing. **The system is deployed and public.**
+
+| Piece | Where | Independent of the laptop |
+|---|---|---|
+| Frontend | Vercel — `churn-guard-ai-nine.vercel.app` | ✅ |
+| Backend | Render free tier — `churnguard-backend-qb76.onrender.com` | ✅ |
+| AI chat | Render + OpenAI key | ✅ |
+
+Verified 2026-09-01: `/health` reports **8/8 components healthy**, seven endpoints
+return 200, and the live site renders 50 accounts and $2.23M ARR at risk with the
+laptop's own backend stopped.
+
+Free tier sleeps after ~15 minutes idle; a cold start takes ~50s and the UI now
+says so while it waits.
 
 2.2a (`terraform apply`) was **declined 2026-09-01**: it costs $5–10 and does not
 achieve the actual goal. The ALB is HTTP-only and a browser blocks an HTTPS page
@@ -56,6 +68,7 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | **3.2a** | Retrieval regression gate in CI | `1273a62` | Retrieval could have degraded 0.971→0.6 with every test still green. Now fails the build. Keyword-only, so **$0 per run** — verified it fires on a degraded retriever and not on a working one. | AI · Eval, inner loop |
 | **2.7** | LLM spend caps for a public deployment | `ee4b907` | Paid routes gain a per-visitor hourly limit and a **shared daily budget** — a per-caller limit caps one person, not a crowd. ~$0.20/day ceiling. Free routes untouched. | P2 · Enterprise security |
 | **2.8** | Render blueprint; bind the host-assigned PORT | `f0623da` | App read `BACKEND_PORT` only; every managed host assigns `PORT`, so the container was unreachable. Free-tier deploy, secrets `sync:false`, health check on `/health` not `/ready`. | P2 · Deployment |
+| **2.9** | Backend live on Render; site works with the laptop off | `989eb89`, `b82345c`, `786a758` | **The demo is now reachable by anyone.** Three bugs no local run could catch: model and warehouse absent from the image, `scikit-learn` and `duckdb` not installed at runtime, and `jupyter` being the last Docker stage so a target-less build shipped the wrong image. Fetch timeout 10s → 90s for free-tier cold starts. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -109,6 +122,8 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | AWS spend to date | **< $0.01** | 2026-09-01 | S3 139.5 KiB / 40 objects; Glue 4 tables (free tier); Athena 20 queries, 9,876 bytes scanned but billed at a 10 MB per-query floor ⇒ ~$0.001. No ECS/EC2/ALB/NAT exists. |
 | OpenAI spend to date | **unverified** | — | No programmatic access to billing. Read at platform.openai.com/usage. |
 | Vercel spend | $0 | 2026-09-01 | Hobby plan |
+| Render spend | $0 | 2026-09-01 | Free tier; sleeps when idle |
+| LLM spend ceiling | **200 questions/day** ≈ $0.20 | 2026-09-01 | `LLM_DAILY_BUDGET`, plus a $20/month hard cap set in the OpenAI dashboard |
 
 Superseded:
 
@@ -173,6 +188,8 @@ actual content (IaC, networking, orchestration) is still at zero.
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
 | **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
+| **Cold start on the free tier** | Backend sleeps after ~15 minutes idle; first request then takes ~50s. The UI explains this rather than showing an empty queue. Removing it means a paid Render plan (~$7/month) or a keep-warm ping. |
+| **`:memory:` Qdrant re-embeds on every wake** | 771 documents embedded at each cold start — about a cent, and most of the ~50s. A hosted Qdrant free tier would remove both; not set up. |
 | **Rate limit is per process, not per service** | Behind >1 replica the effective limit is the configured value times `desired_count`. Stated in `/health`, `.env.example`, the module docstring and ADR-0010. Needs shared state (ElastiCache or the ALB's own limiter); deferred until there is more than one replica. |
 | **Static shared API keys** | No rotation, no per-user attribution, revocation only by editing the secret and restarting. The floor, not the ceiling — 2.6 (Cognito) is the ceiling. |
 | **No test covers the evidence layer** | `CustomerEvidence` is keyed by `customer_id`, so cross-account leakage is structurally unreachable — but nothing asserts it. Found while writing the PRD's success criteria on 2026-09-01; S4 is marked true-by-construction rather than verified. A test belongs in 4.4. |
