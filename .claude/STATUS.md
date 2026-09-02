@@ -162,11 +162,14 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Eval, outer loop | ❌ | 3.3 / 3.4, unscheduled |
 | ├ Multi-agent orchestration | ✅ | pre-existing, now served |
 | └ Model-agnostic providers | ✅ | 4.2, `c551ba1` |
-| **Phase 2 — Cloud Architecture** | 🔄 partial | |
+| **Phase 2 — Cloud Architecture** | 🔄 mostly complete | |
 | ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
-| ├ IaC / Terraform | ✅ written, unapplied | `782c291` |
-| ├ Networking, VPC, IAM | ✅ written, unapplied | `782c291` |
-| └ Container orchestration | 🔄 defined; never applied | 2.2a |
+| ├ IaC / Terraform | ✅ written, validated, unapplied | `782c291` |
+| ├ Networking, VPC, IAM | ✅ written, validated, unapplied | `782c291` |
+| ├ Enterprise security | ✅ auth, rate limits, spend caps | 2.3, 2.7, ADR-0010 |
+| ├ DevSecOps / CI-CD | ✅ CI green on every push; deploy pipeline written | 2.4 |
+| ├ Containerised deployment, running | ✅ **live on Render**, laptop-independent | 2.9 |
+| └ Container orchestration (ECS/Fargate) | ❌ written, never applied | 2.2a — declined, see Deferred |
 | **Phase 3 — Consulting** | ✅ **7 of 7 artifacts** | |
 | ├ Technical demo as value narrative | ✅ | Phase 8, `3ac11f8` |
 | ├ ADRs | ✅ | 10 records, `3d208a3` + `1efc4ff` + ADR-0009/0010 |
@@ -177,8 +180,16 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | └ MVA + Exec Status Report | ✅ | 5.3, `docs/MVA.md` + `docs/EXEC_STATUS.md` |
 | **Air-gapped / tactical edge** | ❌ | Phase 6, deferred |
 
-Note: 2.1 and 2.5 are deployment readiness, not Phase 2 competency. Phase 2's
-actual content (IaC, networking, orchestration) is still at zero.
+Note: 2.1 and 2.5 were deployment *readiness*, not Phase 2 competency. That
+changed on 2026-09-01 — the service is deployed, public and independent of any
+laptop, so everything in Phase 2 except AWS-specific orchestration is now
+demonstrated rather than described.
+
+**What ECS would add that Render does not:** orchestration on the platform the
+roadmap names, and evidence the Terraform runs. It was declined because it costs
+$5–10 and could not have served the public site — the ALB is HTTP-only and
+browsers block an HTTPS page from fetching HTTP. The Terraform stands as the IaC
+artifact; running it would prove orchestration and nothing else.
 
 ## Known gaps and dead code
 
