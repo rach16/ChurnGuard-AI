@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 
 import { apiClient, COLD_START_HINT_MS, type AtRiskCustomer, type DashboardStats } from './api-client';
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const API = '/api';
 
 interface Likelihood {
   band: 'Very high' | 'High' | 'Moderate' | 'Low';
@@ -187,11 +187,11 @@ export function Console() {
                 {loadError}
               </p>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                This build calls the address baked in at build time. A deployed
-                frontend cannot reach a backend running on your own machine —
-                browsers block a public page from calling a private address. Run
-                both locally, or point <code>NEXT_PUBLIC_BACKEND_URL</code> at a
-                deployed API and rebuild.
+                This site forwards <code>/api</code> to the backend named by
+                <code>BACKEND_ORIGIN</code>. Either that backend is down, or the
+                setting points somewhere unreachable. Locally it defaults to
+                <code>http://localhost:8000</code>, so check the backend is
+                running.
               </p>
             </div>
           ) : (
