@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-import { apiClient, type AtRiskCustomer, type DashboardStats } from './api-client';
+import { apiClient, COLD_START_HINT_MS, type AtRiskCustomer, type DashboardStats } from './api-client';
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -83,8 +83,13 @@ export function Console() {
   const [likelihood, setLikelihood] = useState<Likelihood | null>(null);
   const [evidence, setEvidence] = useState<EvidenceItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [waking, setWaking] = useState(false);
 
   useEffect(() => {
+    // If the first load is still running after a few seconds the backend is
+    // almost certainly asleep. Saying so beats eight skeleton rows that look
+    // broken and give no reason to wait.
+    const hint = setTimeout(() => setWaking(true), COLD_START_HINT_MS);
     (async () => {
       try {
         const [c, s] = await Promise.all([
@@ -101,9 +106,12 @@ export function Console() {
         // accounts, which is the opposite of the truth.
         setLoadError(e instanceof Error ? e.message : 'Could not reach the backend');
       } finally {
+        clearTimeout(hint);
+        setWaking(false);
         setLoading(false);
       }
     })();
+    return () => clearTimeout(hint);
   }, []);
 
   // Recommendations are computed from recorded outcomes, so this is a cheap
@@ -157,7 +165,15 @@ export function Console() {
         </div>
 
         <ScrollArea className="flex-1">
-          {loading ? (
+          {loading && waking ? (
+            <div className="px-4 py-8 text-sm">
+              <p className="font-medium">Waking the server</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                The backend sleeps when idle to keep this demo free to run. First
+                load takes up to a minute; after that it is instant.
+              </p>
+            </div>
+          ) : loading ? (
             Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="border-b px-4 py-3">
                 <Skeleton className="h-4 w-40" />

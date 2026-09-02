@@ -12,9 +12,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:80
 // http://localhost does: the browser blocks a public HTTPS origin from reaching
 // a private address, and the fetch neither resolves nor rejects promptly.
 //
-// Ten seconds is far longer than any endpoint here needs -- the slowest measured
-// path is /book/exposure, which scores 129 accounts well inside a second.
-const REQUEST_TIMEOUT_MS = 10_000;
+// Ninety seconds, which is far longer than any endpoint needs and deliberately
+// so. The slowest measured path is /book/exposure, well inside a second once the
+// service is warm -- but the backend runs on a free tier that sleeps after ~15
+// minutes idle, and a cold start takes 50 seconds or more before the first byte.
+// At the previous 10s every first visit aborted and showed an empty queue, which
+// is the worst possible impression for a link someone opened once.
+const REQUEST_TIMEOUT_MS = 90_000;
+
+// A request slower than this is almost certainly a sleeping backend waking up,
+// not a fast one being slow. Used only to change what the UI says while waiting.
+export const COLD_START_HINT_MS = 4_000;
 
 /** fetch that fails fast instead of hanging, preserving the caller's error handling. */
 async function fetchWithTimeout(input: string, init?: RequestInit): Promise<Response> {
