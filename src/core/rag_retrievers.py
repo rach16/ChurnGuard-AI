@@ -106,15 +106,21 @@ class ChurnRAGRetriever:
             logger.info(f"Using embedded Qdrant at {path}")
             return QdrantClient(path=path)
 
-        client = QdrantClient(url=qdrant_url)
+        # A hosted cluster needs a key; a local container does not, and passing
+        # None to a local one is harmless. Without this, pointing QDRANT_URL at
+        # Qdrant Cloud failed authentication with no obvious cause.
+        api_key = os.getenv("QDRANT_API_KEY") or None
+        client = QdrantClient(url=qdrant_url, api_key=api_key)
         try:
             client.get_collections()
         except Exception as e:
-            raise RuntimeError(
-                f"Cannot reach Qdrant at {qdrant_url}: {e}\n"
+            hint = (
                 "Start it with 'docker compose up -d qdrant', or set "
                 "QDRANT_URL=:memory: to run without a server."
-            ) from e
+            )
+            if not api_key and "cloud.qdrant.io" in qdrant_url:
+                hint = "This looks like Qdrant Cloud; QDRANT_API_KEY is not set."
+            raise RuntimeError(f"Cannot reach Qdrant at {qdrant_url}: {e}\n{hint}") from e
         return client
 
     def _reset_collection(self):
