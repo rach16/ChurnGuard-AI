@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-01 · `main` @ `89b618f` · 127 commits since fork.
+Last updated 2026-09-02 · `main` @ `be7d69b` · 133 commits since fork.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -15,6 +15,7 @@ Nothing. **The system is deployed and public.**
 |---|---|---|
 | Frontend | Vercel — `churn-guard-ai-nine.vercel.app` | ✅ |
 | Backend | Render free tier — `churnguard-backend-qb76.onrender.com` | ✅ |
+| Vector index | Qdrant Cloud free tier, us-west-2 | ✅ |
 | AI chat | Render + OpenAI key | ✅ |
 
 Verified 2026-09-01: `/health` reports **8/8 components healthy**, seven endpoints
@@ -69,6 +70,7 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | **2.7** | LLM spend caps for a public deployment | `ee4b907` | Paid routes gain a per-visitor hourly limit and a **shared daily budget** — a per-caller limit caps one person, not a crowd. ~$0.20/day ceiling. Free routes untouched. | P2 · Enterprise security |
 | **2.8** | Render blueprint; bind the host-assigned PORT | `f0623da` | App read `BACKEND_PORT` only; every managed host assigns `PORT`, so the container was unreachable. Free-tier deploy, secrets `sync:false`, health check on `/health` not `/ready`. | P2 · Deployment |
 | **2.9** | Backend live on Render; site works with the laptop off | `989eb89`, `b82345c`, `786a758` | **The demo is now reachable by anyone.** Three bugs no local run could catch: model and warehouse absent from the image, `scikit-learn` and `duckdb` not installed at runtime, and `jupyter` being the last Docker stage so a target-less build shipped the wrong image. Fetch timeout 10s → 90s for free-tier cold starts. | P2 · Deployment |
+| **2.10** | Vector index persisted; cold start 66s → 2s | `e8ffac3`, `79c51d9` | Startup dropped and re-embedded 771 documents on **every wake** — most of a 66s cold start, ~1¢ each time. Index now lives in a free Qdrant Cloud cluster and startup binds to it. Measured 2026-09-02 after 17 min idle. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 
 ### Architecture
@@ -118,6 +120,8 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
 | Distinct calibrated probabilities (200 rows) | **12** | 2026-09-01 | `rank_book` on `train_survival` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
+| Backend cold start | ~~66s~~ → **2s** | 2026-09-02 | timed `curl /health` after 17 min idle |
+| Retriever startup | ~~93s~~ → **13.6s** | 2026-09-02 | `load_and_process_documents` against the live cluster |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
 | AWS spend to date | **< $0.01** | 2026-09-01 | S3 139.5 KiB / 40 objects; Glue 4 tables (free tier); Athena 20 queries, 9,876 bytes scanned but billed at a 10 MB per-query floor ⇒ ~$0.001. No ECS/EC2/ALB/NAT exists. |
 | OpenAI spend to date | **unverified** | — | No programmatic access to billing. Read at platform.openai.com/usage. |
@@ -199,8 +203,10 @@ artifact; running it would prove orchestration and nothing else.
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
 | **Only 12 distinct probabilities across 200 rows** | Isotonic maps whole input regions to one level, and the lift distribution is bimodal — nothing between 0.73 (p75) and 4.1 (p90), so the **"High" band is empty by construction** and 12 accounts share `p=0.574`. Ordering inside a band is therefore driven entirely by ARR, which is fine for a work queue but is not model signal. Measured 2026-09-01. |
-| **Cold start on the free tier** | Backend sleeps after ~15 minutes idle; first request then takes ~50s. The UI explains this rather than showing an empty queue. Removing it means a paid Render plan (~$7/month) or a keep-warm ping. |
-| **`:memory:` Qdrant re-embeds on every wake** | 771 documents embedded at each cold start — about a cent, and most of the ~50s. A hosted Qdrant free tier would remove both; not set up. |
+| ~~Cold start on the free tier~~ **mostly closed** | Was ~66s; **2s measured 2026-09-02** after moving the index to Qdrant Cloud. The "waking the server" message is now near-redundant, kept because it costs nothing. |
+| ~~`:memory:` Qdrant re-embeds on every wake~~ **CLOSED** | Closed by 2.10. |
+| **Cold start measured from outside** | The 2s reading cannot distinguish "container genuinely restarted" from "Render never fully slept". Confirm against Render's own startup logs before quoting it. |
+| **Index staleness is a point count, not a checksum** | Startup reuses any populated collection. Change the corpus and the index is silently stale until `REINDEX_ON_START=true` is set once. |
 | **Rate limit is per process, not per service** | Behind >1 replica the effective limit is the configured value times `desired_count`. Stated in `/health`, `.env.example`, the module docstring and ADR-0010. Needs shared state (ElastiCache or the ALB's own limiter); deferred until there is more than one replica. |
 | **Static shared API keys** | No rotation, no per-user attribution, revocation only by editing the secret and restarting. The floor, not the ceiling — 2.6 (Cognito) is the ceiling. |
 | **No test covers the evidence layer** | `CustomerEvidence` is keyed by `customer_id`, so cross-account leakage is structurally unreachable — but nothing asserts it. Found while writing the PRD's success criteria on 2026-09-01; S4 is marked true-by-construction rather than verified. A test belongs in 4.4. |
@@ -277,6 +283,7 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 
 | Item | Reason |
 |---|---|
+| Vercel rewrite (`/api/*` → Render) | `docs/DEPLOYMENT_SPEC.md` Step 2. Blocked until 2026-09-02 because a 66s cold start would have exceeded Vercel's proxy timeout, turning a slow first load into a broken one. Now unblocked at 2s. Changes drafted and shown, not applied — awaiting a decision on whether to keep `CORS_ALLOW_ORIGINS` during cutover. |
 | 2.2a `terraform apply` | **Declined 2026-09-01 on goal, not cost.** The goal is a link a recruiter can open. The ALB is HTTP-only — HTTPS needs a certificate, which needs a domain — and browsers block an HTTPS page from fetching HTTP, so the deployed AWS backend could not have served the Vercel site. Render gives HTTPS on a free tier. Terraform remains written and validated as the IaC artifact; running it would prove orchestration and nothing else. |
 | Precomputed static snapshot | Considered as a $0 alternative to hosting a backend at all — 2.2 MB of precomputed responses shipped with the site. Not needed once Render was chosen, since that keeps the AI question box working, which a snapshot cannot. Revisit if the free tier's cold starts prove unacceptable. |
 | Duplicate `frontend` Vercel project | **Self-inflicted, resolved 2026-09-01.** Running `vercel build` from inside `frontend/` silently created and Git-linked a second Vercel project named after the directory. It had no Root Directory set, so it failed on every push while `churn-guard-ai` succeeded — one red X and one green on the same commit. Project deleted and `frontend/.vercel` removed. Lesson: `vercel build` is not read-only; it links. |
