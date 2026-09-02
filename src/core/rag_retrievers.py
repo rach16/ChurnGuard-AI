@@ -21,6 +21,10 @@ from qdrant_client.models import Distance, VectorParams
 # Initialize logger
 logger = logging.getLogger(__name__)
 
+
+def _env_truthy(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
 # Dimensionality of text-embedding-3-small, used when creating collections.
 EMBEDDING_DIM = 1536
 
@@ -172,6 +176,23 @@ class ChurnRAGRetriever:
             logger.info("Skipping vector indexing: keyword-only mode")
             return len(self.documents)
 
+        # Reuse a populated collection rather than rebuilding it. Only meaningful
+        # for a hosted or on-disk store -- ':memory:' always starts empty, so this
+        # is a no-op there and needs no special case.
+        #
+        # The check is a count, not a checksum: if the corpus changes, the index
+        # is stale and REINDEX_ON_START=true forces a rebuild. A silent partial
+        # rebuild would be worse than either.
+        if not _env_truthy("REINDEX_ON_START"):
+            existing = self._existing_point_count()
+            if existing > 0:
+                self._bind_existing_collection()
+                logger.info(
+                    f"✓ Reusing existing index: {existing} vectors in "
+                    f"'{self.collection_name}' (set REINDEX_ON_START=true to rebuild)"
+                )
+                return len(self.documents)
+
         # Initialize vector store (empty initially - parent retriever will populate it)
         self._init_empty_vector_store()
         
@@ -193,6 +214,33 @@ class ChurnRAGRetriever:
         
         return len(self.documents)
     
+    def _existing_point_count(self) -> int:
+        """How many vectors the collection already holds, 0 if it does not exist.
+
+        Startup used to drop and rebuild the collection unconditionally, which is
+        correct for an ephemeral in-process store and wasteful for a hosted one:
+        the index survives between restarts, and re-embedding 771 documents on
+        every wake was most of a measured 66-second cold start, plus about a cent
+        of embeddings each time.
+        """
+        try:
+            info = self.client.get_collection(self.collection_name)
+            return int(info.points_count or 0)
+        except Exception:
+            return 0
+
+    def _bind_existing_collection(self) -> None:
+        """Attach to a collection that is already populated, indexing nothing."""
+        self.vector_store = QdrantVectorStore(
+            client=self.client,
+            collection_name=self.collection_name,
+            embedding=self.embeddings,
+        )
+        self.parent_store = InMemoryStore()
+        self.parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+        self.child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+        self.parent_retriever = None
+
     def _init_empty_vector_store(self):
         """Initialize empty Qdrant vector store for parent retriever"""
         logger.info("Initializing empty Qdrant vector store...")
