@@ -3,8 +3,10 @@ RAG Retrieval Implementations
 Multiple retrieval strategies for customer churn analysis
 """
 
+import hashlib
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional, Dict
 import logging
@@ -17,6 +19,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+
+# The metadata field ParentDocumentRetriever uses to point a child chunk at its
+# parent. Hard-coded in LangChain as "doc_id"; named here so the hand-rolled
+# indexer and the retriever cannot silently drift apart.
+PARENT_ID_KEY = "doc_id"
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -114,7 +121,12 @@ class ChurnRAGRetriever:
         # None to a local one is harmless. Without this, pointing QDRANT_URL at
         # Qdrant Cloud failed authentication with no obvious cause.
         api_key = os.getenv("QDRANT_API_KEY") or None
-        client = QdrantClient(url=qdrant_url, api_key=api_key)
+        # The client default is 5 seconds, which is generous for a query and not
+        # enough for a bulk upsert: rebuilding the index writes 2,682 vectors in
+        # batches and a free-tier cluster regularly takes longer than that per
+        # batch. The symptom is a write timeout partway through indexing, which
+        # leaves the collection half-populated -- worse than either outcome.
+        client = QdrantClient(url=qdrant_url, api_key=api_key, timeout=120)
         try:
             client.get_collections()
         except Exception as e:
@@ -196,24 +208,104 @@ class ChurnRAGRetriever:
         # Initialize vector store (empty initially - parent retriever will populate it)
         self._init_empty_vector_store()
         
-        # Initialize parent document retriever once
+        # Initialize parent document retriever once. The parents are split here
+        # rather than by the retriever so their ids can be derived from their own
+        # text -- see _split_parents for why that matters.
         logger.info("Setting up parent document retriever...")
+        parents, parent_ids = self._split_parents()
         self.parent_retriever = ParentDocumentRetriever(
             vectorstore=self.vector_store,
             docstore=self.parent_store,
             child_splitter=self.child_splitter,
-            parent_splitter=self.parent_splitter,
+            id_key=PARENT_ID_KEY,
         )
-        
+
         # Add documents to parent retriever (creates parent-child relationships)
         logger.info("Adding documents to parent retriever (creating parent-child chunks)...")
-        self.parent_retriever.add_documents(self.documents)
-        logger.info(f"✓ Parent document retriever initialized with {len(self.documents)} documents")
+        self._index_children(parents, parent_ids)
+        self.parent_store.mset(list(zip(parent_ids, parents)))
+        logger.info(
+            f"✓ Parent document retriever initialized with {len(parents)} parents "
+            f"from {len(self.documents)} documents"
+        )
         
         logger.info("✅ Vector store created and documents indexed")
         
         return len(self.documents)
     
+    def _index_children(self, parents, parent_ids, batch_size: int = 32,
+                        attempts: int = 4) -> int:
+        """Embed and upsert the child chunks, in batches, with retries.
+
+        This does by hand what ParentDocumentRetriever.add_documents does
+        internally, for one reason: that method exposes no batch size and no
+        retry, and the hosted free-tier cluster times out partway through a
+        2,682-vector rebuild at its default batch of 64. A half-written
+        collection is the worst outcome available here -- it looks populated to
+        the reuse check, so the next boot skips the rebuild and serves from a
+        fraction of the corpus without ever reporting a problem.
+        """
+        children = []
+        for parent, parent_id in zip(parents, parent_ids):
+            for child in self.child_splitter.split_documents([parent]):
+                child.metadata[PARENT_ID_KEY] = parent_id
+                children.append(child)
+
+        logger.info(f"Indexing {len(children)} child chunks in batches of {batch_size}...")
+        for start in range(0, len(children), batch_size):
+            batch = children[start:start + batch_size]
+            for attempt in range(1, attempts + 1):
+                try:
+                    self.vector_store.add_documents(batch, batch_size=batch_size)
+                    break
+                except Exception as e:
+                    if attempt == attempts:
+                        raise RuntimeError(
+                            f"Failed to index children {start}-{start + len(batch)} "
+                            f"after {attempts} attempts; collection "
+                            f"'{self.collection_name}' is now partially built and "
+                            f"must be rebuilt with REINDEX_ON_START=true"
+                        ) from e
+                    wait = 2 ** attempt
+                    logger.warning(
+                        f"Batch at {start} failed ({type(e).__name__}), "
+                        f"retry {attempt}/{attempts - 1} in {wait}s"
+                    )
+                    time.sleep(wait)
+        logger.info(f"✓ Indexed {len(children)} child chunks")
+        return len(children)
+
+    def _split_parents(self):
+        """Split the corpus into parent chunks whose ids survive a restart.
+
+        ParentDocumentRetriever normally mints a random UUID per parent. That is
+        fine while the docstore and the index live in the same process, and it
+        breaks the moment the index outlives the process -- which is exactly what
+        moving to a hosted Qdrant did. The child vectors persist, still carrying
+        the UUID of their parent, but the parent store is memory and comes back
+        empty, so every one of those ids now resolves to nothing.
+
+        Deriving the id from the parent's own text makes the mapping
+        reproducible: the same corpus always yields the same ids, so a fresh
+        process can rebuild the docstore locally and match what is already
+        indexed, without embedding anything.
+
+        The ordinal is part of the hash so two parents with identical text (a
+        boilerplate paragraph repeated across accounts) still get distinct ids
+        instead of silently collapsing into one.
+        """
+        parents = self.parent_splitter.split_documents(self.documents)
+        ids = []
+        for ordinal, parent in enumerate(parents):
+            basis = "|".join([
+                str(ordinal),
+                str(parent.metadata.get("source_type", "")),
+                str(parent.metadata.get("customer_id", "")),
+                parent.page_content,
+            ])
+            ids.append(hashlib.sha256(basis.encode("utf-8")).hexdigest())
+        return parents, ids
+
     def _existing_point_count(self) -> int:
         """How many vectors the collection already holds, 0 if it does not exist.
 
@@ -230,7 +322,15 @@ class ChurnRAGRetriever:
             return 0
 
     def _bind_existing_collection(self) -> None:
-        """Attach to a collection that is already populated, indexing nothing."""
+        """Attach to a populated collection, embedding nothing.
+
+        The parent docstore is rebuilt here rather than left empty. Splitting
+        text is local and costs nothing; only the child vectors cost anything to
+        produce, and those are precisely what the collection already holds. An
+        earlier version of this method left parent_retriever as None, which made
+        the saved startup time useless: /ask defaults to parent_document
+        retrieval, so every question raised instead of answering.
+        """
         self.vector_store = QdrantVectorStore(
             client=self.client,
             collection_name=self.collection_name,
@@ -239,7 +339,16 @@ class ChurnRAGRetriever:
         self.parent_store = InMemoryStore()
         self.parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
         self.child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
-        self.parent_retriever = None
+
+        parents, parent_ids = self._split_parents()
+        self.parent_store.mset(list(zip(parent_ids, parents)))
+        self.parent_retriever = ParentDocumentRetriever(
+            vectorstore=self.vector_store,
+            docstore=self.parent_store,
+            child_splitter=self.child_splitter,
+            id_key=PARENT_ID_KEY,
+        )
+        logger.info(f"✓ Rebuilt parent docstore: {len(parents)} parents, 0 embeddings")
 
     def _init_empty_vector_store(self):
         """Initialize empty Qdrant vector store for parent retriever"""
