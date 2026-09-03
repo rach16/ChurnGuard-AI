@@ -74,14 +74,30 @@ jobs:
           python3 - "$BODY" <<'PY'
           import json, sys
           data = json.load(open(sys.argv[1]))
+
           if not data.get("ready"):
               print("::error::HTTP 200 but ready=false:", json.dumps(data)[:500])
               sys.exit(1)
+
           problem = data.get("retrieval_problem")
           if problem:
               print(f"::error::retrieval_problem: {problem}")
               sys.exit(1)
-          print("ready=true, retrieval join intact")
+
+          # Absence is not evidence of health. A backend without the probe --
+          # a rollback, a stale image, a half-finished deploy -- would otherwise
+          # sail through this check while nothing verified the join, which is
+          # the same false green this workflow exists to prevent.
+          components = data.get("components") or {}
+          if "retrieval_join" not in components:
+              print("::error::backend does not report retrieval_join; it predates "
+                    "the readiness probe, so this check verified nothing")
+              sys.exit(1)
+          if not components["retrieval_join"]:
+              print("::error::retrieval_join is false")
+              sys.exit(1)
+
+          print("ready=true, retrieval join verified intact")
           PY
 
       - name: Dashboard returns real numbers

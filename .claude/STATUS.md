@@ -286,15 +286,19 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 | Vercel rewrite (`/api/*` → Render) | `docs/DEPLOYMENT_SPEC.md` Step 2, **shipped** (`85ba4c8`, merged `5a76b0e`). Was blocked while the cold start was 66s, since a proxy in front of that turns a slow first load into a broken one; unblocked at 2s. All five `NEXT_PUBLIC_BACKEND_URL` fallbacks removed. Verified on production: 0 occurrences of `onrender.com` across the served HTML and all 10 JS chunks. `BACKEND_ORIGIN` is resolved at **build** time into `routes-manifest.json`, so it must be a build-time variable on Vercel — set it at runtime only and every `/api/*` call silently proxies to localhost. |
 | Parent ids survive a restart | **Regression I introduced and did not catch** (`b7de02b`). The 2026-09-02 index-reuse change kept the child vectors in Qdrant but not the parent docstore, which is process memory; the random parent UUIDs became unresolvable, `_bind_existing_collection` left `parent_retriever` as `None`, and `/ask` — which defaults to `parent_document` — raised on every question for roughly a day. Ids are now sha256 of the parent's own text, so a fresh process rebuilds the docstore for free and matches what is indexed. Cold start stays fast: 6.6s to bind and answer, no paid call. Cost one rebuild (~$0.005) since the old ids were unrecoverable. |
 | CORS default flipped to deny | Removing `CORS_ALLOW_ORIGINS` from `render.yaml` hit a fallback of `allow_origins=["*"]`, which after the rewrite would have let any page on the web spend the LLM budget from a visitor's browser. Default is now no origins. CORS is not access control — curl ignores it — the rate limiter is what bounds spend. |
+| Step 4: heartbeat | **Shipped** (`6c26fd6`). `.github/workflows/heartbeat.yml` probes production every 30 minutes and fails loudly; GitHub emails on a failed scheduled run, so there is no monitoring account and no cost. The endpoint change is the load-bearing half: `/ready` used to ask whether the retriever object existed, which was true throughout the outage. `readiness_problem()` now samples child chunks from the collection and confirms each parent id resolves in the docstore — the invariant a restart breaks — at the cost of one Qdrant scroll, no embedding, no LLM call. 30 minutes is deliberate: Render sleeps after ~15 idle, so the gap lets it sleep and makes nearly every probe exercise a cold start, which is the path the outage lived on, while using about half the 750 free instance-hours. A 15-minute cadence would keep it permanently awake and never test that path. |
 
 ### What the outage cost, and why nothing caught it
 
 `/ask` was broken for about a day. All 85 tests passed throughout: the
 cold-start work measured `/health` and never asked a question, and the health
-check reports a different object than the one `/ask` uses. Three tests added
-(`tests/test_parent_reuse.py`, 88 total), though only two of them exercise
-production code — the third checks the child-to-parent join through a harness
-rather than through `_bind_existing_collection`, and is weaker for it.
+check reported a different object than the one `/ask` uses.
+
+`tests/test_parent_reuse.py` now holds seven tests (92 total). Three cover id
+stability and the child-to-parent join; four cover the readiness probe,
+including one that reproduces 2026-09-02 exactly — a populated index behind an
+empty docstore. That last one is the test that turns this from a story into an
+alarm.
 
 Separately, the fix itself caused a ~20 minute index outage: the rebuild dropped
 the collection before the upsert succeeded, and the free-tier cluster timed out
