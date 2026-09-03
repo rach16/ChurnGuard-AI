@@ -11,12 +11,18 @@
 # monitoring account is needed and it costs nothing: the repository is public,
 # so runner minutes are free.
 #
-# Cadence is 30 minutes, chosen for two reasons rather than one. Render's free
-# tier sleeps after ~15 minutes idle, so a 30-minute gap lets it sleep and makes
-# roughly every probe exercise a cold start -- which is exactly the path the
-# outage lived on, and a 15-minute cadence would keep the service permanently
-# awake and never test it. It also keeps usage near half of Render's 750 free
-# instance-hours a month, instead of consuming all of them.
+# Cadence is a request, not a promise. The cron below asks for 30 minutes;
+# measured on 2026-09-03 it fired once in four and a half hours. GitHub runs
+# scheduled workflows on a best-effort basis and delays them heavily under load,
+# so treat this as "a few times a day" and never as an interval you can reason
+# about. Anything that genuinely needs a fixed period needs a paid scheduler.
+#
+# That unreliability is also why the probe retries. A gap of hours means the
+# free tier is fully asleep and the first request pays a real cold start, which
+# has been seen to exceed two minutes. The first version failed on a single
+# 120s timeout and reported a healthy service as down -- which is worse than no
+# alarm, because an alarm that cries wolf on normal behaviour teaches you to
+# ignore it.
 
 name: Heartbeat
 
@@ -38,13 +44,19 @@ env:
   # the point: it covers the Vercel rewrite as well as the service behind it, so
   # a broken proxy fails this too.
   SITE: https://churn-guard-ai-nine.vercel.app
-  # A cold start on the free tier is ~30s and has been seen at 60s+ under load.
-  MAX_WAIT: 120
+  # Per attempt. A cold start on the free tier is usually seconds once Qdrant
+  # holds the index, but has been seen to exceed 120s after a long idle.
+  MAX_WAIT: 150
+  # A sleeping service is not a broken one. Only a failure across all of these,
+  # spanning several minutes, is worth waking someone for.
+  ATTEMPTS: 3
 
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Three 150s attempts plus backoff plus the dashboard step is ~9 minutes in
+    # the worst case. 15 leaves room without letting a hung run sit all day.
+    timeout-minutes: 15
     steps:
       - name: Readiness, including the AI stack
         run: |
@@ -57,15 +69,26 @@ jobs:
           URL="$SITE/api/ready?require_ai_stack=true"
 
           BODY=$(mktemp)
-          CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' "$URL" || echo 000)
+          CODE=000
 
-          echo "GET $URL -> $CODE"
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            # curl already writes 000 on failure, so no fallback echo -- the
+            # first version appended one and printed "000000", which read like a
+            # status code and was not.
+            CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' "$URL")
+            echo "attempt $attempt/$ATTEMPTS: GET $URL -> $CODE"
+            [ "$CODE" = "200" ] && break
+            # A first attempt that times out has just spent its wait waking the
+            # service. Give it a moment to finish booting rather than racing it.
+            [ "$attempt" -lt "$ATTEMPTS" ] && sleep 20
+          done
+
           echo "--- response ---"
           cat "$BODY"
           echo
 
           if [ "$CODE" != "200" ]; then
-            echo "::error::Service is not ready (HTTP $CODE). See the response above."
+            echo "::error::Not ready after $ATTEMPTS attempts of ${MAX_WAIT}s (last HTTP $CODE)."
             exit 1
           fi
 
@@ -107,9 +130,11 @@ jobs:
           # Readiness can be true while the data path returns nothing. This is
           # the check that would have caught the all-zeros dashboard: an empty
           # or zeroed response is a failure, not a valid answer.
+          # No retry needed here: the readiness step above has already woken
+          # the service, so this one is hitting something warm.
           BODY=$(mktemp)
           CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' \
-            "$SITE/api/dashboard-stats" || echo 000)
+            "$SITE/api/dashboard-stats")
 
           echo "HTTP $CODE"
           cat "$BODY"

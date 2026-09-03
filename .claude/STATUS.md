@@ -49,7 +49,7 @@ exists, so nothing is accruing.
 | Live | State |
 |---|---|
 | CI | green, 3 jobs, free public runners |
-| Heartbeat | green, every 30 min against production, emails on failure |
+| Heartbeat | **first scheduled run failed on a false alarm, fixed 2026-09-03.** The cron asks for 30 min; it fired once in 4.5 hours. GitHub schedules are best-effort, so the real cadence is "a few times a day". The long idle meant a genuine cold start, which blew the single 120s attempt and reported a healthy backend as down. Now 3 attempts of 150s — a sleeping service is not a broken one. |
 | Vercel | green, one project, serving real data |
 | Local stack | 9/9 components healthy (`retrieval_join` added 2026-09-02) |
 
