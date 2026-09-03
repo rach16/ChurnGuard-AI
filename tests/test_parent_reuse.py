@@ -114,3 +114,64 @@ def test_every_child_points_at_a_parent_that_exists():
     assert children, "corpus produced no child chunks"
     orphans = [c for c in children if c.metadata[PARENT_ID_KEY] not in docstore]
     assert not orphans, f"{len(orphans)} child chunks reference a missing parent"
+
+
+# --- the readiness probe -------------------------------------------------
+#
+# /ready reported this component healthy throughout the outage, because it
+# checked that the retriever object existed. These fix the meaning of "ready"
+# to the join that has to hold, and fail if it ever softens back.
+
+
+class _FakeClient:
+    def __init__(self, points):
+        self._points = points
+
+    def scroll(self, collection_name, limit, with_payload, with_vectors):
+        return self._points[:limit], None
+
+
+def _point(parent_id):
+    class P:
+        payload = {"metadata": {PARENT_ID_KEY: parent_id}}
+    return P()
+
+
+def _probe_harness(docstore_ids, indexed_ids, retriever=object()):
+    from core.rag_retrievers import ChurnRAGRetriever as R
+    from langchain.storage import InMemoryStore
+
+    obj = object.__new__(R)
+    obj.collection_name = "test"
+    obj.vector_store = object()
+    obj.parent_retriever = retriever
+    obj.client = _FakeClient([_point(i) for i in indexed_ids])
+    obj.parent_store = InMemoryStore()
+    obj.parent_store.mset([(i, Document(page_content="x")) for i in docstore_ids])
+    return obj
+
+
+def test_probe_passes_when_index_and_docstore_agree():
+    assert _probe_harness(["a", "b"], ["a", "b"]).readiness_problem() is None
+
+
+def test_probe_catches_the_outage_that_happened():
+    """An empty docstore behind a populated index: 2026-09-02, exactly."""
+    problem = _probe_harness([], ["a", "b"]).readiness_problem()
+
+    assert problem is not None
+    assert "docstore" in problem
+
+
+def test_probe_catches_a_missing_retriever():
+    problem = _probe_harness(["a"], ["a"], retriever=None).readiness_problem()
+
+    assert problem is not None
+    assert "parent retriever" in problem
+
+
+def test_probe_catches_an_empty_collection():
+    problem = _probe_harness(["a"], []).readiness_problem()
+
+    assert problem is not None
+    assert "empty" in problem

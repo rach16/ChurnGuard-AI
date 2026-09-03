@@ -233,6 +233,60 @@ class ChurnRAGRetriever:
         
         return len(self.documents)
     
+    def readiness_problem(self, sample: int = 8) -> Optional[str]:
+        """Why parent_document retrieval could not serve, or None if it can.
+
+        /ready used to report this component as fine whenever the retriever
+        object existed. It existed all through the outage of 2026-09-02: the
+        object was constructed, the vector store was bound, and parent_retriever
+        inside it was None, so every /ask raised while every health check stayed
+        green. Checking for existence proved only that startup ran.
+
+        So this checks the join that actually has to hold: take a few child
+        chunks from the collection and confirm the parent id each one carries
+        resolves to a document in the docstore. That is the invariant a restart
+        breaks, and it catches both failures in that family -- an unpopulated
+        docstore, and ids that have drifted from the ones already indexed.
+
+        Costs nothing: one Qdrant scroll, no embedding and no LLM call, so it is
+        safe to call on every probe.
+        """
+        if self.vector_store is None:
+            return "vector store not bound"
+        if self.parent_retriever is None:
+            return "parent retriever not initialized"
+
+        try:
+            points, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=sample,
+                with_payload=True,
+                with_vectors=False,
+            )
+        except Exception as e:
+            return f"cannot read collection '{self.collection_name}': {e}"
+
+        if not points:
+            return f"collection '{self.collection_name}' is empty"
+
+        ids = []
+        for point in points:
+            payload = point.payload or {}
+            metadata = payload.get("metadata") or {}
+            parent_id = metadata.get(PARENT_ID_KEY)
+            if parent_id is None:
+                return f"indexed chunk carries no {PARENT_ID_KEY}"
+            ids.append(parent_id)
+
+        resolved = self.parent_store.mget(ids)
+        missing = sum(1 for doc in resolved if doc is None)
+        if missing:
+            return (
+                f"{missing} of {len(ids)} sampled chunks point at a parent that "
+                f"is not in the docstore -- the index and the docstore disagree"
+            )
+        return None
+
     def _index_children(self, parents, parent_ids, batch_size: int = 32,
                         attempts: int = 4) -> int:
         """Embed and upsert the child chunks, in batches, with retries.

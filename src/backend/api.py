@@ -93,8 +93,28 @@ class ServiceState:
 
     @property
     def ai_ready(self) -> bool:
-        """True when the LLM-backed endpoints can actually serve."""
-        return self.multi_agent_system is not None and self.rag_retriever is not None
+        """True when the LLM-backed endpoints can actually serve.
+
+        Existence is necessary and not sufficient: on 2026-09-02 the retriever
+        object was present and /ask raised on every question, because the
+        parent docstore inside it was empty after a restart. retrieval_problem
+        checks the join that has to hold, so this property means what its name
+        claims.
+        """
+        if self.multi_agent_system is None or self.rag_retriever is None:
+            return False
+        return self.retrieval_problem() is None
+
+    def retrieval_problem(self) -> Optional[str]:
+        """Why parent_document retrieval cannot serve, or None. Costs nothing."""
+        if self.rag_retriever is None:
+            return "rag_retriever not initialized"
+        try:
+            return self.rag_retriever.readiness_problem()
+        except Exception as e:
+            # A probe that raises must not take the endpoint down with it; an
+            # unreadable probe is itself the finding.
+            return f"readiness probe failed: {type(e).__name__}: {e}"
 
     @property
     def core_ready(self) -> bool:
@@ -109,6 +129,7 @@ class ServiceState:
             "exposure": self.exposure is not None,
             "evidence": self.evidence is not None,
             "rag_retriever": self.rag_retriever is not None,
+            "retrieval_join": self.retrieval_problem() is None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
         }
@@ -439,6 +460,11 @@ async def readiness_check(require_ai_stack: bool = False):
         "components": state.components(),
         "errors": state.errors,
     }
+    # Name the specific fault rather than leaving a caller to infer it from a
+    # false in the components map.
+    problem = state.retrieval_problem()
+    if problem:
+        payload["retrieval_problem"] = problem
     if not ready:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=payload)
     return payload
