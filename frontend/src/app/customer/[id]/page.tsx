@@ -42,7 +42,7 @@ import { cn } from '@/lib/utils';
 
 import { Shell } from '../../shell';
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const API = '/api';
 
 function money(v: number) {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;

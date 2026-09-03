@@ -4,13 +4,16 @@
  */
 
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+// Same-origin. next.config.js rewrites /api/* to the backend server-side, so
+// this is correct both on a laptop and when deployed, with no build-time
+// address baked in and nothing for the browser to block as cross-origin.
+const API_BASE_URL = '/api';
 
 // Without a timeout a request can hang indefinitely and the caller's `finally`
 // never runs, so the UI spins on skeletons forever with no way to tell that
-// anything is wrong. That is exactly what a deployed build pointed at
-// http://localhost does: the browser blocks a public HTTPS origin from reaching
-// a private address, and the fetch neither resolves nor rejects promptly.
+// anything is wrong. A rewrite that points at a backend which is down or
+// unreachable stalls the same way: the request neither resolves nor rejects
+// promptly, and the caller never learns anything went wrong.
 //
 // Ninety seconds, which is far longer than any endpoint needs and deliberately
 // so. The slowest measured path is /book/exposure, well inside a second once the
