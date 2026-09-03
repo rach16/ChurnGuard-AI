@@ -86,6 +86,13 @@ class ServiceState:
         self.evidence: Optional[CustomerEvidence] = None
         self.exposure: Optional[ExposureModel] = None
         self.errors: dict[str, str] = {}
+        # (monotonic timestamp, problem or None) for the retrieval probe.
+        self._probe_cache: Optional[tuple[float, Optional[str]]] = None
+
+    # How long a retrieval probe result stays good for. Sized against Render's
+    # ~5s health check: a minute turns roughly 51,000 Qdrant scrolls a day into
+    # about 1,400.
+    PROBE_TTL_SECONDS = 60.0
 
     def unavailable(self, component: str, reason: str) -> None:
         self.errors[component] = reason
@@ -106,7 +113,30 @@ class ServiceState:
         return self.retrieval_problem() is None
 
     def retrieval_problem(self) -> Optional[str]:
-        """Why parent_document retrieval cannot serve, or None. Costs nothing."""
+        """Why parent_document retrieval cannot serve, or None.
+
+        Cached for PROBE_TTL_SECONDS. The probe is one Qdrant scroll, which is
+        cheap once and not cheap 50,000 times a day: Render health-checks
+        /health every ~5 seconds, and a single request touched this three times
+        -- twice via ai_ready, once via components() -- so the first deployed
+        version issued three scrolls every five seconds against a free-tier
+        cluster. Nothing was wrong with the check itself; it was called far more
+        often than it was ever meant to be.
+
+        The staleness this admits is bounded and harmless: the condition it
+        detects is set at startup and does not change while a container runs, so
+        a result up to a minute old is as true as a fresh one.
+        """
+        now = time.monotonic()
+        cached = self._probe_cache
+        if cached is not None and now - cached[0] < self.PROBE_TTL_SECONDS:
+            return cached[1]
+
+        problem = self._run_probe()
+        self._probe_cache = (now, problem)
+        return problem
+
+    def _run_probe(self) -> Optional[str]:
         if self.rag_retriever is None:
             return "rag_retriever not initialized"
         try:

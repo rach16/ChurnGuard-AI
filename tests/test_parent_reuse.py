@@ -175,3 +175,53 @@ def test_probe_catches_an_empty_collection():
 
     assert problem is not None
     assert "empty" in problem
+
+
+def test_probe_result_is_cached():
+    """Render health-checks every ~5s and one request probed three times.
+
+    The first deployed version therefore issued three Qdrant scrolls every five
+    seconds -- roughly 51,000 a day against a free-tier cluster -- which the
+    service logs made obvious and no test did. The probe is correct; calling it
+    per-access was not.
+    """
+    sys.path.insert(0, str(ROOT / "src" / "backend"))
+    from backend.api import ServiceState
+
+    calls = []
+
+    class _Retriever:
+        def readiness_problem(self):
+            calls.append(1)
+            return None
+
+    state = ServiceState()
+    state.rag_retriever = _Retriever()
+
+    for _ in range(10):
+        assert state.retrieval_problem() is None
+
+    assert len(calls) == 1, f"probe ran {len(calls)} times, expected 1"
+
+
+def test_probe_cache_expires():
+    sys.path.insert(0, str(ROOT / "src" / "backend"))
+    from backend.api import ServiceState
+
+    calls = []
+
+    class _Retriever:
+        def readiness_problem(self):
+            calls.append(1)
+            return None
+
+    state = ServiceState()
+    state.rag_retriever = _Retriever()
+    state.retrieval_problem()
+
+    # Age the cache past its TTL rather than sleeping through it.
+    ts, value = state._probe_cache
+    state._probe_cache = (ts - ServiceState.PROBE_TTL_SECONDS - 1, value)
+    state.retrieval_problem()
+
+    assert len(calls) == 2
