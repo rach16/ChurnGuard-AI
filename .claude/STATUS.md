@@ -14,7 +14,7 @@ Nothing. **The system is deployed and public.**
 | Piece | Where | Independent of the laptop |
 |---|---|---|
 | Frontend | Vercel — `churn-guard-ai-nine.vercel.app` | ✅ |
-| Backend | Render free tier — `churnguard-backend-qb76.onrender.com` | ✅ |
+| Backend | Render free tier, reached only through the `/api` rewrite | ✅ |
 | Vector index | Qdrant Cloud free tier, us-west-2 | ✅ |
 | AI chat | Render + OpenAI key | ✅ |
 
@@ -30,18 +30,28 @@ achieve the actual goal. The ALB is HTTP-only and a browser blocks an HTTPS page
 from calling it, so deploying to AWS would not have made the public site work.
 Render supplies HTTPS free. The Terraform stays as the IaC artifact.
 
-**Every zero-cost item in the plan is complete, and every recorded defect is
-closed.** Nothing further can start without a decision on spend.
+**Every zero-cost item in the plan is complete.** Steps 2 and 4 of
+`docs/DEPLOYMENT_SPEC.md` — the `/api` rewrite and the heartbeat — shipped
+2026-09-02 and were the last of them.
 
-Remaining work totals **$8–18**, and 2.2a (`terraform apply`, $5–10) unblocks
-most of it. Verified against AWS on 2026-09-01: no ECS, EC2, load balancer or
-NAT gateway exists, so nothing is accruing while that decision waits.
+"Every recorded defect is closed" was true on 2026-09-01 and is a weaker claim
+than it reads. Three defects were introduced and closed on 2026-09-02, and two
+of them were found by looking at the running system rather than by any test:
+`/ask` broken for a day (green tests throughout), and a probe hammering Qdrant
+with ~51,000 requests a day (found in Render's logs). The suite is an alarm for
+what it covers, not evidence that the deployed system works.
+
+Remaining paid work totals **$2–5** (3.1 RAGAS) plus an optional **$19/year**
+for a real domain. 2.2a (`terraform apply`, $5–10) stays declined on goal.
+Verified against AWS on 2026-09-01: no ECS, EC2, load balancer or NAT gateway
+exists, so nothing is accruing.
 
 | Live | State |
 |---|---|
 | CI | green, 3 jobs, free public runners |
+| Heartbeat | green, every 30 min against production, emails on failure |
 | Vercel | green, one project, serving real data |
-| Local stack | 8/8 components healthy |
+| Local stack | 9/9 components healthy (`retrieval_join` added 2026-09-02) |
 
 ## Completed
 
@@ -109,7 +119,7 @@ NAT gateway exists, so nothing is accruing while that decision waits.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → **85/85 pass** | 2026-09-01 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → **94/94 pass** | 2026-09-02 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -249,7 +259,17 @@ dropped, not outstanding.
 
 ### Remaining — free
 
-**None.** Every zero-cost item in the plan is complete.
+Every zero-cost item in the *original roadmap* is complete. Two things sit
+outside it, added 2026-09-02.
+
+| Step | Item | Effort | Why |
+|---|---|---|---|
+| **1** | Ingest KKBox subscription data | ~1w | The one substantive gap, named when the FDE question was put directly on 2026-09-02. Every figure in the app currently comes from data this project generated, so the model looks good partly because the data was designed to make it look good. KKBox is real subscription data with **no churn column** — the label has to be derived, and the auto-renew and cancellation flags contradict the obvious definition. Having that argument, and defending the choice, is the FDE job; it is exactly the D3 failure `docs/SITE_SURVEY.md` warns about and the one thing this project cannot currently demonstrate. Size and file layout **not yet checked** — the week is an estimate, not a measurement. |
+| **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging | ½d | A branch and a second free Render service, so a broken change cannot reach the live site. Worth doing *before* the KKBox work, which is the first change large enough to break things. |
+
+`DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and
+belongs in the paid list below in spirit — it changes nothing except what the
+link looks like on a CV.
 
 ### Remaining — costs money
 
