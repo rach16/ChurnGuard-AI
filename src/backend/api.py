@@ -270,12 +270,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS. A wildcard origin with credentials is rejected by browsers, so credentials
-# are only enabled when an explicit origin list is configured.
+# CORS. The frontend reaches this service through a same-origin /api/* rewrite,
+# so no browser should ever call it cross-origin and the default is to allow
+# none. The previous default was a wildcard, which after the rewrite landed would
+# have left any page on the web free to spend this service's LLM budget from a
+# visitor's browser.
+#
+# CORS is not access control -- curl ignores it entirely, and the rate limiter in
+# security.py is what actually bounds spend. This only closes the browser path.
+#
+# Setting CORS_ALLOW_ORIGINS re-opens it for the named origins, which is the
+# rollback if the rewrite ever has to be undone. A wildcard origin with
+# credentials is rejected by browsers, so credentials stay tied to an explicit
+# list.
 _origins = [o.strip() for o in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins or ["*"],
+    allow_origins=_origins,
     allow_credentials=bool(_origins),
     allow_methods=["*"],
     allow_headers=["*"],

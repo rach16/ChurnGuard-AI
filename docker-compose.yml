@@ -115,7 +115,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8000  # External access for browser
       - NEXT_PUBLIC_DEPLOYMENT_ENV=docker
       - NODE_ENV=production
     depends_on:

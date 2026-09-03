@@ -129,27 +129,47 @@ loads, with a padlock icon.
 
 This is the most valuable step and it costs nothing.
 
-Create a new file, `frontend/vercel.json`, containing this:
+Add this to `frontend/next.config.js`:
 
-```json
-{
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "https://churnguard-backend.onrender.com/:path*" }
-  ]
+```js
+async rewrites() {
+  return [{
+    source: '/api/:path*',
+    destination: `${process.env.BACKEND_ORIGIN || 'http://localhost:8000'}/:path*`,
+  }]
 }
 ```
 
 In plain words: "if anyone asks this site for something starting with `/api/`,
-quietly go and fetch it from Render, and don't tell them."
+quietly go and fetch it from the back end, and don't tell them."
 
-Then three small changes:
+Put it in `next.config.js` rather than a `vercel.json` file, for three reasons.
+It works when you run the site on your own laptop as well as when it is deployed,
+so both behave the same. The `BACKEND_ORIGIN` name has no `NEXT_PUBLIC_` on the
+front, which means it is only ever read by the server and never shipped to the
+visitor's browser. And it lets you delete the repeated fallback addresses
+described below.
 
-- Find everywhere the code uses `NEXT_PUBLIC_BACKEND_URL` and change it so the app
-  asks for `/api/...` instead of the full Render address.
-- Delete `CORS_ALLOW_ORIGINS` from `render.yaml`. It is no longer needed, because
-  nothing is crossing between two addresses any more.
-- Leave the Render address itself alone. You still need it, it just stops being
-  something the public sees.
+Then:
+
+- Change the four files that use `NEXT_PUBLIC_BACKEND_URL` so they ask for
+  `/api/...` instead. They are `api-client.ts`, `console.tsx`,
+  `evaluations/page.tsx` and `customer/[id]/page.tsx`. Each currently carries its
+  own `|| 'http://localhost:8000'` fallback, and `next.config.js` sets a fifth
+  copy. All five can go, because the rewrite now handles every environment.
+- In Vercel's settings, set `BACKEND_ORIGIN` to the Render address.
+- **Leave `CORS_ALLOW_ORIGINS` in `render.yaml` for now.** Remove it in a separate
+  commit once the rewrite is confirmed working. It is not protecting the new path,
+  it is keeping the old path available in case you need to go back.
+
+**Test it on a preview first.** Push the change to a branch rather than to `main`.
+Vercel builds every branch to its own temporary address, and rewrites work there,
+so you can confirm the whole thing before the live site changes at all. This is the
+real safety net.
+
+Worth knowing for the rollback: anything named `NEXT_PUBLIC_*` gets baked into the
+downloaded JavaScript when the site is built, not read fresh each time. So undoing
+this means changing the setting *and* rebuilding, not just flipping a switch.
 
 **How to check it worked:** open your site, press F12 to open developer tools,
 click the Network tab, and reload. Every request should go to your own domain.

@@ -50,11 +50,6 @@ services:
       - key: LLM_DAILY_BUDGET
         value: "200"
 
-      # The browser calls this service from the Vercel origin, so that origin has
-      # to be allowed explicitly. Set it to the Vercel URL after the first deploy.
-      - key: CORS_ALLOW_ORIGINS
-        sync: false
-
       # Set by hand in the Render dashboard, never in this file -- it is public.
       # Leave OPENAI_API_KEY unset and the site still works; only the AI question
       # box reports itself unavailable.

@@ -279,11 +279,36 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 
 **All recorded defects are closed.**
 
+## Done 2026-09-02 (later)
+
+| Item | Outcome |
+|---|---|
+| Vercel rewrite (`/api/*` → Render) | `docs/DEPLOYMENT_SPEC.md` Step 2, **shipped** (`85ba4c8`, merged `5a76b0e`). Was blocked while the cold start was 66s, since a proxy in front of that turns a slow first load into a broken one; unblocked at 2s. All five `NEXT_PUBLIC_BACKEND_URL` fallbacks removed. Verified on production: 0 occurrences of `onrender.com` across the served HTML and all 10 JS chunks. `BACKEND_ORIGIN` is resolved at **build** time into `routes-manifest.json`, so it must be a build-time variable on Vercel — set it at runtime only and every `/api/*` call silently proxies to localhost. |
+| Parent ids survive a restart | **Regression I introduced and did not catch** (`b7de02b`). The 2026-09-02 index-reuse change kept the child vectors in Qdrant but not the parent docstore, which is process memory; the random parent UUIDs became unresolvable, `_bind_existing_collection` left `parent_retriever` as `None`, and `/ask` — which defaults to `parent_document` — raised on every question for roughly a day. Ids are now sha256 of the parent's own text, so a fresh process rebuilds the docstore for free and matches what is indexed. Cold start stays fast: 6.6s to bind and answer, no paid call. Cost one rebuild (~$0.005) since the old ids were unrecoverable. |
+| CORS default flipped to deny | Removing `CORS_ALLOW_ORIGINS` from `render.yaml` hit a fallback of `allow_origins=["*"]`, which after the rewrite would have let any page on the web spend the LLM budget from a visitor's browser. Default is now no origins. CORS is not access control — curl ignores it — the rate limiter is what bounds spend. |
+
+### What the outage cost, and why nothing caught it
+
+`/ask` was broken for about a day. All 85 tests passed throughout: the
+cold-start work measured `/health` and never asked a question, and the health
+check reports a different object than the one `/ask` uses. Three tests added
+(`tests/test_parent_reuse.py`, 88 total), though only two of them exercise
+production code — the third checks the child-to-parent join through a harness
+rather than through `_bind_existing_collection`, and is weaker for it.
+
+Separately, the fix itself caused a ~20 minute index outage: the rebuild dropped
+the collection before the upsert succeeded, and the free-tier cluster timed out
+partway through at LangChain's default batch of 64 with no retry. Indexing is
+now hand-rolled in batches of 32 with backoff. The sequencing was the real
+error — deleting before having a working replacement.
+
+**This is the argument for Step 4 (the heartbeat check).** It is free, and it is
+the step that catches this class of failure.
+
 ## Deferred
 
 | Item | Reason |
 |---|---|
-| Vercel rewrite (`/api/*` → Render) | `docs/DEPLOYMENT_SPEC.md` Step 2. Blocked until 2026-09-02 because a 66s cold start would have exceeded Vercel's proxy timeout, turning a slow first load into a broken one. Now unblocked at 2s. Changes drafted and shown, not applied — awaiting a decision on whether to keep `CORS_ALLOW_ORIGINS` during cutover. |
 | 2.2a `terraform apply` | **Declined 2026-09-01 on goal, not cost.** The goal is a link a recruiter can open. The ALB is HTTP-only — HTTPS needs a certificate, which needs a domain — and browsers block an HTTPS page from fetching HTTP, so the deployed AWS backend could not have served the Vercel site. Render gives HTTPS on a free tier. Terraform remains written and validated as the IaC artifact; running it would prove orchestration and nothing else. |
 | Precomputed static snapshot | Considered as a $0 alternative to hosting a backend at all — 2.2 MB of precomputed responses shipped with the site. Not needed once Render was chosen, since that keeps the AI question box working, which a snapshot cannot. Revisit if the free tier's cold starts prove unacceptable. |
 | Duplicate `frontend` Vercel project | **Self-inflicted, resolved 2026-09-01.** Running `vercel build` from inside `frontend/` silently created and Git-linked a second Vercel project named after the directory. It had no Root Directory set, so it failed on every push while `churn-guard-ai` succeeded — one red X and one green on the same commit. Project deleted and `frontend/.vercel` removed. Lesson: `vercel build` is not read-only; it links. |
