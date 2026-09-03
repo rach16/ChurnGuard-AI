@@ -11,19 +11,44 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 Nothing. **The system is deployed and public.**
 
+**Live at https://churnguard.banik.dev** (2026-09-03).
+
 | Piece | Where | Independent of the laptop |
 |---|---|---|
-| Frontend | Vercel — `churn-guard-ai-nine.vercel.app` | ✅ |
+| Domain | `banik.dev` at Porkbun, $8.75 then $12.87/yr. `churnguard` A → 76.76.21.21 | ✅ |
+| Certificate | Let's Encrypt via Vercel, auto-renews, valid to 2026-12-02 | ✅ |
+| Frontend | Vercel. `churn-guard-ai-nine.vercel.app` still resolves, deliberately | ✅ |
 | Backend | Render free tier, reached only through the `/api` rewrite | ✅ |
 | Vector index | Qdrant Cloud free tier, us-west-2 | ✅ |
 | AI chat | Render + OpenAI key | ✅ |
 
-Verified 2026-09-01: `/health` reports **8/8 components healthy**, seven endpoints
-return 200, and the live site renders 50 accounts and $2.23M ARR at risk with the
-laptop's own backend stopped.
+Verified on the new domain 2026-09-03: page 200 in 1.0s, `/api/health` healthy
+and not degraded, `/api/dashboard-stats` returns $2,234,200 across 129 accounts,
+and `onrender.com` appears **0 times** in the served page. **Not** verified on
+that domain: a chat question. It uses the identical `/api` path, so it should
+work — that is inference, not a measurement.
 
-Free tier sleeps after ~15 minutes idle; a cold start takes ~50s and the UI now
-says so while it waits.
+### The cold start, corrected
+
+STATUS.md has carried **2s**, from a single measurement on 2026-09-02. That
+number is wrong as a general claim. Measured 2026-09-03 after a long idle:
+**two consecutive 150s attempts timed out before the third succeeded** — over
+five minutes to wake. Warm, it answers in 1–2s.
+
+The frontend gives up at 90s, so a visitor arriving cold sees "Backend
+unreachable" rather than the app. This is now the **single largest gap between
+the project and its stated goal** (a link a recruiter can open), and it is not a
+code defect: startup work added by the parent-id fix measures 0.11s locally
+(771 documents, 869 parents, all ids hashed), so the time is Render's own
+container boot of a 1.11 GB image on a 0.1-CPU instance.
+
+**Fix, not yet done:** an external pinger (cron-job.org or UptimeRobot, free)
+hitting `/health` every 5 minutes so the service never idles into sleep. Needs
+an account signup. Uses ~730 of Render's 750 free instance-hours per month,
+which fits with little margin; a second free service there would exceed it, at
+which point Render's $7/month always-on is the simpler answer. GitHub Actions is
+**not** a substitute — its cron fired once in 4.5 hours when asked for every 30
+minutes.
 
 2.2a (`terraform apply`) was **declined 2026-09-01**: it costs $5–10 and does not
 achieve the actual goal. The ALB is HTTP-only and a browser blocks an HTTPS page
@@ -130,7 +155,7 @@ exists, so nothing is accruing.
 | Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
 | Distinct calibrated probabilities (200 rows) | **12** | 2026-09-01 | `rank_book` on `train_survival` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
-| Backend cold start | ~~66s~~ → **2s** | 2026-09-02 | timed `curl /health` after 17 min idle |
+| Backend cold start | ~~66s~~ → ~~2s~~ → **>300s cold, 1–2s warm** | 2026-09-03 | 2s was one sample after 17 min idle. After a multi-hour idle, two 150s attempts timed out before the third succeeded. Treat the warm and cold figures as different numbers. |
 | Retriever startup | ~~93s~~ → **13.6s** | 2026-09-02 | `load_and_process_documents` against the live cluster |
 | Dataset | 200 customers, 71 churned (35.5%) | 2026-08-31 | `data/customers.csv` |
 | AWS spend to date | **< $0.01** | 2026-09-01 | S3 139.5 KiB / 40 objects; Glue 4 tables (free tier); Athena 20 queries, 9,876 bytes scanned but billed at a 10 MB per-query floor ⇒ ~$0.001. No ECS/EC2/ALB/NAT exists. |
