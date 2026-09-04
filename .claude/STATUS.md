@@ -134,10 +134,11 @@ exists, so nothing is accruing.
 
 | Metric | Value | Measured | Source |
 |---|---|---|---|
-| Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31 | `scripts/benchmark_retrieval.py` |
-| Retrieval — single-entity recall (hybrid) | **0.941** | 2026-08-31 | same |
-| Retrieval — single-entity hit rate (naive) | 0.735 | 2026-08-31 | same |
-| Retrieval — all-answerable recall (hybrid) | 0.609 | 2026-08-31 | same |
+| Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31, reproduced 2026-09-04 | `metrics/retrieval_benchmark.csv` |
+| Retrieval — single-entity recall (hybrid) | **0.941** | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — single-entity hit rate (naive) | 0.735 | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — all-answerable recall (hybrid) | 0.609 | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — single-entity MRR (hybrid) | **0.853** | 2026-09-04 | same — first recorded; the baseline now carries all three methods × two cohorts |
 | Concurrency — 5 requests × 0.4s work | **0.42s** (was 2.03s) | 2026-08-31 | threadpool harness, 2.1 |
 | Backend image size | **1.11 GB** | 2026-08-31 | `docker images` |
 | Health scorer AUC vs churn label | **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |

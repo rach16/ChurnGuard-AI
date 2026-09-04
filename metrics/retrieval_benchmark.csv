@@ -1,0 +1,4 @@
+method,single_hit_rate,single_recall,single_mrr,all_hit_rate,all_recall,all_mrr,n_single,n_all,k,generated_at
+naive,0.7353,0.5441,0.5132,0.7377,0.3694,0.4328,34,61,5,2026-09-04T15:22:13+00:00
+parent_document,0.7059,0.5735,0.5074,0.6230,0.3670,0.4098,34,61,5,2026-09-04T15:22:13+00:00
+hybrid,0.9706,0.9412,0.8529,0.8361,0.6087,0.6746,34,61,5,2026-09-04T15:22:13+00:00
