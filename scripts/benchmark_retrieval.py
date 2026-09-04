@@ -14,9 +14,15 @@ separately. Their answer is a computation over the whole dataset, present in no
 single document, so no retriever can hit them and averaging them in understates
 retrieval quality rather than measuring it.
 
+Writes its scores to metrics/retrieval_benchmark.csv so /evaluation-results can
+serve them. Printing to stdout and nothing else was the original defect: the
+Evaluation page told the reader to run this script, and running it changed that
+page not at all, because nothing on disk changed.
+
 Usage:
     python3 scripts/benchmark_retrieval.py
     python3 scripts/benchmark_retrieval.py --k 10 --methods naive,hybrid
+    python3 scripts/benchmark_retrieval.py --out /dev/null   # print only
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ import argparse
 import csv
 import logging
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +43,47 @@ load_dotenv(ROOT / ".env")
 logging.basicConfig(level=logging.ERROR)
 
 GOLDEN = ROOT / "golden-masters" / "churn_golden_master.csv"
+DEFAULT_OUT = ROOT / "metrics" / "retrieval_benchmark.csv"
+
+# Column order is the contract with /evaluation-results. The two cohorts are kept
+# apart rather than averaged: single-entity is what retrieval is responsible for,
+# and folding the aggregate questions in understates it.
+FIELDNAMES = [
+    "method",
+    "single_hit_rate", "single_recall", "single_mrr",
+    "all_hit_rate", "all_recall", "all_mrr",
+    "n_single", "n_all", "k", "generated_at",
+]
+
+
+def write_results(results: dict, path: Path, k: int) -> None:
+    """Write one row per method, rates kept as 0-1 rather than percentages.
+
+    generated_at travels with the scores because a baseline's age is part of
+    reading it: a number measured against a corpus two rebuilds ago is not a
+    current claim, and a file with no date cannot tell you that.
+    """
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=FIELDNAMES)
+        writer.writeheader()
+        for name, cohorts in results.items():
+            single, every = cohorts["single"], cohorts["all"]
+            writer.writerow({
+                "method": name,
+                "single_hit_rate": f"{single['hit_rate']:.4f}",
+                "single_recall": f"{single['recall']:.4f}",
+                "single_mrr": f"{single['mrr']:.4f}",
+                "all_hit_rate": f"{every['hit_rate']:.4f}",
+                "all_recall": f"{every['recall']:.4f}",
+                "all_mrr": f"{every['mrr']:.4f}",
+                "n_single": single["n"],
+                "n_all": every["n"],
+                "k": k,
+                "generated_at": stamp,
+            })
 
 
 def load_golden() -> list[dict]:
@@ -105,7 +153,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Benchmark retrieval against expected_context")
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--methods", default="naive,parent_document,hybrid")
-    ap.add_argument("--collection", default="churn_corpus_bench")
+    # The live collection, not a throwaway one. 'churn_corpus_bench' is always
+    # empty on a fresh machine, so every run re-embedded all 771 documents --
+    # about a cent and roughly a minute, while the page promised the run cost
+    # nothing and took seconds. Pointing at the populated collection binds to
+    # the existing index instead and leaves only the query embeddings to pay
+    # for. Pass --collection explicitly to score a different index.
+    ap.add_argument("--collection", default="churn_corpus")
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT,
+                    help="CSV to write; the Evaluation page reads this file")
     args = ap.parse_args()
 
     from core.rag_retrievers import ChurnRAGRetriever
@@ -151,6 +207,13 @@ def main() -> int:
         n_single = next(iter(results.values()))["single"]["n"]
         n_all = next(iter(results.values()))["all"]["n"]
         print(f"\nsingle-entity n={n_single}, all answerable n={n_all}")
+        write_results(results, args.out, args.k)
+        print(f"wrote {args.out.relative_to(ROOT) if args.out.is_relative_to(ROOT) else args.out}")
+    else:
+        # No method scored, so there is nothing to record. Overwriting a good
+        # baseline with an empty file would be worse than leaving it alone.
+        print("\nno method produced scores; nothing written", file=sys.stderr)
+        return 1
 
     print("\nsingle-entity = questions naming 1-3 entities; what retrieval is responsible for")
     print("hit_rate      = share of questions where any expected document was retrieved")

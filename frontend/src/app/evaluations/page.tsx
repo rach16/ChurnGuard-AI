@@ -66,8 +66,11 @@ export default function EvaluationsPage() {
               </code>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 Scores retrieval against the golden set&rsquo;s expected_context —
-                ground truth rather than a model&rsquo;s opinion, so it costs nothing
-                and runs in seconds. A full RAGAS run is a separate, paid step.
+                ground truth rather than a model&rsquo;s opinion. It binds to the
+                existing index rather than rebuilding it, so the only paid step is
+                embedding the questions: fractions of a cent, and under a minute.
+                It writes <code>metrics/retrieval_benchmark.csv</code>, which is
+                what this page reads. A full RAGAS run is a separate, dearer step.
               </p>
             </CardContent>
           </Card>
@@ -112,6 +115,15 @@ export default function EvaluationsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* The note carries which baseline this is and when it was measured.
+            A table of scores with no date cannot tell you it is stale, and a
+            stale number reads exactly like a current one. */}
+        {data?.note && (
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            {data.note}
+          </p>
+        )}
       </div>
     </Shell>
   );

@@ -34,7 +34,7 @@ Things the directory tree does not tell you:
 uv run python src/backend/api.py                    # API
 uv run --extra dev --extra warehouse pytest tests/  # tests
 python3 scripts/validate_dataset.py                 # 28 data contracts
-uv run python scripts/benchmark_retrieval.py        # retrieval, no API cost
+uv run python scripts/benchmark_retrieval.py        # retrieval; query embeddings only
 uv run --extra warehouse python scripts/report_exposure.py   # cost of inaction
 cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build
 AWS_PROFILE=personal uv run --extra warehouse python warehouse/verify_athena.py

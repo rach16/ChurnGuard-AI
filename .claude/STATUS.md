@@ -134,17 +134,18 @@ exists, so nothing is accruing.
 
 | Metric | Value | Measured | Source |
 |---|---|---|---|
-| Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31 | `scripts/benchmark_retrieval.py` |
-| Retrieval — single-entity recall (hybrid) | **0.941** | 2026-08-31 | same |
-| Retrieval — single-entity hit rate (naive) | 0.735 | 2026-08-31 | same |
-| Retrieval — all-answerable recall (hybrid) | 0.609 | 2026-08-31 | same |
+| Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31, reproduced 2026-09-04 | `metrics/retrieval_benchmark.csv` |
+| Retrieval — single-entity recall (hybrid) | **0.941** | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — single-entity hit rate (naive) | 0.735 | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — all-answerable recall (hybrid) | 0.609 | 2026-08-31, reproduced 2026-09-04 | same |
+| Retrieval — single-entity MRR (hybrid) | **0.853** | 2026-09-04 | same — first recorded; the baseline now carries all three methods × two cohorts |
 | Concurrency — 5 requests × 0.4s work | **0.42s** (was 2.03s) | 2026-08-31 | threadpool harness, 2.1 |
 | Backend image size | **1.11 GB** | 2026-08-31 | `docker images` |
 | Health scorer AUC vs churn label | **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → **94/94 pass** | 2026-09-02 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → **107/107 pass** | 2026-09-04 | `pytest tests/` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -321,6 +322,7 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 | — | ~~`api.py` never calls `load_dotenv`~~ | 1 line | **Fixed** `6a377e8` — health 5/8 → 8/8 components |
 | — | ~~`/evaluation-results` returns 500 where it intends 404~~ | 2 lines | **Fixed** `aea2a34` — also anchored its path to the repo root and dropped a stale "54 test questions" note |
 | — | ~~No test covers the evidence layer's cross-account guarantee~~ | ½h | **Fixed** `aea2a34` — 10 tests; found and fixed a real BM25 IDF collapse |
+| — | ~~The Evaluation page named a script whose output no endpoint could read~~ | 2h | **Fixed** `9b61681` — three defects in series: `benchmark_retrieval.py` wrote nothing, `/evaluation-results` parsed only RAGAS columns the benchmark does not measure, and the card's "costs nothing" claim was wrong because the default collection forced a full re-embed of all 771 documents. Following the instruction on screen changed the screen not at all. tests/ 94 → 107 |
 
 **All recorded defects are closed.**
 

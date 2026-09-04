@@ -23,3 +23,11 @@ warehouse/*.duckdb
 notebooks
 docs
 *.ipynb
+
+# metrics/ is copied into the image for the committed evaluation baseline.
+# Keep everything else in it out: per-run outputs are untracked and would make
+# the image depend on whatever happens to be on the machine that built it, and
+# the plots are not read by any endpoint.
+metrics/*_results.csv
+metrics/evaluation_comparison.csv
+metrics/visualizations
