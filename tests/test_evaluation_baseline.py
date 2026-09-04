@@ -59,13 +59,17 @@ def call_endpoint():
 
 @pytest.fixture
 def baselines(tmp_path, monkeypatch):
-    """Point the endpoint at a scratch directory so a real committed baseline
-    cannot make these tests pass, or fail, by accident."""
-    ragas = tmp_path / "ragas_evaluation_results.csv"
-    retrieval = tmp_path / "retrieval_benchmark.csv"
-    monkeypatch.setattr(api, "RAGAS_BASELINE", ragas)
-    monkeypatch.setattr(api, "RETRIEVAL_BASELINE", retrieval)
-    return ragas, retrieval
+    """Point the endpoint at a scratch directory so the committed baseline
+    cannot make these tests pass, or fail, by accident.
+
+    Patching ROOT is the whole redirection, which is the point: the endpoint
+    resolves its paths per request, so there is one knob rather than two
+    module-level Paths that a caller can miss.
+    """
+    metrics = tmp_path / "metrics"
+    metrics.mkdir()
+    monkeypatch.setattr(api, "ROOT", tmp_path)
+    return metrics / "ragas_evaluation_results.csv", metrics / "retrieval_benchmark.csv"
 
 
 def write_ragas(path: Path) -> None:
@@ -185,6 +189,23 @@ def test_404_when_no_baseline_exists(baselines):
     # The 404 has to name the free path. Naming only the paid RAGAS run is what
     # left the page unactionable.
     assert "benchmark_retrieval.py" in e.value.detail
+
+
+def test_the_image_carries_the_baseline_directory():
+    """A committed baseline the container cannot see is the 2.9 failure again.
+
+    There, the model and the warehouse were absent from the image and the
+    service came up reporting healthy while serving nothing. The Dockerfile
+    creates cache/ and notebooks/ at runtime; metrics/ must be copied, because
+    what it holds is committed input rather than runtime scratch.
+    """
+    dockerfile = (ROOT / "src" / "backend" / "Dockerfile").read_text()
+
+    assert "COPY metrics/" in dockerfile
+    # The same line must not appear in the runtime mkdir, which would create an
+    # empty directory over the copy and hide the omission.
+    mkdir_lines = [l for l in dockerfile.splitlines() if "mkdir -p" in l]
+    assert not any("metrics" in l for l in mkdir_lines)
 
 
 def test_unreadable_baseline_is_a_500_not_a_silent_404(baselines):

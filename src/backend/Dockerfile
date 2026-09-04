@@ -56,8 +56,16 @@ COPY src/ ./src/
 COPY data/ ./data/
 COPY golden-masters/ ./golden-masters/
 
+# The committed evaluation baseline. /evaluation-results reads this, so leaving
+# it out means the Evaluation page reports "nothing measured yet" on the
+# deployed site while the file sits in the repo -- the same shape as the model
+# and warehouse being absent from the image in 2.9, where the service came up
+# healthy and served nothing. Per-run outputs are excluded by .dockerignore, so
+# only the baseline lands here.
+COPY metrics/ ./metrics/
+
 # Written to at runtime, so created rather than copied.
-RUN mkdir -p cache notebooks metrics
+RUN mkdir -p cache notebooks
 
 # Stage 1b: Derived artifacts.
 #

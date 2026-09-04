@@ -763,11 +763,17 @@ async def multi_agent_analyze(request: MultiAgentRequest):
         )
 
 
-# Anchored to the repo root, not the working directory. A relative path here
-# resolves against wherever the process was started, so a file was found or not
+# Filenames only. The full paths are resolved per request against ROOT rather
+# than frozen here at import: a module-level Path captures ROOT once, so
+# repointing ROOT afterwards has no effect and a caller that believes it has
+# redirected the lookup is silently reading the real repo instead. That is the
+# same trap as the Next.js rewrite destination being baked in at build time.
+#
+# ROOT itself is the repo root, not the working directory. A relative path would
+# resolve against wherever the process was started, so a file was found or not
 # depending on the caller's cwd -- the same defect as the missing load_dotenv.
-RAGAS_BASELINE = ROOT / "metrics" / "ragas_evaluation_results.csv"
-RETRIEVAL_BASELINE = ROOT / "metrics" / "retrieval_benchmark.csv"
+RAGAS_BASELINE_NAME = "ragas_evaluation_results.csv"
+RETRIEVAL_BASELINE_NAME = "retrieval_benchmark.csv"
 
 
 def _read_ragas_baseline(path: Path) -> dict:
@@ -870,8 +876,10 @@ async def get_evaluation_results():
     questions referencing customers that existed in no data file, and it
     produced the retracted 94.7% claim. See ADR-0007.
     """
-    for path, reader in ((RAGAS_BASELINE, _read_ragas_baseline),
-                         (RETRIEVAL_BASELINE, _read_retrieval_baseline)):
+    metrics_dir = ROOT / "metrics"
+
+    for path, reader in ((metrics_dir / RAGAS_BASELINE_NAME, _read_ragas_baseline),
+                         (metrics_dir / RETRIEVAL_BASELINE_NAME, _read_retrieval_baseline)):
         if not path.exists():
             continue
         try:
