@@ -763,78 +763,136 @@ async def multi_agent_analyze(request: MultiAgentRequest):
         )
 
 
-@app.get("/evaluation-results")
-async def get_evaluation_results():
-    """RAGAS scores per retrieval strategy, if a run has been committed.
+# Anchored to the repo root, not the working directory. A relative path here
+# resolves against wherever the process was started, so a file was found or not
+# depending on the caller's cwd -- the same defect as the missing load_dotenv.
+RAGAS_BASELINE = ROOT / "metrics" / "ragas_evaluation_results.csv"
+RETRIEVAL_BASELINE = ROOT / "metrics" / "retrieval_benchmark.csv"
 
-    Returns 404 when no baseline exists, which is the normal state: the full
-    65-question RAGAS run is phase 3.1 and costs money, so it has not been run.
-    No baseline is committed deliberately -- the previous one was scored over a
-    25-document corpus with questions referencing customers that existed in no
-    data file, and it produced the retracted 94.7% claim. See ADR-0007.
+
+def _read_ragas_baseline(path: Path) -> dict:
+    """LLM-judged scores, stored 0-1 and served as percentages."""
+    import pandas as pd
+
+    df = pd.read_csv(path).fillna(0.0)
+    fields = ["faithfulness", "answer_relevancy", "context_recall",
+              "context_precision", "answer_correctness", "semantic_similarity"]
+
+    results = [
+        {"method": row["Method"].replace("_", " ").title(),
+         **{f: round(float(row[f]) * 100, 1) for f in fields}}
+        for _, row in df.iterrows()
+    ]
+
+    return {
+        "kind": "ragas",
+        "results": results,
+        "metrics_info": {
+            "faithfulness": "Answer grounded in retrieved context (0-100%)",
+            "answer_relevancy": "Relevance to the question (0-100%)",
+            "context_recall": "Retrieved all relevant information (0-100%)",
+            "context_precision": "Only relevant contexts retrieved (0-100%)",
+            "answer_correctness": "Factual accuracy (0-100%)",
+            "semantic_similarity": "Semantic match quality (0-100%)",
+        },
+        # Derived from the file rather than asserted. The previous text claimed
+        # "54 test questions", which was the LLM-generated set where 0 of 54 were
+        # grounded in real data. Hardcoding a sample size in a response is how a
+        # retracted number outlives its retraction.
+        "note": f"RAGAS scores read from {path.name}",
+    }
+
+
+def _read_retrieval_baseline(path: Path) -> dict:
+    """Set-comparison scores from scripts/benchmark_retrieval.py.
+
+    Rates stay on 0-1 rather than becoming percentages: these are the same
+    figures quoted in the ADRs and STATUS, and rescaling them in one surface
+    only is how two numbers for one measurement start circulating.
+
+    n, k and the generation date are deliberately kept out of the rows. The
+    frontend renders every non-method key as a metric column, so a sample size
+    sitting beside a hit rate would read as one.
     """
     import pandas as pd
 
-    # Anchored to the repo root, not the working directory. A relative path here
-    # resolves against wherever the process was started, so the file was found
-    # or not depending on the caller's cwd -- the same defect as the missing
-    # load_dotenv.
-    metrics_path = ROOT / "metrics" / "ragas_evaluation_results.csv"
+    df = pd.read_csv(path).fillna(0.0)
+    fields = ["single_hit_rate", "single_recall", "single_mrr",
+              "all_hit_rate", "all_recall", "all_mrr"]
 
-    if not metrics_path.exists():
-        # Raised outside the try below. Inside it, the bare `except Exception`
-        # caught this deliberate 404 and re-emitted it as a 500 carrying the 404
-        # text in its body -- the same shape as the knowledge-graph bug, a broad
-        # except swallowing a meaningful signal.
-        raise HTTPException(
-            status_code=404,
-            detail="No evaluation baseline committed. Run phase 3.1 to produce one.",
-        )
+    results = [
+        {"method": str(row["method"]).replace("_", " ").title(),
+         **{f: round(float(row[f]), 3) for f in fields}}
+        for _, row in df.iterrows()
+    ]
 
-    try:
-        df = pd.read_csv(metrics_path)
-        
-        # Convert to list of dictionaries with formatted values
-        # Replace NaN values with 0.0 to avoid JSON serialization errors
-        df = df.fillna(0.0)
-        
-        results = []
-        for _, row in df.iterrows():
-            results.append({
-                "method": row["Method"].replace("_", " ").title(),
-                "faithfulness": round(float(row["faithfulness"]) * 100, 1),
-                "answer_relevancy": round(float(row["answer_relevancy"]) * 100, 1),
-                "context_recall": round(float(row["context_recall"]) * 100, 1),
-                "context_precision": round(float(row["context_precision"]) * 100, 1),
-                "answer_correctness": round(float(row["answer_correctness"]) * 100, 1),
-                "semantic_similarity": round(float(row["semantic_similarity"]) * 100, 1)
-            })
-        
-        return {
-            "results": results,
-            "metrics_info": {
-                "faithfulness": "Answer grounded in retrieved context (0-100%)",
-                "answer_relevancy": "Relevance to the question (0-100%)",
-                "context_recall": "Retrieved all relevant information (0-100%)",
-                "context_precision": "Only relevant contexts retrieved (0-100%)",
-                "answer_correctness": "Factual accuracy (0-100%)",
-                "semantic_similarity": "Semantic match quality (0-100%)"
-            },
-            # Derived from the file rather than asserted. The previous text
-            # claimed "54 test questions", which was the LLM-generated set where
-            # 0 of 54 were grounded in real data. Hardcoding a sample size in a
-            # response is how a retracted number outlives its retraction.
-            "note": f"RAGAS scores read from {metrics_path.name}",
-        }
+    first = df.iloc[0] if len(df) else {}
+    context = ", ".join(
+        f"{label}={first[key]}"
+        for key, label in (("k", "k"), ("n_single", "n single-entity"), ("n_all", "n answerable"))
+        if key in df.columns
+    )
+    stamp = f", measured {first['generated_at']}" if "generated_at" in df.columns else ""
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error loading evaluation results: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to read the evaluation baseline: {type(e).__name__}",
-        )
+    return {
+        "kind": "retrieval",
+        "results": results,
+        "metrics_info": {
+            "single_hit_rate": "Questions naming 1-3 entities where any expected document came back",
+            "single_recall": "Mean fraction of expected documents retrieved, single-entity",
+            "single_mrr": "Mean reciprocal rank of the first correct document, single-entity",
+            "all_hit_rate": "As above, over every answerable question",
+            "all_recall": "As above, over every answerable question",
+            "all_mrr": "As above, over every answerable question",
+        },
+        "note": f"Retrieval scored against the golden set's expected_context ({context}){stamp}",
+    }
+
+
+@app.get("/evaluation-results")
+async def get_evaluation_results():
+    """Whichever evaluation baseline has been recorded, or 404 if none has.
+
+    Two kinds exist and they measure different things. RAGAS asks a model
+    whether an answer is supported, costs thousands of judge calls, and is
+    phase 3.1. The retrieval benchmark compares retrieved ids against the
+    golden set's expected_context, which is ground truth rather than an
+    opinion, and costs only the query embeddings.
+
+    RAGAS wins when both are present: it is the fuller measure, and the page
+    was built around it. The retrieval baseline is what a reader can actually
+    produce today, which is why it is served at all -- before this, the page
+    named a script whose output no endpoint could read, so following the
+    instruction on screen left the screen unchanged.
+
+    404 remains the honest normal state. No RAGAS baseline is committed
+    deliberately: the previous one was scored over a 25-document corpus with
+    questions referencing customers that existed in no data file, and it
+    produced the retracted 94.7% claim. See ADR-0007.
+    """
+    for path, reader in ((RAGAS_BASELINE, _read_ragas_baseline),
+                         (RETRIEVAL_BASELINE, _read_retrieval_baseline)):
+        if not path.exists():
+            continue
+        try:
+            return reader(path)
+        except Exception as e:
+            logger.error(f"Error loading {path.name}: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to read {path.name}: {type(e).__name__}",
+            )
+
+    # Raised outside any try. Inside one, a bare `except Exception` caught this
+    # deliberate 404 and re-emitted it as a 500 carrying the 404 text in its
+    # body -- the same shape as the knowledge-graph bug, a broad except
+    # swallowing a meaningful signal.
+    raise HTTPException(
+        status_code=404,
+        detail=("No evaluation baseline recorded. Run "
+                "scripts/benchmark_retrieval.py for the free retrieval baseline, "
+                "or phase 3.1 for the full RAGAS run."),
+    )
 
 
 # Customer Health Scoring Endpoints
