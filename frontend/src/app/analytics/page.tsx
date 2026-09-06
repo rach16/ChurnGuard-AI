@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/table';
 
 import { apiClient, type AtRiskCustomer, type DashboardStats } from '../api-client';
-import { Shell } from '../shell';
+import { BootGate, Shell } from '../shell';
 
 function money(v: number) {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
@@ -60,7 +60,7 @@ const BANDS = [
   { name: 'Low', min: 0, fill: 'hsl(var(--sev-low))' },
 ];
 
-export default function AnalyticsPage() {
+function AnalyticsPage() {
   const [customers, setCustomers] = useState<AtRiskCustomer[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -279,5 +279,16 @@ export default function AnalyticsPage() {
         )}
       </div>
     </Shell>
+  );
+}
+
+/* Wait for the free-tier backend before mounting. Without this a cold visit
+   rendered whatever this page shows when a request fails, which reads as a
+   fault rather than as a server still starting. */
+export default function Page() {
+  return (
+    <BootGate>
+      <AnalyticsPage />
+    </BootGate>
   );
 }

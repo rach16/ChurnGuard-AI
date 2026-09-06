@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 import { ThemeToggle } from './theme-toggle';
+import { WakeGate, WakeScreen } from './wake-screen';
 
 const NAV: { icon: LucideIcon; label: string; href: string }[] = [
   { icon: AlertTriangle, label: 'At risk', href: '/' },
@@ -75,6 +76,34 @@ export function Rail() {
         <ThemeToggle />
       </div>
     </nav>
+  );
+}
+
+/**
+ * Wait for the backend before mounting a page that needs it.
+ *
+ * Every data-driven page wraps in this, so no page has to reason about cold
+ * starts: by the time its children mount, a request will succeed. It keeps the
+ * rail visible while waiting, because a bare centred message on a blank page
+ * reads as an error screen no matter what it says.
+ *
+ * Pages that need no backend -- /integrations is static -- deliberately do not
+ * use it. Making them wait for a server they never call would be a regression.
+ */
+export function BootGate({ children }: { children: React.ReactNode }) {
+  return (
+    <WakeGate
+      fallback={(wake) => (
+        <div className="flex h-screen overflow-hidden">
+          <Rail />
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <WakeScreen wake={wake} />
+          </div>
+        </div>
+      )}
+    >
+      {children}
+    </WakeGate>
   );
 }
 

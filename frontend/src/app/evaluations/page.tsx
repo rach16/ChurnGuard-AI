@@ -18,11 +18,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 
-import { Shell } from '../shell';
+import { BootGate, Shell } from '../shell';
 
 const API = '/api';
 
-export default function EvaluationsPage() {
+function EvaluationsPage() {
   const [data, setData] = useState<any>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'empty'>('loading');
 
@@ -126,5 +126,16 @@ export default function EvaluationsPage() {
         )}
       </div>
     </Shell>
+  );
+}
+
+/* Wait for the free-tier backend before mounting. Without this a cold visit
+   rendered whatever this page shows when a request fails, which reads as a
+   fault rather than as a server still starting. */
+export default function Page() {
+  return (
+    <BootGate>
+      <EvaluationsPage />
+    </BootGate>
   );
 }

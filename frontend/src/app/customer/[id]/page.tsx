@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { Shell } from '../../shell';
+import { BootGate, Shell } from '../../shell';
 
 const API = '/api';
 
@@ -78,7 +78,7 @@ interface Detail {
   health_indicators: Record<string, string>;
 }
 
-export default function CustomerPage() {
+function CustomerPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [data, setData] = useState<Detail | null>(null);
@@ -328,5 +328,16 @@ export default function CustomerPage() {
         </p>
       </div>
     </Shell>
+  );
+}
+
+/* Wait for the free-tier backend before mounting. Without this a cold visit
+   rendered whatever this page shows when a request fails, which reads as a
+   fault rather than as a server still starting. */
+export default function Page() {
+  return (
+    <BootGate>
+      <CustomerPage />
+    </BootGate>
   );
 }
