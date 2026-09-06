@@ -324,6 +324,8 @@ Found in passing and recorded rather than fixed, per the flag-don't-add rule.
 | — | ~~No test covers the evidence layer's cross-account guarantee~~ | ½h | **Fixed** `aea2a34` — 10 tests; found and fixed a real BM25 IDF collapse |
 | — | ~~The Evaluation page named a script whose output no endpoint could read~~ | 2h | **Fixed** `9b61681` — three defects in series: `benchmark_retrieval.py` wrote nothing, `/evaluation-results` parsed only RAGAS columns the benchmark does not measure, and the card's "costs nothing" claim was wrong because the default collection forced a full re-embed of all 771 documents. Following the instruction on screen changed the screen not at all. tests/ 94 → 107 |
 
+| — | ~~A cold visitor saw "Backend unreachable", which was never true~~ | 2h | **Fixed** `ebb5578` — the backend was healthy and asleep. Two ceilings sat under the cold start and only one was ours: our own 90s fetch timeout, and **Vercel's ~120s proxy timeout**, measured 2026-09-06 as a 502 at exactly 120.19s. Raising our timeout past 120s only moves the failure to a gateway 502, which is what I twice proposed before testing a cold request through the proxy. Replaced with short polling probes (8s each, 3s apart, 7-minute deadline) behind a `BootGate`, so no single request approaches the ceiling |
+
 **All recorded defects are closed.**
 
 ## Done 2026-09-02 (later)
