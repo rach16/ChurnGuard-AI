@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import { apiClient } from '../api-client';
-import { Shell } from '../shell';
+import { BootGate, Shell } from '../shell';
 
 interface Msg { role: 'user' | 'assistant'; content: string; sources?: number }
 
@@ -27,7 +27,7 @@ const SUGGESTIONS = [
   'What are the most common reasons for churn?',
 ];
 
-export default function AskPage() {
+function AskPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -180,5 +180,16 @@ export default function AskPage() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+/* Wait for the free-tier backend before mounting. Without this a cold visit
+   rendered whatever this page shows when a request fails, which reads as a
+   fault rather than as a server still starting. */
+export default function Page() {
+  return (
+    <BootGate>
+      <AskPage />
+    </BootGate>
   );
 }

@@ -1,12 +1,15 @@
 # ChurnGuard AI
 
-A customer-churn analysis platform for B2B SaaS: a dbt warehouse over customer
-engagement data, a RAG pipeline over the supporting documents, and a multi-agent
-system that turns both into retention recommendations.
+**Live: [churnguard.banik.dev](https://churnguard.banik.dev)** · [Architecture](docs/ARCHITECTURE.md) · [PRD](docs/PRD.md) · [Site survey](docs/SITE_SURVEY.md) · [ADRs](docs/adr/)
+
+A retention platform for B2B SaaS customer success teams: a dbt warehouse over
+engagement data, a survival model over customer-weeks, hybrid retrieval over the
+supporting documents, and LangGraph agents that turn all three into a defensible
+weekly queue.
 
 **This is a demonstration project.** The customer data is synthetic and generated
-by a script in this repository. Every number below is reproducible from the code —
-where something has not been measured, it says so rather than guessing.
+by a script in this repository. Every number below names the script that produced
+it and the date it was taken. Where something has not been measured, it says so.
 
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688?logo=fastapi&logoColor=white)
@@ -17,212 +20,340 @@ where something has not been measured, it says so rather than guessing.
 
 ---
 
-## What it does
+## 1. Users and the workflow this replaces
 
-| | |
-|---|---|
-| **Predicts when a customer will churn** | Discrete-time survival over 15,711 customer-weeks. Hazards chain into a survival curve; its median is the date, its quartiles the interval. Ranks unseen customers at **AUC 0.877**. |
-| **Scores retention risk today** | A documented weighted model over observed engagement, adoption, trend, support volume and CSAT. Ranks actual churners at **AUC 0.791**. |
-| **Answers questions over the corpus** | RAG across 771 documents — customer profiles, churn analyses, success stories, support and interaction history. |
-| **Generates retention plans** | LangGraph agents combine the score, retrieved context and an LLM into specific recommendations. |
-| **Publishes to a warehouse** | dbt models land in DuckDB locally and S3 + Athena in the cloud, from one set of definitions. |
+Four people, and only one of them opens the app every week. Full treatment in
+[docs/PRD.md](docs/PRD.md#2-users).
 
-## Honest status
+| User | What they do today | What this changes |
+|---|---|---|
+| **CS manager** (primary) | Maintains a spreadsheet of accounts sorted by renewal date, re-sorted by whoever complained most recently | A queue ordered by expected loss, with a reason attached to each row |
+| **CSM** | Walks into a save call with a number and no evidence for it | Walks in with the passages the number came from, and what worked on comparable accounts |
+| **VP CS** (secondary) | Quotes a churn percentage in a board deck and hopes nobody asks how it was derived | Quotes a dollar figure they can trace to a SQL query |
+| **Data team** (gatekeeper) | Distrusts any number computed inside somebody else's application | Reads the dbt models; every published number is queryable without the app |
 
-Being explicit about what is and isn't proven, because an earlier version of this
-README was not.
+The gatekeeper is the one most often forgotten and the one most able to end an
+engagement. That is why scoring exists in SQL as well as Python, and why a parity
+test fails the build when the two disagree.
 
-| Claim | Status |
-|---|---|
-| Health score separates real churners | ✅ AUC **0.791**, asserted in `tests/test_warehouse_parity.py` |
-| SQL and Python scoring agree | ✅ all 200 customers within 0.1, enforced by test |
-| Dataset referential integrity | ✅ **28** contract checks in `scripts/validate_dataset.py` |
-| Warehouse correctness | ✅ **52** dbt tests |
-| DuckDB and Athena agree | ✅ 6/6 queries, `warehouse/verify_athena.py` |
-| Retrieval quality | ✅ **0.971 hit rate, 0.941 recall** on single-entity questions (`scripts/benchmark_retrieval.py`, 2026-08-31) |
-| Survival model — ranking | ✅ AUC **0.877** held out by unseen customers, calibrated (2.26% predicted vs 1.93% actual) |
-| Survival model — **predicted dates** | ❌ **196 days median error.** Ranks well, dates unusable. Calibration pending |
-| End-to-end latency | ❌ not benchmarked |
+**The trigger.** A customer success team usually learns an account is leaving when
+the account tells them. By then it is a save-or-lose negotiation, and the levers
+that would have worked a quarter earlier are gone.
 
-> **On the previous "94.7% accuracy" claim.** Earlier revisions of this README
-> advertised 94.7% retrieval accuracy. That figure came from an evaluation run
-> against an LLM-generated golden set whose questions referenced companies present
-> in no data file, over a 25-document corpus, using harness code that could not
-> execute at its own pinned RAGAS version. It did not measure anything. The golden
-> set, the corpus and the harness have since been rebuilt. Retrieval is now measured
-> against the golden set's `expected_context` — ground truth rather than an LLM's
-> opinion — and reported with the date it was taken.
+## 2. Problem, baseline, and non-goals
 
-**How retrieval was fixed.** Dense embeddings match the *shape* of a question and
-ignore named entities, so "how many tickets has DisasterRecovery Solutions raised"
-returned five unrelated customers. BM25 has the opposite bias — it matches rare
-exact terms, which is what a company name is. Fusing the two by reciprocal rank
-took single-entity hit rate from 0.735 to 0.971.
+**The decision is not "will this account churn".** It is where to spend a limited
+number of CSM hours this quarter. A ranked list is a report; the team already
+knows most of the names on it.
 
-**What retrieval still cannot do.** 27 of the 65 golden questions name more than
-three contributing customers ("total ARR lost to churn"). Those are aggregates
-over the whole dataset rather than facts in any document, so a retriever scores
-partial credit it cannot really earn. They belong in SQL against the warehouse.
-A further 4 questions have no expected context at all.
+**Baselines this has to beat**, and does:
 
----
+| Baseline | Measure | This system | Source |
+|---|---|---|---|
+| Churn base rate over the population | 8.7% | **27.8%** in the top predicted band | walk-forward backtest, 2026-08-31 |
+| Dense-embedding retrieval alone | 0.735 single-entity hit rate | **0.971** with hybrid | `metrics/retrieval_benchmark.csv`, 2026-09-04 |
+| "Sort accounts by ARR" | orders by size | orders by **expected loss**; the two orders differ | `scripts/report_exposure.py`, 2026-09-01 |
 
-## Architecture
+**Explicit non-goals.** Each of these was considered and declined, not overlooked:
 
-The design of record is [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). In short: the
-**warehouse is authoritative for every number, the vector store for narrative**.
-Retrieval explains a prediction; it does not produce one.
+- **Not a CRM.** It reads engagement data; it does not own the customer record.
+- **Not multi-tenant.** One dataset, one warehouse, one vector collection. See
+  §11 for what turning this into a product would actually cost.
+- **No predicted churn date.** Retracted after backtesting, see
+  [ADR-0009](docs/adr/0009-predict-a-horizon-band-not-a-date.md). The model ranks
+  well and its dates were 222 days late. A band and a lift are served instead.
+- **Not a replacement for CSM judgement.** Every recommendation cites the accounts
+  it came from so the operator can disagree with it.
+- **No PII handling.** The synthetic data carries none, and nothing in the
+  pipeline is built to protect it. A real deployment needs that work first.
 
+## 3. Why this technical approach
+
+| Decision | Alternative rejected | Why | ADR |
+|---|---|---|---|
+| Discrete-time survival over customer-weeks | Binary classifier on a snapshot | A classifier answers "at risk" with no horizon; the decision needs "by when, roughly" | [0008](docs/adr/0008-predict-churn-date-with-survival-analysis.md) |
+| Hybrid BM25 + dense retrieval | Dense embeddings alone | Embeddings match the *shape* of a question and ignore named entities. "How many tickets has DisasterRecovery Solutions raised" returned five unrelated customers. BM25 has the opposite bias, and a company name is exactly the rare exact term it is good at | — |
+| Scoring in **both** Python and SQL | One implementation | The data team will not adopt a number they cannot query. Two implementations are only acceptable when something enforces agreement, so `tests/test_warehouse_parity.py` recomputes all 200 customers each way | [0005](docs/adr/0005-scoring-in-both-python-and-sql.md) |
+| DuckDB locally, Athena in the cloud | Warehouse-native only | The same dbt models run on a laptop and in S3, so the pipeline is reviewable without cloud credentials | [0006](docs/adr/0006-duckdb-locally-athena-for-portability.md) |
+| One backend with a degraded mode | Separate "demo" and "full" services | Two backends drift. 11 of 12 GET routes serve with no LLM key at all | [0003](docs/adr/0003-single-backend-with-degraded-mode.md) |
+| Golden set derived from the data | LLM-generated questions | The previous LLM-generated set referenced companies present in no data file, and produced a retracted accuracy claim | [0002](docs/adr/0002-derive-golden-set-from-data.md), [0007](docs/adr/0007-retract-the-94-7-percent-claim.md) |
+
+**The layering rule, in one line:** the warehouse is authoritative for every
+number, the vector store for narrative only. Retrieval explains a prediction; it
+never produces one.
+
+## 4. Data, control, and evidence flows
 
 ```
-┌──────────────┐         ┌─────────────────────────────────────────────┐
-│  Next.js UI  │────────▶│              FastAPI (single app)           │
-│  dashboard   │◀────────│  degraded mode when no LLM stack available  │
-└──────────────┘         └──────┬─────────────────────┬────────────────┘
-                                │                     │
-                  ┌─────────────▼──────┐   ┌──────────▼──────────────┐
-                  │  Health scoring    │   │  LangGraph agents       │
-                  │  (weighted model)  │   │  research + writing     │
-                  └─────────┬──────────┘   └──────────┬──────────────┘
-                            │                         │
-                  ┌─────────▼──────────┐   ┌──────────▼──────────────┐
-                  │   dbt warehouse    │   │   Qdrant vector store   │
-                  │ bronze→silver→gold │   │   771 documents         │
-                  │  DuckDB  ·  Athena │   │   OpenAI embeddings     │
-                  └────────────────────┘   └─────────────────────────┘
+                          ┌──────────────────────────────────────┐
+ DATA        CSV source ─▶│ dbt: bronze → silver → gold          │─▶ DuckDB / Athena
+                          │ 14 models · 67 tests · 28 contracts  │
+                          └───────────────┬──────────────────────┘
+                                          │ point-in-time features
+                                          ▼
+                              survival model (15,711 customer-weeks)
+                                          │
+ CONTROL     Browser ──▶ Next.js ──▶ /api/* (same-origin proxy) ──▶ FastAPI
+                                                                     │
+                                    ┌────────────────────────────────┤
+                                    ▼                                ▼
+                            deterministic routes              LLM routes
+                            (11 of 12 GETs,                   (rate-limited,
+                             no key needed)                    budget-capped)
+
+ EVIDENCE    question ─▶ hybrid retrieval ─▶ passages scoped to ONE customer_id
+                                                  │
+                                                  ▼
+                                         answer + the passages it used
 ```
 
-Scoring lives in **both** Python and SQL. `src/core/health_scoring.py` serves the
-API; `warehouse/models/gold/customer_health_score.sql` makes the same number
-queryable by anyone with a SQL client. A parity test recomputes all 200 customers
-each way and fails on divergence — two implementations are only acceptable when
-something enforces that they agree.
+**Data flow.** CSV → dbt bronze/silver/gold → DuckDB (and S3 + Athena from the
+same definitions) → point-in-time features → survival model. The gold layer is
+what both the API and any SQL client read.
 
----
+**Control flow.** The browser only ever talks to its own origin. `/api/*` is
+rewritten server-side to the backend, so the backend's address never appears in
+the JavaScript bundle and no request crosses origins. Verified rather than
+assumed: the backend host appears zero times across the served HTML and all ten
+JS chunks.
 
-## Quick start
+**Evidence flow.** Every explanation is keyed by `customer_id` before retrieval,
+not filtered after, so one account's story cannot surface in another's page.
+`tests/test_evidence.py` asserts that boundary.
+
+## 5. Permissions and threat model
+
+This runs as a **public demo with no login**, which is a deliberate constraint:
+you cannot ask a stranger evaluating a portfolio project for a credential. That
+choice moves the entire defensive burden onto spend limits and blast radius.
+
+| Threat | Control | Where |
+|---|---|---|
+| Cost exhaustion via the LLM route | Per-visitor hourly limit **and** a shared daily budget. A per-caller limit caps one person, not a crowd. ~$0.20/day ceiling | `src/backend/security.py`, 25 tests in `tests/test_security.py` |
+| Runaway generation | Output capped at 1,024 tokens in one factory, not at six call sites | `src/core/llm.py` |
+| Oversized prompts | 2,000-character question cap | `render.yaml` |
+| Cross-account data leakage | Evidence scoped by `customer_id` at retrieval time, asserted by test | `src/core/evidence.py` |
+| Browser-side origin abuse | CORS defaults to **deny**, not `*`. Note that CORS is not access control: it stops a browser, not `curl`. The rate limits are what actually bound spend | `src/backend/api.py` |
+| Backend address disclosure | Same-origin proxy; `BACKEND_ORIGIN` has no `NEXT_PUBLIC_` prefix so it never reaches the client bundle | `frontend/next.config.js` |
+| Secrets in a public repo | Every credential is `sync: false` in the blueprint and set in the host dashboard. Deploy authenticates by OIDC, so no long-lived AWS key exists in CI | `render.yaml`, `.github/workflows/` |
+
+**API key auth and per-process rate limiting** are implemented and wired into the
+ECS task definition ([ADR-0010](docs/adr/0010-api-key-auth-and-per-process-rate-limiting.md)),
+and deliberately left unset on the public demo.
+
+**What is not defended.** Prompt injection through corpus documents is not
+mitigated: the corpus is synthetic and trusted, and a real deployment ingesting
+customer-authored text would need that work. There is no audit log, no per-user
+authorisation, and no tenant isolation.
+
+## 6. Evaluation set and failure taxonomy
+
+**65 questions**, derived from the data rather than generated by a model, so
+every one names entities that actually exist.
+
+| Query type | n | | Difficulty | n |
+|---|---|---|---|---|
+| customer_specific | 32 | | easy | 22 |
+| segment_analysis | 11 | | medium | 35 |
+| pattern_analysis | 8 | | hard | 8 |
+| competitive_intelligence | 8 | | | |
+| financial_analysis | 6 | | | |
+
+Retrieval is scored against each question's recorded `expected_context` — ground
+truth, not a judge model's opinion — so the benchmark costs only the query
+embeddings and can gate CI.
+
+**Failure taxonomy.** Named modes, each with a measurement or a test:
+
+| Failure | Shape | Status |
+|---|---|---|
+| **Aggregate questions** | 27 of 65 name more than three contributing customers ("total ARR lost to churn"); 4 more have no expected context at all. The answer is a computation over the whole dataset, present in no document | Scored separately, never averaged in. Belongs in SQL routing, not built |
+| **Entity blindness** | Dense retrieval matches question shape and drops the company name | Fixed by hybrid fusion, 0.735 → 0.971 |
+| **BM25 IDF collapse** | On a small corpus a term appearing in one of two passages scores zero, so a customer with few passages silently gets no evidence | Found by a ranking test, fallback pinned in `tests/test_evidence.py` |
+| **Coarse parent hits** | `parent_document` returns whole parents, so a hit is broad and a miss is total. It scores *below* naive on hit rate (0.706 vs 0.735) | Visible in the committed baseline rather than explained away |
+| **Docstore / vector desync** | Child vectors persist in Qdrant; the parent docstore lived in process memory and died with the container. Random UUIDs joined them, so after a restart every vector pointed at a parent that could not be rebuilt | Fixed with content-derived SHA-256 ids; probe in `/ready` and 9 tests in `tests/test_parent_reuse.py` |
+| **Green tests, broken product** | The above broke `/ask` for a day while all 85 tests passed. Nothing in the suite asked the product a question | New tests assert the join between components, not each half |
+
+## 7. Run it locally, and the test evidence
 
 ```bash
 git clone https://github.com/rach16/ChurnGuard-AI.git
 cd ChurnGuard-AI
 uv sync
-cp .env.example .env     # then add your OPENAI_API_KEY
+cp .env.example .env     # add OPENAI_API_KEY for the AI routes; optional
 ```
 
-**Backend:**
-
 ```bash
-uv run python src/backend/api.py
-```
-
-**Frontend:**
-
-```bash
-cd frontend && npm install && npm run dev
+uv run python src/backend/api.py                 # API on :8000
+cd frontend && npm install && npm run dev        # UI on :3000
 ```
 
 Dashboard at `http://localhost:3000`, API docs at `http://localhost:8000/docs`.
+The frontend proxies `/api/*` to `BACKEND_ORIGIN`, resolved **at build time** and
+frozen into the routes manifest, so changing it requires a rebuild rather than a
+restart.
 
-### Running without an API key
-
-The API starts in **degraded mode**: the dashboard, health scoring and customer
-detail pages work from CSV alone, and the LLM endpoints return 503 naming the
-missing dependency. `ENABLE_RAG=false` selects this deliberately.
-
-```bash
-curl localhost:8000/health   # reports per-component status
-curl localhost:8000/ready    # 503 when the service cannot serve
-```
-
-### The warehouse
+**The full check, all of it free and offline:**
 
 ```bash
-cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build
+uv run --extra dev --extra warehouse pytest tests/     # 108 tests
+python3 scripts/validate_dataset.py                    # 28 data contracts
+cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build   # 67 dbt tests
+uv run python scripts/benchmark_retrieval.py           # retrieval; query embeddings only
 ```
 
-See [warehouse/README.md](warehouse/README.md) for the S3 + Athena path.
+| Suite | Result | Measured |
+|---|---|---|
+| pytest | **108 / 108** | 2026-09-04 |
+| dbt tests | **67 / 67** | 2026-08-31 |
+| Data contracts | **28 / 28** | 2026-08-31 |
+| SQL ↔ Python scoring parity | 200 / 200 within 0.1 | 2026-08-30 |
+| DuckDB ↔ Athena | 6 / 6 queries agree | 2026-08-30 |
 
----
+CI runs contracts, the warehouse and the test suite on every push, plus a
+retrieval regression gate that fails the build if hit rate degrades. The gate is
+keyword-only, so it costs **$0 per run** — verified by confirming it fires on a
+deliberately degraded retriever and not on a working one.
 
-## The data
+## 8. Fault injection and fallback
 
-Synthetic, generated by `scripts/generate_synthetic_rag_data.py`, deterministic
-under a fixed seed and `AS_OF_DATE`.
+Most degradations below are exercised by a test that constructs the fault rather
+than asserted in prose. The last three are not, and say so.
 
-| | |
-|---|---|
-| Customers | 200 (**71 churned**, 35.5%) |
-| Engagement snapshots | 15,840 weekly observations |
-| Support tickets · interactions | 1,311 · 2,953 |
-| RAG corpus | 771 documents |
-| Golden eval set | 65 questions, derived from the data |
+| Fault injected | Fallback | Covered by |
+|---|---|---|
+| Missing provider credentials | Named explicitly rather than swallowed; the embedding provider never falls back silently to a different vendor | `tests/test_llm_provider.py` |
+| Rate limit exhausted | 429 with `Retry-After` pointing past the oldest hit; the message says which routes still work | `tests/test_security.py` |
+| Daily budget exhausted | Whole-deployment cap, not per-caller, so a crowd cannot walk past it | same |
+| Parent docstore empty after restart | Probe reports the broken join and says why; `ai_ready` is false rather than optimistically true | `tests/test_parent_reuse.py` |
+| Vector collection empty | Probe catches it before a question does | same |
+| Vector store times out mid-index | Batched upserts (32) with 4 attempts and exponential backoff, after a free-tier timeout at LangChain's default batch left the collection with zero points | `src/core/rag_retrievers.py` |
+| Corpus too small for BM25 | IDF-collapse fallback returns evidence instead of nothing | `tests/test_evidence.py` |
+| Corrupt evaluation baseline | 500 naming the file, never a silent "nothing measured yet" | `tests/test_evaluation_baseline.py` |
+| No `OPENAI_API_KEY` | Degraded mode: 11 of 12 GET routes still serve from CSV and LLM routes return 503 naming the dependency | **implemented, not tested** — see §10 |
+| No `COHERE_API_KEY` | Reranking unavailable; the fallback currently scores 0.0 recall — a real gap, not a graceful one | §10 |
+| Backend unreachable | UI distinguishes **degraded from offline**; a 503 on one route does not claim the whole backend is down | `frontend/src/app/components/Chatbot.tsx`, `frontend/src/app/ask/page.tsx` |
 
-Each customer carries a latent health trajectory, and engagement, tickets, CSAT
-and the churn label all derive from it — so the published features genuinely
-predict the target (AUC 0.72–0.80 across five features, with tenure deliberately
-uninformative at 0.51). Without that, no model could learn anything and the
-project would be theatre.
+**A scheduled heartbeat** probes the live site every 30 minutes and requires the
+`retrieval_join` key to be *present and true* — an absent key previously read as
+`None` and printed "retrieval join intact" against a backend with no probe at
+all. Also worth knowing: GitHub Actions `schedule:` is best-effort. Asked for
+every 30 minutes, it once fired once in 4.5 hours.
 
-```bash
-python3 scripts/generate_synthetic_rag_data.py   # regenerate
-python3 scripts/validate_dataset.py              # 28 contract checks
-```
+**What is not injected.** There is no systematic chaos testing: no network
+partition, no latency injection, no dependency-failure matrix. The faults above
+are the ones that actually occurred and were then pinned.
 
----
+## 9. Results
+
+| Metric | Value | Measured | Source |
+|---|---|---|---|
+| Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31, reproduced 2026-09-04 | `metrics/retrieval_benchmark.csv` |
+| Retrieval — single-entity recall (hybrid) | **0.941** | same | same |
+| Retrieval — single-entity hit rate (naive) | 0.735 | same | same |
+| Survival model — ranking, held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
+| Survival model — top band vs base rate | **27.8%** vs 8.7% | 2026-08-31 | walk-forward backtest |
+| Health score vs churn label | AUC **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |
+| Expected quarterly loss | **$1,208,213** (8.81% of ARR) | 2026-09-01 | `scripts/report_exposure.py` |
+| Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
+| Concurrency — 5 requests × 0.4s work | **0.42s** (was 2.03s) | 2026-08-31 | threadpool harness |
+| Backend cold start | **>300s cold, 1–2s warm** | 2026-09-03 | free-tier measurement |
+
+The live evaluation baseline is visible at
+[churnguard.banik.dev/evaluations](https://churnguard.banik.dev/evaluations),
+with the date it was measured shown beside it.
+
+## 10. Known limitations
+
+Tracked, not hidden. The full register is in [`.claude/STATUS.md`](.claude/STATUS.md).
+
+- **Predicted churn dates are retracted.** 222 days late, structurally
+  unfixable at this hazard level. A band and a lift are served instead.
+- **Absolute probability underpredicts roughly 2×.** The hazard rate rises across
+  the window and a model fitted on an earlier period cannot know that. Mitigated
+  by reporting a lift, which is invariant to a level error.
+- **Only 12 distinct probabilities across 200 rows.** Isotonic calibration maps
+  whole input regions to one level, so the "High" band is empty by construction
+  and 12 accounts share `p=0.574`. Ordering inside a band is driven entirely by
+  ARR — fine for a work queue, but it is not model signal.
+- **Degraded mode is implemented but not asserted by any test.** No test in
+  `tests/` contains a 503, and none exercises the service with the LLM stack
+  absent. The behaviour is real and manually verified; nothing stops a refactor
+  from silently removing it. This is precisely the gap that let `/ask` fail for
+  a day with a green suite, and it is the next test worth writing.
+- **Aggregate questions are unanswerable by retrieval** and no SQL routing exists.
+- **Reranking needs `COHERE_API_KEY`**; the fallback scores 0.0 recall.
+- **Cold start exceeds the frontend's 90-second timeout.** A first visitor to a
+  sleeping free-tier instance can see "backend unreachable". This is a hosting-tier
+  fact, not a code defect, and the fix is a keep-alive pinger.
+- **The data is synthetic with no ingestion path.** This is the largest gap between
+  this project and something a customer could use.
+- **Single-tenant by construction**, on 512 MB and 0.1 CPU.
+- No keyboard navigation in the queue.
+
+## 11. What I would do next in a real customer environment
+
+In order, and none of it speculative — each item names the constraint it removes.
+
+1. **Run the site survey before writing code.**
+   [`docs/SITE_SURVEY.md`](docs/SITE_SURVEY.md) derives its minimum-data
+   thresholds from this build rather than from a textbook: **9.5 events per
+   feature**, ~300 events, two years of weekly history. **D3 — churn events with
+   dates — is the question that most often ends the conversation**, because most
+   CRMs record that an account closed and not when it decided to. A red on D3
+   does not end the engagement; it changes the deliverable to ranking today
+   rather than prediction.
+2. **Ingest one real dataset before promising anything.** Every figure here comes
+   from data this project generated, so the model looks good partly because the
+   data was designed to make it look good. Real subscription data has no churn
+   column; the label has to be derived, and auto-renew and cancellation flags
+   routinely contradict the obvious definition. Having that argument and
+   defending the choice is the job.
+3. **Bring-your-own-data ingestion** — upload or connect, map their columns to the
+   canonical schema, run the existing 28 contracts as a gate, and degrade
+   honestly when a table is missing. A customer with no engagement telemetry
+   should see the dashboard work and health scoring say precisely what it needs,
+   not return zeros.
+4. **A staging environment** before the first change large enough to break the
+   live site.
+5. **Authentication and per-tenant isolation**, which the current 512 MB single
+   process cannot support and which no amount of application code fixes.
+6. **Observability with traces**, then LLM-as-judge on sampled real traffic. Two
+   defects in this project were found by reading logs and none by the test suite;
+   that ratio is the argument.
+7. **Cost and latency budgets agreed up front.** The daily budget here is $0.20.
+   In a customer environment that number is a conversation with a finance owner,
+   not a constant in a config file.
 
 ## Layout
 
 ```
 src/
-├── backend/api.py           FastAPI — the single entrypoint
+├── backend/api.py           FastAPI — the single entrypoint, 16 routes
 ├── core/
 │   ├── health_scoring.py    weighted risk model (mirrors the SQL)
-│   ├── rag_retrievers.py    5 retrieval strategies over Qdrant
-│   └── knowledge_graph.py   NetworkX entity graph
+│   ├── rag_retrievers.py    retrieval strategies over Qdrant
+│   ├── evidence.py          per-customer explanation, scoped at retrieval
+│   ├── exposure.py          expected loss in dollars
+│   └── plays.py             recommendations from recorded outcomes
 ├── model/survival.py        discrete-time survival model
 ├── agents/                  LangGraph research + writing teams
 └── evaluation/              RAGAS harness
 
 warehouse/                   dbt — bronze / silver / gold, incl. point-in-time features
-infra/                       Terraform for ECS Fargate (written, never applied)
+infra/                       Terraform for ECS Fargate (written, validated, never applied)
 scripts/                     generation, validation, retrieval benchmark, S3 publish
 frontend/                    Next.js 14 operator console (shadcn/ui, light + dark)
-docs/adr/                    8 architecture decision records
+metrics/                     committed evaluation baseline
+docs/adr/                    10 architecture decision records
 ```
-
-## Testing
-
-```bash
-uv run --extra dev --extra warehouse pytest tests/
-python3 scripts/validate_dataset.py
-cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt test
-```
-
-## Known gaps
-
-Tracked, not hidden:
-
-- **Predicted churn dates are 196 days out** and not surfaced anywhere. The model
-  ranks correctly; its hazards are too low, so survival curves decay too slowly
-- **The hazard rate is non-stationary** — it rises from 0% to 5.2% across quarters
-  because the generator gives every customer a declining trajectory. A model fitted
-  on an early period underpredicts a later one
-- Aggregate questions (27 of 65) are not answerable by retrieval; no SQL routing exists
-- No committed evaluation baseline; `/evaluation-results` returns 404 by design
-- Reranking requires `COHERE_API_KEY`; without it the fallback scores 0.0 recall
-- The knowledge graph builder still expects a legacy schema and is not rebuilt
-- Terraform is written and validated but has never been applied, so orchestration
-  and IAM are unproven
-- The data is synthetic with no ingestion path — the largest gap between this and
-  something a customer could use
-- No keyboard navigation in the queue
 
 ## Design decisions
 
-Seven decisions from this rebuild are recorded in [docs/adr/](docs/adr/) — what
-forced each one, what it cost, and what was rejected. Notably why the 94.7% claim
-was retracted, and why fixing a long-silent knowledge-graph bug would have made
-the system worse.
+Ten decisions are recorded in [docs/adr/](docs/adr/) — what forced each one, what
+it cost, and what was rejected. Notably why the 94.7% claim was retracted, why a
+predicted date was replaced with a band, and why fixing a long-silent
+knowledge-graph bug would have made the system worse than deleting it.
 
 ## Licence
 
