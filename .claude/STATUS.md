@@ -108,6 +108,7 @@ exists, so nothing is accruing.
 | **2.10** | Vector index persisted; cold start 66s → 2s | `e8ffac3`, `79c51d9` | Startup dropped and re-embedded 771 documents on **every wake** — most of a 66s cold start, ~1¢ each time. Index now lives in a free Qdrant Cloud cluster and startup binds to it. Measured 2026-09-02 after 17 min idle. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
 | **1.5a** | Salesforce connector; first pull from `churnguard-dev` | `61ea46c` | **First data in the project this repo did not generate itself.** 244 accounts read → 150 customers, 94 prospects excluded, 33 churned. 40 duplicate-name groups flagged (5 planted, 35 not). Raw pull gitignored; canonical CSVs and `ingest_report.json` tracked. Figures in ADR-0011. | P1 · Data quality, ingestion |
+| **5.5** | Site survey of the Salesforce org | `8e9ab65` | **🔴 Red**, first survey against a real org (seeded data, marked as such). Binding reds D2 (1 week of usage) and V2 (33 events vs ~300 floor), not D3, so the scope becomes ranking, not prediction. D3 passes too neatly: status and opportunity churn dates identical on 28/28. 4 new known gaps. `docs/SITE_SURVEY_SALESFORCE.md` | P3 · Site Survey |
 
 ### Architecture
 
