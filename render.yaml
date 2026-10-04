@@ -29,7 +29,7 @@ services:
         value: 0.0.0.0
       - key: LOG_LEVEL
         value: INFO
-      - key: DATA_FOLDER
+      - key: CHURNGUARD_DATA_DIR
         value: data
 
       # Set in the dashboard, not here. ':memory:' works but rebuilds the index

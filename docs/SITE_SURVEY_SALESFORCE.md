@@ -12,6 +12,10 @@
 Every figure below comes from `scripts/survey_salesforce.py`, run 2026-10-04 against
 the pull committed in `61ea46c` (`data/salesforce/`, `--as-of 2026-10-04`).
 
+> **Since this survey:** 1.5b excluded the 13 Salesforce sample records, so rerunning
+> the script now reports 139 customers, not 150. The figures below are the survey as
+> taken, before any fix, which is what a survey should record.
+
 ## Prospect
 
 A stand-in B2B SaaS company. Salesforce is the only system: 244 accounts, 519

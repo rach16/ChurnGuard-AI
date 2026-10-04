@@ -196,7 +196,7 @@ restart.
 **The full check, all of it free and offline:**
 
 ```bash
-uv run --extra dev --extra warehouse pytest tests/     # 118 tests
+uv run --extra dev --extra warehouse pytest tests/     # 128 tests
 python3 scripts/validate_dataset.py                    # 28 data contracts
 cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build   # 67 dbt tests
 uv run python scripts/benchmark_retrieval.py           # retrieval; query embeddings only
@@ -204,7 +204,7 @@ uv run python scripts/benchmark_retrieval.py           # retrieval; query embedd
 
 | Suite | Result | Measured |
 |---|---|---|
-| pytest | ~~108 (2026-09-04)~~ → **118 / 118** | 2026-10-04 |
+| pytest | ~~108 (2026-09-04)~~ → ~~118~~ → **128 / 128** | 2026-10-04 |
 | dbt tests | **67 / 67** | 2026-08-31 |
 | Data contracts | **28 / 28** | 2026-08-31 |
 | SQL ↔ Python scoring parity | 200 / 200 within 0.1 | 2026-08-30 |

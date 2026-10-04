@@ -48,6 +48,7 @@ from core.health_scoring import CustomerHealthScorer
 from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
+from core.datasource import data_dir, survival_model_path, warehouse_path
 from core.llm import active_configuration
 import security
 from model.survival import ChurnSurvivalModel
@@ -171,9 +172,7 @@ state = ServiceState()
 def _init_health_scorer() -> None:
     """Health scoring works from CSV alone -- no API key, no vector store."""
     try:
-        state.health_scorer = CustomerHealthScorer(
-            churn_data_path=os.getenv("CHURN_DATA_PATH", "data/churned_customers_cleaned.csv")
-        )
+        state.health_scorer = CustomerHealthScorer(data_folder=data_dir())
         logger.info("✓ Health scorer initialized")
     except Exception as e:
         state.unavailable("health_scorer", f"{type(e).__name__}: {e}")
@@ -181,7 +180,7 @@ def _init_health_scorer() -> None:
     # Recommendations are computed from recorded outcomes, not generated, so they
     # work without an API key and belong in the degraded-mode tier.
     try:
-        state.playbook = PlaybookEngine(os.getenv("DATA_FOLDER", "data"))
+        state.playbook = PlaybookEngine(data_dir())
         logger.info("✓ Playbook initialized")
     except Exception as e:
         state.unavailable("playbook", f"{type(e).__name__}: {e}")
@@ -190,7 +189,7 @@ def _init_health_scorer() -> None:
     # BM25, so it needs neither an API key nor the vector store.
     try:
         from utils.data_loader import ChurnDataLoader
-        docs = ChurnDataLoader(os.getenv("DATA_FOLDER", "data")).get_all_documents()
+        docs = ChurnDataLoader(data_dir()).get_all_documents()
         state.evidence = CustomerEvidence(docs)
         logger.info("✓ Evidence index initialized")
     except Exception as e:
@@ -203,8 +202,8 @@ def _init_health_scorer() -> None:
 
 def _init_survival() -> None:
     """Load the trained survival model and the feature rows it scores."""
-    model_path = Path(os.getenv("SURVIVAL_MODEL_PATH", "models/survival.joblib"))
-    warehouse = Path(os.getenv("DUCKDB_PATH", "warehouse/churnguard.duckdb"))
+    model_path = survival_model_path()
+    warehouse = warehouse_path()
 
     if not model_path.exists():
         state.unavailable("survival_model", f"no model at {model_path}; run scripts/train_survival_model.py")
@@ -266,7 +265,7 @@ def _init_ai_stack() -> None:
             qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333"),
         )
         num_docs = state.rag_retriever.load_and_process_documents(
-            data_folder=os.getenv("DATA_FOLDER", "data")
+            data_folder=data_dir()
         )
         logger.info(f"✓ Indexed {num_docs} documents")
     except Exception as e:

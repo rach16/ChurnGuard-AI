@@ -6,8 +6,13 @@ queryable by anyone with a SQL client, rather than only computable by running th
 API. That is only worth anything if the two implementations stay in step -- so this
 test recomputes every customer both ways and fails if they drift.
 
-Requires the warehouse to have been built:
+Runs once per source whose warehouse has been built, because a divergence can hide
+in one customer's data and not another's: Python averaged an all-blank CSAT column to
+NaN while SQL coalesced it to neutral, which the synthetic set (CSAT on every ticket)
+never exercised and Salesforce (CSAT on 72%) exposed on 2026-10-04.
+
     cd warehouse && DBT_PROFILES_DIR=$PWD dbt run
+    cd warehouse && CHURNGUARD_DATA_DIR=data/salesforce DBT_PROFILES_DIR=$PWD dbt run
 """
 
 import sys
@@ -20,22 +25,30 @@ sys.path.insert(0, str(ROOT / "src"))
 
 DUCKDB_PATH = ROOT / "warehouse" / "churnguard.duckdb"
 
+# (data folder, warehouse file). File names follow src/core/datasource.py.
+SOURCES = [
+    ("data", DUCKDB_PATH),
+    ("data/salesforce", ROOT / "warehouse" / "churnguard_salesforce.duckdb"),
+]
+
 # Both implementations round to one decimal, so scores can legitimately differ by
 # a rounding step. Anything larger is a real divergence.
 TOLERANCE = 0.15
 
 
-pytestmark = pytest.mark.skipif(
-    not DUCKDB_PATH.exists(),
-    reason="warehouse not built; run `cd warehouse && DBT_PROFILES_DIR=$PWD dbt run`",
-)
+@pytest.fixture(scope="module", params=SOURCES, ids=[s[0] for s in SOURCES])
+def source(request):
+    folder, warehouse = request.param
+    if not warehouse.exists():
+        pytest.skip(f"warehouse for {folder} not built; see module docstring")
+    return folder, warehouse
 
 
 @pytest.fixture(scope="module")
-def sql_scores() -> dict:
+def sql_scores(source) -> dict:
     import duckdb
 
-    con = duckdb.connect(str(DUCKDB_PATH), read_only=True)
+    con = duckdb.connect(str(source[1]), read_only=True)
     try:
         rows = con.execute(
             "select customer_id, risk_score, risk_level, risk_reason, trend "
@@ -48,10 +61,10 @@ def sql_scores() -> dict:
 
 
 @pytest.fixture(scope="module")
-def python_scores() -> dict:
+def python_scores(source) -> dict:
     from core.health_scoring import CustomerHealthScorer
 
-    scorer = CustomerHealthScorer(data_folder=str(ROOT / "data"))
+    scorer = CustomerHealthScorer(data_folder=str(ROOT / source[0]))
     out = {}
     for _, row in scorer.customers.iterrows():
         scored = scorer._score_customer(row)
@@ -88,8 +101,12 @@ def test_derived_labels_agree(sql_scores, python_scores, field):
     assert len(mismatched) <= 2, f"{len(mismatched)} mismatched {field}: {mismatched[:5]}"
 
 
+@pytest.mark.skipif(not DUCKDB_PATH.exists(), reason="warehouse not built")
 def test_scorer_separates_actual_churn():
-    """The weighting must beat chance at ranking customers who really churned."""
+    """The weighting must beat chance at ranking customers who really churned.
+
+    Synthetic only: the Salesforce AUC is a measurement for 0.2b, not a gate yet.
+    """
     from core.health_scoring import CustomerHealthScorer
 
     auc = CustomerHealthScorer(data_folder=str(ROOT / "data")).scorer_auc()

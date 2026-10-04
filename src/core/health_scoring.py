@@ -126,7 +126,10 @@ class CustomerHealthScorer:
             cust_tickets["created_date"] >= self.as_of - timedelta(days=TICKET_WINDOW_DAYS)
         ]
         tickets_30d = int(len(recent))
-        csat = float(cust_tickets["csat_score"].mean()) if not cust_tickets.empty else None
+        # Tickets with no CSAT at all average to NaN, not "no data". Treat it as None so
+        # the factor is neutral, matching coalesce(..., 0.5) in customer_health_score.sql.
+        mean_csat = cust_tickets["csat_score"].mean()
+        csat = None if pd.isna(mean_csat) else float(mean_csat)
 
         cust_interactions = self.interactions[self.interactions["customer_id"] == cid]
         if not cust_interactions.empty:

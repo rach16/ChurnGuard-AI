@@ -1,12 +1,14 @@
 # Local by default: DuckDB is embedded, so `dbt run` needs no server and no
-# credentials. The athena target is the same models against a cloud warehouse --
+# credentials. The file follows CHURNGUARD_DATA_DIR (src/core/datasource.py):
+# data -> churnguard.duckdb, data/salesforce -> churnguard_salesforce.duckdb, so a
+# connector source can never overwrite the synthetic warehouse. The athena target is the same models against a cloud warehouse --
 # see warehouse/README.md.
 churnguard:
   target: dev
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard.duckdb') }}"
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard' ~ ('' if env_var('CHURNGUARD_DATA_DIR', 'data') == 'data' else '_' ~ env_var('CHURNGUARD_DATA_DIR') | replace('data/', '') | replace('/', '_')) ~ '.duckdb') }}"
       threads: 4
       extensions:
         - httpfs
@@ -16,7 +18,7 @@ churnguard:
     # models are unchanged and only the destination differs.
     s3:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard.duckdb') }}"
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../warehouse/churnguard' ~ ('' if env_var('CHURNGUARD_DATA_DIR', 'data') == 'data' else '_' ~ env_var('CHURNGUARD_DATA_DIR') | replace('data/', '') | replace('/', '_')) ~ '.duckdb') }}"
       threads: 4
       extensions:
         - httpfs

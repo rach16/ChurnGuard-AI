@@ -9,7 +9,13 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. **The system is deployed and public.**
+**Positioning, decided 2026-10-04:** a production-grade churn product for B2B SaaS
+companies. The reference customer is a Salesforce org plus a Mixpanel project, both
+real services holding **seeded** data. "Production" describes the engineering
+standard (real connectors, scheduled sync, monitoring, security). It is not a claim
+of real customers, and nothing may be written as if it were (ADR-0007).
+
+Work in flight: `feat/salesforce-ingest`, unmerged. **The system on `main` is deployed and public.**
 
 **Live at https://churnguard.banik.dev** (2026-09-03).
 
@@ -147,8 +153,11 @@ exists, so nothing is accruing.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → **118/118 pass** | 2026-10-04 | `pytest tests/`, on `feat/salesforce-ingest` |
-| Salesforce org: customers / churn events | **150 / 33** | 2026-10-04 | `data/salesforce/ingest_report.json` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~118 (2026-10-04, 1.5a)~~ → **128/128 pass** | 2026-10-04 | `pytest tests/`, on `feat/salesforce-ingest` |
+| Salesforce org: customers / churn events | ~~150~~ → **139 / 33** | 2026-10-04 | `data/salesforce/ingest_report.json`; 13 Salesforce sample records excluded by 1.5b |
+| Contracts on Salesforce data | **22 pass, 6 skipped**, 0 fail | 2026-10-04 | `CHURNGUARD_DATA_DIR=data/salesforce scripts/validate_dataset.py`. Skipped = narrative-corpus checks; return with 4.6 |
+| dbt on Salesforce data | **83/83** | 2026-10-04 | `dbt build`, warehouse `churnguard_salesforce.duckdb` |
+| SQL/Python parity | 200/200 synthetic, **139/139 Salesforce** | 2026-10-04 | `tests/test_warehouse_parity.py`, now parametrised by source |
 | Salesforce org: weeks of usage history | **1** | 2026-10-04 | `scripts/survey_salesforce.py`. Blocks the survival model on this source |
 | Salesforce org: data storage left | **1 MB of 5 MB** | 2026-10-04 | `sf org list limits` (whole-MB granularity) |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
@@ -263,10 +272,13 @@ artifact; running it would prove orchestration and nothing else.
 | No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
-| **Salesforce: 11 sample accounts written as customers** | The connector excludes prospects but not Salesforce's own sample records (Edge Communications, GenePoint, …). They carry no usage and 26 tickets dated 2026-09-27, the org's creation date, which land inside the 30-day ticket window. Found 2026-10-04 by 5.5. Fix belongs in 1.5b. |
+| ~~Salesforce: 11 sample accounts written as customers~~ **CLOSED by 1.5b** | The connector excludes prospects but not Salesforce's own sample records (Edge Communications, GenePoint, …). They carry no usage and 26 tickets dated 2026-09-27, the org's creation date, which land inside the 30-day ticket window. Found 2026-10-04 by 5.5. Fix belongs in 1.5b. |
 | **Health score on a single snapshot: trend factor silently zero** | With one engagement row the slope is 0, so the 15% trend weight contributes nothing and every account reads "stable". Nothing in the output says so. Found 2026-10-04 by 5.5. |
-| **Salesforce `engagement_score` double-counts adoption** | The connector builds it as ½ utilisation + ½ adoption, and the scorer weights adoption again: effective weight 0.375, not 0.20. Found 2026-10-04 by 5.5. |
-| **Two names for the data folder** | The API reads `DATA_FOLDER`; the contracts and dbt read `CHURNGUARD_DATA_DIR` (added by 1.5a). Easy to point them at different data. Unify in 1.5b. |
+| ~~Salesforce `engagement_score` double-counts adoption~~ **CLOSED by 1.5b** — now seat utilisation only | The connector builds it as ½ utilisation + ½ adoption, and the scorer weights adoption again: effective weight 0.375, not 0.20. Found 2026-10-04 by 5.5. |
+| ~~Two names for the data folder~~ **CLOSED by 1.5b** — `CHURNGUARD_DATA_DIR` drives the API, contracts and dbt via `src/core/datasource.py`; the warehouse and survival-model files follow it. `DATA_FOLDER` still read | The API reads `DATA_FOLDER`; the contracts and dbt read `CHURNGUARD_DATA_DIR` (added by 1.5a). Easy to point them at different data. Unify in 1.5b. |
+| **Salesforce scorer AUC 1.0 is leakage** | Measured 2026-10-04 (`CustomerHealthScorer.scorer_auc()` on `data/salesforce`). The usage fields are the *current* snapshot, so a churned account's usage is read after it left: the score sees the outcome. **Do not quote it.** A fair figure needs point-in-time usage, so 0.2b must follow 1.6. |
+| ~~SQL scorer treated missing CSAT as maximally unhappy~~ **CLOSED by 1.5b** | DuckDB's `least()`/`greatest()` skip NULL, so `coalesce(greatest(0, least(1, NULL)), 0.5)` gave 1.0, not 0.5: +7.5 risk on every account without CSAT. Python averaged an all-blank CSAT column to NaN and crashed. Neither showed on synthetic data, where every ticket is rated; found when parity was first run on Salesforce. |
+| Leftover from a mis-targeted dbt run | `warehouse/churnguard_sf.duckdb` (gitignored) and `warehouse/target_sf/` (untracked) are from 2026-10-04, before the warehouse file followed the data setting. Safe to delete. |
 
 ## Next — ordered by the critical path
 
@@ -294,14 +306,16 @@ dropped, not outstanding.
 
 ### Remaining — free
 
-Every zero-cost item in the *original roadmap* is complete. Two things sit
-outside it, added 2026-09-02.
+Every zero-cost item in the *original roadmap* is complete. What follows is the
+Salesforce customer engagement, re-planned 2026-10-04 after 5.5.
 
 | Step | Item | Effort | Why |
 |---|---|---|---|
-| **1** | Ingest KKBox subscription data | ~1w | The one substantive gap, named when the FDE question was put directly on 2026-09-02. Every figure in the app currently comes from data this project generated, so the model looks good partly because the data was designed to make it look good. KKBox is real subscription data with **no churn column** — the label has to be derived, and the auto-renew and cancellation flags contradict the obvious definition. Having that argument, and defending the choice, is the FDE job; it is exactly the D3 failure `docs/SITE_SURVEY.md` warns about and the one thing this project cannot currently demonstrate. Size and file layout **not yet checked** — the week is an estimate, not a measurement. |
-| **1a** | 1.5 Salesforce ingestion — **in progress on `feat/salesforce-ingest`** | ~1w remaining | Alternative route to Step 1's gap, started 2026-10-04. 1.5a (connector, first pull) done in `61ea46c`. 5.5 site survey done: **🔴 Red**, `docs/SITE_SURVEY_SALESFORCE.md`. Binding reds are D2 (one usage snapshot) and V2 (33 churn events), not D3: this source supports ranking, not prediction. Next: 1.5b, contracts and dbt on this data. |
-| **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging | ½d | A branch and a second free Render service, so a broken change cannot reach the live site. Worth doing *before* the KKBox work, which is the first change large enough to break things. |
+| **1** | 1.5b Contracts and dbt on the Salesforce data — **done, see Completed** | 1d | Run the 28 contracts and `dbt build` with `CHURNGUARD_DATA_DIR=data/salesforce`; report failures before changing anything. Then the fixes 5.5 found: exclude the 11 Salesforce sample accounts, one name for the data folder (`DATA_FOLDER` vs `CHURNGUARD_DATA_DIR`), and stop the connector double-counting adoption. 1.5a and 5.5 are done (`61ea46c`, `8e9ab65`). |
+| **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging | ½d | A branch and a second free Render service, so a broken change cannot reach the live site. Worth doing before `feat/salesforce-ingest` merges: it is the first change large enough to break the live site. |
+| **3** | 1.6 Product usage from Mixpanel | 2d | Closes 5.5's D2 red: the CRM holds one usage snapshot, and weekly usage lives in product analytics in a real SaaS stack. Seed ~2.5 years of weekly usage for the customer accounts (seeded, and labelled so), connector joined to Salesforce on `AccountNumber`, every pull kept in our own warehouse. Mixpanel Free verified 2026-10-04: events backdated 1, 2 and 3 years imported and returned by the export API (`cg_retention_probe`). PostHog Free rejected for this: 1-year query retention. |
+| **4** | 4.7 Dated risk signals from CSM notes | 1d | LLM extraction over 157 task notes and 233 case descriptions (competitor mentioned, champion left, cancellation asked about) as time-varying features, not only narrative. < $0.05. |
+| **5** | 7.6 Survival model sized to the events | 1–2d | 33 churn events support ~3 features at ten events per feature. Features fixed in advance, penalised discrete-time model, grouped walk-forward validation with bootstrap intervals, compared against the CSMs' own `At Risk` flag (26 accounts). Depends on 1.6. |
 
 `DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and
 belongs in the paid list below in spirit — it changes nothing except what the
@@ -406,5 +420,6 @@ image and Terraform all stand; they are simply no longer the critical path.
 | Item | Reason |
 |---|---|
 | Stage 7 UI phase | Proposed; not adopted. UI items tracked under Known gaps instead. |
+| KKBox subscription data | **Rejected 2026-10-04.** Was Step 1 from 2026-09-02, to get prediction onto data this project did not design. KKBox is consumer music subscriptions, and the project is positioned as churn for B2B SaaS companies; its unit (a ~$5 subscriber) has no ARR, seats, CSM or save motion, so it could prove the model but not the product. The same gap is now closed on the B2B stack: Salesforce for the CRM (1.5) and Mixpanel for usage history (1.6). |
 | `SALESFORCE_COMPARISON.md` | Deleted 2026-08-31. Compared to Einstein on unsupportable numbers, including sales scripts asserting "we're 94.7% accurate". |
 | Keeping the stale comprehensive doc live | Archived, not deleted — ADRs cite what it claimed. |

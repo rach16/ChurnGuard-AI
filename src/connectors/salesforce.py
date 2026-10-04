@@ -110,6 +110,17 @@ EMPTY_TABLES = {
     ],
 }
 
+# Every Developer Edition org is provisioned with these demo records. They carry none
+# of the customer-success fields and their cases are dated at org creation, so scoring
+# them would put fabricated tickets in the 30-day window (docs/SITE_SURVEY_SALESFORCE.md).
+# Matched by exact name, never by pattern, so a real customer cannot be caught by it.
+SALESFORCE_SAMPLE_ACCOUNTS = {
+    "Edge Communications", "Burlington Textiles Corp of America", "Pyramid Construction Inc.",
+    "Dickenson plc", "Grand Hotels & Resorts Ltd", "United Oil & Gas Corp.",
+    "Express Logistics and Transport", "University of Arizona", "United Oil & Gas, UK",
+    "United Oil & Gas, Singapore", "GenePoint", "sForce", "Sample Account for Entitlements",
+}
+
 SEGMENTS = ("SMB", "Commercial", "Enterprise")
 CHURN_STATUSES = {"churned", "former customer", "cancelled", "canceled"}
 PROSPECT_TYPES = {"prospect"}
@@ -321,6 +332,9 @@ def transform(raw: dict[str, list[dict]], as_of: date) -> tuple[dict[str, list[d
     by_id: dict[str, dict] = {}
 
     for a in accounts:
+        if (a.get("Name") or "").strip() in SALESFORCE_SAMPLE_ACCOUNTS:
+            report.note("salesforce_sample_account_excluded", a.get("Name"), limit=20)
+            continue
         acct_type = (a.get("Type") or "").strip().lower()
         status = (a.get("Customer_Status__c") or "").strip().lower()
         if status == "prospect" or (acct_type in PROSPECT_TYPES and not status):
@@ -512,7 +526,9 @@ def _engagement(by_id: dict, report: IngestReport, as_of: date) -> list[dict]:
             "active_users": int(users or 0),
             "sessions": "",
             "feature_adoption_rate": adoption_rate,
-            "engagement_score": round(0.5 * utilisation + 0.5 * adoption_rate, 3),
+            # Seat utilisation only. Adoption has its own column and its own weight in
+            # RISK_WEIGHTS; folding it in here as well counted it twice (0.375, not 0.20).
+            "engagement_score": round(utilisation, 3),
         })
     # Surfaced as a decision so nobody reads a one-row history as a full one.
     report.counts["engagement_weeks_of_history_per_customer"] = 1

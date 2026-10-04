@@ -84,6 +84,12 @@ Each run writes `ingest_report.json` next to the CSVs.
 | Customers with no usage fields (no engagement row) | 11 |
 | Weeks of usage history per customer | 1 |
 
+**Re-measured after 1.5b** (same raw pull, transform rerun offline, 2026-10-04): the 13
+Salesforce Developer Edition sample records are now excluded by exact name. Customers
+~~150~~ → **139**, prospects ~~94~~ → **92**, churned 33 (unchanged). The 26 cases dated
+from `CreatedDate`, the ARR, segment and contract-start inferences, and the 11 customers
+without usage all belonged to sample records and are gone.
+
 **Rule 2 never fired on its own.** Every churned account was caught by both rules,
 and on all 28 that carry both dates `Churn_Date__c` equals the lost opportunity's
 close date exactly (`scripts/survey_salesforce.py`). The precedence question this ADR

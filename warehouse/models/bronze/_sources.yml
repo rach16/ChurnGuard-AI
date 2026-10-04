@@ -13,7 +13,7 @@ sources:
         description: One row per customer. The grain of the whole warehouse.
         columns:
           - name: customer_id
-            description: Stable business key, CUST-NNNN.
+            description: Stable business key, PREFIX-digits (CUST-NNNN synthetic, ACC-NNNNN Salesforce).
             tests: [unique, not_null]
           - name: company_name
             tests: [unique, not_null]

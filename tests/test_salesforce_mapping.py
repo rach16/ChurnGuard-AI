@@ -193,8 +193,26 @@ def test_transform_end_to_end():
     eng = {e["customer_id"]: e for e in tables["engagement_snapshots"]}
     assert len(eng) == 3
     assert eng["ACC-4"]["week_start"] == "2025-04-14"
-    assert eng["ACC-1"]["engagement_score"] == 0.7
+    # Seat utilisation only (80 of 100); adoption stays in its own column.
+    assert eng["ACC-1"]["engagement_score"] == 0.8
+    assert eng["ACC-1"]["feature_adoption_rate"] == 0.6
     assert d["engagement_weeks_of_history_per_customer"] == 1
+
+
+def test_salesforce_sample_accounts_are_excluded_by_exact_name():
+    raw = raw_fixture()
+    raw["accounts"] += [acct("90", "GenePoint"), acct("91", "GenePoint Labs")]
+    raw["cases"].append({"Id": "c9", "CaseNumber": "00009", "AccountId": "90", "Subject": "demo",
+                         "IsClosed": False, "Priority": "Low",
+                         "CreatedDate": "2026-09-27T10:00:00.000+0000"})
+    tables, report = transform(raw, AS_OF)
+    ids = {c["customer_id"] for c in tables["customers"]}
+    d = report.to_dict()["decisions"]
+
+    assert "ACC-90" not in ids                 # the demo record
+    assert "ACC-91" in ids                     # a similar real name is untouched
+    assert d["salesforce_sample_account_excluded"] == 1
+    assert "00009" not in {t["ticket_id"] for t in tables["support_tickets"]}
 
 
 def test_no_event_postdates_churn():

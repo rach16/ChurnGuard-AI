@@ -21,9 +21,15 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / os.environ.get("CHURNGUARD_DATA_DIR", "data")
+# Same rule as src/core/datasource.py; DATA_FOLDER is the previous name.
+DATA_DIR = ROOT / (os.environ.get("CHURNGUARD_DATA_DIR") or os.environ.get("DATA_FOLDER") or "data")
 DOCS_DIR = DATA_DIR / "churn_analysis_docs"
 GOLDEN_PATH = ROOT / "golden-masters" / "churn_golden_master.csv"
+# The synthetic generator writes a narrative corpus (rag_metadata.json, one .txt per
+# churn analysis) and the golden set is built over it. A connector source such as
+# Salesforce has no corpus yet, so those checks are reported as skipped, not failed and
+# not passed. They return once that source's narrative is indexed (4.6).
+HAS_CORPUS = (DATA_DIR / "rag_metadata.json").exists()
 
 CHILD_FILES = [
     "engagement_snapshots.csv",
@@ -54,6 +60,7 @@ class Checker:
     def __init__(self) -> None:
         self.failures: list[str] = []
         self.passed = 0
+        self.skipped: list[str] = []
 
     def check(self, label: str, ok: bool, detail: str = "") -> None:
         if ok:
@@ -62,6 +69,10 @@ class Checker:
         else:
             self.failures.append(f"{label}: {detail}")
             print(f"  FAIL  {label}  --  {detail}")
+
+    def skip(self, label: str, reason: str) -> None:
+        self.skipped.append(label)
+        print(f"  SKIP  {label}  --  {reason}")
 
 
 def main() -> int:
@@ -129,11 +140,14 @@ def main() -> int:
             f"{len(churned_stories)} stories on churned accounts")
 
     analyses = load("churn_analyses.csv")
-    doc_files = {p.stem for p in DOCS_DIR.glob("*.txt")}
-    missing_docs = {r["doc_id"] for r in analyses} - doc_files
-    orphan_docs = doc_files - {r["doc_id"] for r in analyses}
-    c.check("one .txt per churn analysis", not missing_docs and not orphan_docs,
-            f"{len(missing_docs)} missing, {len(orphan_docs)} orphaned")
+    if HAS_CORPUS:
+        doc_files = {p.stem for p in DOCS_DIR.glob("*.txt")}
+        missing_docs = {r["doc_id"] for r in analyses} - doc_files
+        orphan_docs = doc_files - {r["doc_id"] for r in analyses}
+        c.check("one .txt per churn analysis", not missing_docs and not orphan_docs,
+                f"{len(missing_docs)} missing, {len(orphan_docs)} orphaned")
+    else:
+        c.skip("one .txt per churn analysis", "source has no narrative corpus")
 
     churn_rate = sum(r["is_churned"] == "1" for r in customers) / len(customers)
     c.check("churn rate is in a usable band (0.10-0.50)", 0.10 <= churn_rate <= 0.50,
@@ -157,41 +171,50 @@ def main() -> int:
     c.check("retained engagement exceeds churned by >0.10", separation > 0.10,
             f"retained={retained_mean:.3f} churned={churned_mean:.3f} delta={separation:.3f}")
 
-    meta = json.loads((DATA_DIR / "rag_metadata.json").read_text())
-    c.check("rag_metadata customer count is accurate",
-            meta["statistics"]["total_customers"] == len(customers),
-            f"metadata says {meta['statistics']['total_customers']}, file has {len(customers)}")
+    if HAS_CORPUS:
+        meta = json.loads((DATA_DIR / "rag_metadata.json").read_text())
+        c.check("rag_metadata customer count is accurate",
+                meta["statistics"]["total_customers"] == len(customers),
+                f"metadata says {meta['statistics']['total_customers']}, file has {len(customers)}")
 
-    print("\n[golden dataset]")
-    # The previous golden master referenced companies that existed in no data file, so
-    # RAGAS was scoring retrieval against unretrievable answers. Guard against a repeat.
-    with open(GOLDEN_PATH, newline="", encoding="utf-8") as fh:
-        golden = list(csv.DictReader(fh))
+        print("\n[golden dataset]")
+        # The previous golden master referenced companies that existed in no data file, so
+        # RAGAS was scoring retrieval against unretrievable answers. Guard against a repeat.
+        with open(GOLDEN_PATH, newline="", encoding="utf-8") as fh:
+            golden = list(csv.DictReader(fh))
 
-    doc_ids = {r["doc_id"] for r in analyses}
-    names = {r["company_name"] for r in customers}
+        doc_ids = {r["doc_id"] for r in analyses}
+        names = {r["company_name"] for r in customers}
 
-    c.check("golden dataset is non-empty", len(golden) > 0, f"{len(golden)} questions")
+        c.check("golden dataset is non-empty", len(golden) > 0, f"{len(golden)} questions")
 
-    blank = [r for r in golden if not r["question"].strip() or not r["ground_truth"].strip()]
-    c.check("no blank questions or answers", not blank, f"{len(blank)} incomplete rows")
+        blank = [r for r in golden if not r["question"].strip() or not r["ground_truth"].strip()]
+        c.check("no blank questions or answers", not blank, f"{len(blank)} incomplete rows")
 
-    bad_ctx = {tok for r in golden for tok in r["expected_context"].split(",")
-               if tok and tok not in by_id and tok not in doc_ids}
-    c.check("expected_context references real ids", not bad_ctx,
-            f"{len(bad_ctx)} unknown: {sorted(bad_ctx)[:3]}")
+        bad_ctx = {tok for r in golden for tok in r["expected_context"].split(",")
+                   if tok and tok not in by_id and tok not in doc_ids}
+        c.check("expected_context references real ids", not bad_ctx,
+                f"{len(bad_ctx)} unknown: {sorted(bad_ctx)[:3]}")
 
-    named = [r for r in golden if any(n in r["question"] for n in names)]
-    c.check("golden questions are grounded in real customers", len(named) > 0,
-            f"only {len(named)} of {len(golden)} name a customer in customers.csv")
+        named = [r for r in golden if any(n in r["question"] for n in names)]
+        c.check("golden questions are grounded in real customers", len(named) > 0,
+                f"only {len(named)} of {len(golden)} name a customer in customers.csv")
+    else:
+        print("\n[golden dataset]")
+        for label in ("rag_metadata customer count is accurate", "golden dataset is non-empty",
+                      "no blank questions or answers", "expected_context references real ids",
+                      "golden questions are grounded in real customers"):
+            c.skip(label, "source has no narrative corpus")
 
     print("\n" + "=" * 60)
     if c.failures:
-        print(f"FAILED: {len(c.failures)} check(s) failed, {c.passed} passed")
+        print(f"FAILED: {len(c.failures)} check(s) failed, {c.passed} passed, "
+              f"{len(c.skipped)} skipped")
         for f in c.failures:
             print(f"  - {f}")
         return 1
-    print(f"OK: all {c.passed} checks passed")
+    print(f"OK: all {c.passed} checks passed" +
+          (f", {len(c.skipped)} skipped (no narrative corpus)" if c.skipped else ""))
     print(f"    {len(customers)} customers, churn rate {churn_rate:.1%}, "
           f"engagement separation {separation:.3f}")
     return 0
