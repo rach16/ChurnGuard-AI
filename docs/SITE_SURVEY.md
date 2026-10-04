@@ -257,3 +257,7 @@ A worked example against a **hypothetical** prospect is in
 [`SITE_SURVEY_EXAMPLE.md`](SITE_SURVEY_EXAMPLE.md). It is clearly labelled as
 constructed. No real customer environment has been surveyed, and inventing one
 would be the same class of error as the retracted 94.7% claim.
+
+A survey of a **real Salesforce org holding seeded data** is in
+[`SITE_SURVEY_SALESFORCE.md`](SITE_SURVEY_SALESFORCE.md) (2026-10-04, phase 5.5).
+Every figure in it is measured, and the seeded and planted parts are marked.

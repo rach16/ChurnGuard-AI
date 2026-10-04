@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-02 · `main` @ `be7d69b` · 133 commits since fork.
+Last updated 2026-10-04 · `feat/salesforce-ingest` @ `61ea46c` (unmerged) · `main` @ `a921c1c`.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -107,6 +107,7 @@ exists, so nothing is accruing.
 | **2.9** | Backend live on Render; site works with the laptop off | `989eb89`, `b82345c`, `786a758` | **The demo is now reachable by anyone.** Three bugs no local run could catch: model and warehouse absent from the image, `scikit-learn` and `duckdb` not installed at runtime, and `jupyter` being the last Docker stage so a target-less build shipped the wrong image. Fetch timeout 10s → 90s for free-tier cold starts. | P2 · Deployment |
 | **2.10** | Vector index persisted; cold start 66s → 2s | `e8ffac3`, `79c51d9` | Startup dropped and re-embedded 771 documents on **every wake** — most of a 66s cold start, ~1¢ each time. Index now lives in a free Qdrant Cloud cluster and startup binds to it. Measured 2026-09-02 after 17 min idle. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
+| **1.5a** | Salesforce connector; first pull from `churnguard-dev` | `61ea46c` | **First data in the project this repo did not generate itself.** 244 accounts read → 150 customers, 94 prospects excluded, 33 churned. 40 duplicate-name groups flagged (5 planted, 35 not). Raw pull gitignored; canonical CSVs and `ingest_report.json` tracked. Figures in ADR-0011. | P1 · Data quality, ingestion |
 
 ### Architecture
 
@@ -145,7 +146,10 @@ exists, so nothing is accruing.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → **107/107 pass** | 2026-09-04 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → **118/118 pass** | 2026-10-04 | `pytest tests/`, on `feat/salesforce-ingest` |
+| Salesforce org: customers / churn events | **150 / 33** | 2026-10-04 | `data/salesforce/ingest_report.json` |
+| Salesforce org: weeks of usage history | **1** | 2026-10-04 | `scripts/survey_salesforce.py`. Blocks the survival model on this source |
+| Salesforce org: data storage left | **1 MB of 5 MB** | 2026-10-04 | `sf org list limits` (whole-MB granularity) |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
@@ -258,6 +262,10 @@ artifact; running it would prove orchestration and nothing else.
 | No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
+| **Salesforce: 11 sample accounts written as customers** | The connector excludes prospects but not Salesforce's own sample records (Edge Communications, GenePoint, …). They carry no usage and 26 tickets dated 2026-09-27, the org's creation date, which land inside the 30-day ticket window. Found 2026-10-04 by 5.5. Fix belongs in 1.5b. |
+| **Health score on a single snapshot: trend factor silently zero** | With one engagement row the slope is 0, so the 15% trend weight contributes nothing and every account reads "stable". Nothing in the output says so. Found 2026-10-04 by 5.5. |
+| **Salesforce `engagement_score` double-counts adoption** | The connector builds it as ½ utilisation + ½ adoption, and the scorer weights adoption again: effective weight 0.375, not 0.20. Found 2026-10-04 by 5.5. |
+| **Two names for the data folder** | The API reads `DATA_FOLDER`; the contracts and dbt read `CHURNGUARD_DATA_DIR` (added by 1.5a). Easy to point them at different data. Unify in 1.5b. |
 
 ## Next — ordered by the critical path
 
@@ -291,7 +299,7 @@ outside it, added 2026-09-02.
 | Step | Item | Effort | Why |
 |---|---|---|---|
 | **1** | Ingest KKBox subscription data | ~1w | The one substantive gap, named when the FDE question was put directly on 2026-09-02. Every figure in the app currently comes from data this project generated, so the model looks good partly because the data was designed to make it look good. KKBox is real subscription data with **no churn column** — the label has to be derived, and the auto-renew and cancellation flags contradict the obvious definition. Having that argument, and defending the choice, is the FDE job; it is exactly the D3 failure `docs/SITE_SURVEY.md` warns about and the one thing this project cannot currently demonstrate. Size and file layout **not yet checked** — the week is an estimate, not a measurement. |
-| **1a** | 1.5 Salesforce ingestion — **in progress on `feat/salesforce-ingest`** | written | Alternative route to Step 1's gap, started 2026-10-04. A Salesforce Developer Edition org was seeded with deliberately messy CRM data and renewal history, and `src/connectors/salesforce.py` maps it into the canonical CSVs. Churn label rule in ADR-0011. Unit tests pass (10, `tests/test_salesforce_mapping.py`, 2026-10-04); **not yet run against the live org**, so no ingest-report figures exist yet. Known limit: one week of usage history, so the survival model cannot train on this source. |
+| **1a** | 1.5 Salesforce ingestion — **in progress on `feat/salesforce-ingest`** | ~1w remaining | Alternative route to Step 1's gap, started 2026-10-04. 1.5a (connector, first pull) done in `61ea46c`. 5.5 site survey done: **🔴 Red**, `docs/SITE_SURVEY_SALESFORCE.md`. Binding reds are D2 (one usage snapshot) and V2 (33 churn events), not D3: this source supports ranking, not prediction. Next: 1.5b, contracts and dbt on this data. |
 | **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging | ½d | A branch and a second free Render service, so a broken change cannot reach the live site. Worth doing *before* the KKBox work, which is the first change large enough to break things. |
 
 `DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and

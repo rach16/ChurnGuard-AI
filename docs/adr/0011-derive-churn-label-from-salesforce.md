@@ -65,10 +65,36 @@ lost customer.
 
 Each run writes `ingest_report.json` next to the CSVs.
 
+## Measured on the first run
+
+`src/connectors/salesforce.py --as-of 2026-10-04` against `churnguard-dev`,
+2026-10-04, committed in `61ea46c` (`data/salesforce/ingest_report.json`).
+
+| Figure | Value |
+|---|---|
+| Accounts read / customers written / prospects excluded | 244 / 150 / 94 |
+| Churned (all by `status+lost_renewal`) / active | 33 / 117 |
+| Churned by status alone, or by lost renewal alone | 0 / 0 |
+| Churn date inferred from the opportunity | 5 |
+| Duplicate-name groups flagged / names disambiguated | 40 / 60 |
+| Cases dropped as not on a customer | 137 of 370 |
+| Cases dated from `CreatedDate` (no legacy date) | 26 |
+| ARR from latest won opportunity / set to zero | 7 / 4 |
+| Segment inferred from ARR | 11 |
+| Customers with no usage fields (no engagement row) | 11 |
+| Weeks of usage history per customer | 1 |
+
+**Rule 2 never fired on its own.** Every churned account was caught by both rules,
+and on all 28 that carry both dates `Churn_Date__c` equals the lost opportunity's
+close date exactly (`scripts/survey_salesforce.py`). The precedence question this ADR
+settles has not yet met data where the two sources disagree; only the unit tests
+exercise it. See `docs/SITE_SURVEY_SALESFORCE.md`.
+
 ## Consequences
 
-- The dbt models and data contracts run on Salesforce data unchanged. Point
-  `CHURNGUARD_DATA_DIR=data/salesforce` at the output.
+- The dbt models and data contracts are meant to run on Salesforce data unchanged:
+  point `CHURNGUARD_DATA_DIR=data/salesforce` at the output. **Not yet verified**;
+  that is step 3 of 1.5.
 - **The survival model cannot be trained on this source.** It needs weekly
   history and this org holds one snapshot. Health scoring still runs; trend
   features are absent and say so. This is the D3 outcome in `docs/SITE_SURVEY.md`:
