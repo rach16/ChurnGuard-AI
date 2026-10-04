@@ -1,0 +1,104 @@
+{
+  "as_of": "2026-10-04",
+  "accounts_read": 244,
+  "customers_written": 150,
+  "prospects_excluded": 94,
+  "decisions": {
+    "arr_from_latest_won_opportunity": 7,
+    "arr_missing_set_zero": 4,
+    "case_date_from_createddate_not_legacy": 26,
+    "case_not_on_a_customer_dropped": 137,
+    "churn_date_inferred_from_opportunity": 5,
+    "churn_label_source:active": 117,
+    "churn_label_source:status+lost_renewal": 33,
+    "company_name_disambiguated": 60,
+    "contract_start_from_first_won_opportunity": 7,
+    "contract_start_missing": 4,
+    "duplicate_account_groups": 40,
+    "engagement_weeks_of_history_per_customer": 1,
+    "no_type_or_status_treated_as_prospect": 2,
+    "no_usage_fields_engagement_skipped": 11,
+    "segment_inferred_from_arr": 11
+  },
+  "examples": {
+    "arr_from_latest_won_opportunity": [
+      "Edge Communications",
+      "Burlington Textiles Corp of America",
+      "Grand Hotels & Resorts Ltd",
+      "United Oil & Gas Corp.",
+      "Express Logistics and Transport"
+    ],
+    "arr_missing_set_zero": [
+      "Pyramid Construction Inc.",
+      "Dickenson plc",
+      "United Oil & Gas, UK",
+      "United Oil & Gas, Singapore"
+    ],
+    "case_date_from_createddate_not_legacy": [
+      "00001001",
+      "00001000",
+      "00001002",
+      "00001003",
+      "00001004"
+    ],
+    "case_not_on_a_customer_dropped": [
+      "00001043",
+      "00001048",
+      "00001050",
+      "00001051",
+      "00001052"
+    ],
+    "churn_date_inferred_from_opportunity": [
+      "Prairie Pharma Inc",
+      "Vista Consulting Inc.",
+      "Metro Manufacturing, Inc",
+      "blue aerospace corp",
+      "Beacon Energy Co"
+    ],
+    "company_name_disambiguated": [
+      "ACME Industrial Supply Inc. [ACC-10026]",
+      "meridian telecom [ACC-10030]",
+      "Redwood Analytics [ACC-10031]",
+      "Northwind Logistics [ACC-10001]",
+      "Acme Industrial Supply [ACC-10002]"
+    ],
+    "contract_start_from_first_won_opportunity": [
+      "Edge Communications",
+      "Burlington Textiles Corp of America",
+      "Grand Hotels & Resorts Ltd",
+      "United Oil & Gas Corp.",
+      "Express Logistics and Transport"
+    ],
+    "contract_start_missing": [
+      "Pyramid Construction Inc.",
+      "Dickenson plc",
+      "United Oil & Gas, UK",
+      "United Oil & Gas, Singapore"
+    ],
+    "duplicate_account_groups": [
+      "ACME Industrial Supply Inc. | Acme Industrial Supply",
+      "Northwind Logistics | Northwind Logistics, Inc",
+      "Helios Energy | Helios Energy Group",
+      "Meridian Telecom | meridian telecom",
+      "Redwood Analytics | Redwood Analytics"
+    ],
+    "no_type_or_status_treated_as_prospect": [
+      "sForce",
+      "Sample Account for Entitlements"
+    ],
+    "no_usage_fields_engagement_skipped": [
+      "Edge Communications",
+      "Burlington Textiles Corp of America",
+      "Pyramid Construction Inc.",
+      "Dickenson plc",
+      "Grand Hotels & Resorts Ltd"
+    ],
+    "segment_inferred_from_arr": [
+      "Edge Communications",
+      "Burlington Textiles Corp of America",
+      "Pyramid Construction Inc.",
+      "Dickenson plc",
+      "Grand Hotels & Resorts Ltd"
+    ]
+  }
+}

@@ -78,3 +78,6 @@ infra/tfplan
 
 # Trained model artefacts
 models/*.joblib
+
+# Raw Salesforce pull (1.5a): a full org copy. The canonical CSVs and ingest_report.json are tracked.
+data/salesforce/raw/

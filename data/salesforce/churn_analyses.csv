@@ -1,0 +1,1 @@
+doc_id,customer_id,company_name,segment,churn_category,specific_reason,arr,tenure_months,risk_score,feature_adoption,support_tickets_30d,last_engagement_days,is_churned,document

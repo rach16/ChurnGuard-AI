@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data"
+DATA_DIR = ROOT / os.environ.get("CHURNGUARD_DATA_DIR", "data")
 DOCS_DIR = DATA_DIR / "churn_analysis_docs"
 GOLDEN_PATH = ROOT / "golden-masters" / "churn_golden_master.csv"
 

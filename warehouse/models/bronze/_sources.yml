@@ -6,7 +6,7 @@ sources:
       CSV files produced by scripts/generate_synthetic_rag_data.py. customers is the
       dimension; every other table references it by customer_id.
     meta:
-      external_location: "read_csv_auto('../data/{name}.csv')"
+      external_location: "read_csv_auto('../{{ env_var('CHURNGUARD_DATA_DIR', 'data') }}/{name}.csv')"
 
     tables:
       - name: customers

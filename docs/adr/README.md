@@ -15,3 +15,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0007](0007-retract-the-94-7-percent-claim.md) | Retract the 94.7% accuracy claim publicly | Accepted |
 | [0008](0008-predict-churn-date-with-survival-analysis.md) | Predict a churn date with survival analysis | Superseded in part by 0009 |
 | [0009](0009-predict-a-horizon-band-not-a-date.md) | Predict a likelihood band over a horizon, not a date | Accepted |
+| [0011](0011-derive-churn-label-from-salesforce.md) | Derive the churn label from a Salesforce org, and report every guess | Accepted |
