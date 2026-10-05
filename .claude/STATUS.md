@@ -279,7 +279,7 @@ artifact; running it would prove orchestration and nothing else.
 | ~~Two names for the data folder~~ **CLOSED by 1.5b** — `CHURNGUARD_DATA_DIR` drives the API, contracts and dbt via `src/core/datasource.py`; the warehouse and survival-model files follow it. `DATA_FOLDER` still read | The API reads `DATA_FOLDER`; the contracts and dbt read `CHURNGUARD_DATA_DIR` (added by 1.5a). Easy to point them at different data. Unify in 1.5b. |
 | **Salesforce scorer AUC 1.0 is leakage** | Measured 2026-10-04 (`CustomerHealthScorer.scorer_auc()` on `data/salesforce`). The usage fields are the *current* snapshot, so a churned account's usage is read after it left: the score sees the outcome. **Do not quote it.** A fair figure needs point-in-time usage, so 0.2b must follow 1.6. |
 | ~~SQL scorer treated missing CSAT as maximally unhappy~~ **CLOSED by 1.5b** | DuckDB's `least()`/`greatest()` skip NULL, so `coalesce(greatest(0, least(1, NULL)), 0.5)` gave 1.0, not 0.5: +7.5 risk on every account without CSAT. Python averaged an all-blank CSAT column to NaN and crashed. Neither showed on synthetic data, where every ticket is rated; found when parity was first run on Salesforce. |
-| Leftover from a mis-targeted dbt run | `warehouse/churnguard_sf.duckdb` (gitignored) and `warehouse/target_sf/` (untracked) are from 2026-10-04, before the warehouse file followed the data setting. Safe to delete. |
+| ~~Leftover from a mis-targeted dbt run~~ **CLOSED 2026-10-04**, deleted | `warehouse/churnguard_sf.duckdb` (gitignored) and `warehouse/target_sf/` (untracked) are from 2026-10-04, before the warehouse file followed the data setting. Safe to delete. |
 
 ## Next — ordered by the critical path
 
