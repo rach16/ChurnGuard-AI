@@ -63,7 +63,7 @@ jobs:
         env:
           QDRANT_URL: ":memory:"
           OPENAI_API_KEY: test-key-not-called
-        run: uv run --extra dev --extra warehouse pytest tests/ -q
+        run: uv run --extra dev --extra warehouse --extra model pytest tests/ -q
 
   frontend:
     name: Typecheck and build

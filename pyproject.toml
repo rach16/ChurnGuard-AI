@@ -35,7 +35,7 @@ dependencies = [
     "langchain-qdrant>=0.2.0",
 
     # Search & Retrieval
-    "tavily-python>=0.5.0",      # tools/search_tools.py
+    "tavily-python>=0.5.0",      # agents/churn_agent.py web search, when TAVILY_API_KEY is set
     "rank-bm25>=0.2.2",          # core/rag_retrievers.hybrid_retrieval
 
     # Data
@@ -60,18 +60,6 @@ model = [
 evaluation = [
     "ragas==0.2.10",
     "tqdm>=4.66.0",
-]
-
-# Chart generation for notebooks and metrics reports.
-visualization = [
-    "matplotlib>=3.7.0",
-    "seaborn>=0.12.0",
-]
-
-# Interactive analysis. Never part of a served image.
-notebook = [
-    "jupyterlab>=4.0.6",
-    "ipywidgets>=8.1.1",
 ]
 
 warehouse = [

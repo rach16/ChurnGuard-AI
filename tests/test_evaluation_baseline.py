@@ -196,7 +196,7 @@ def test_the_image_carries_the_baseline_directory():
 
     There, the model and the warehouse were absent from the image and the
     service came up reporting healthy while serving nothing. The Dockerfile
-    creates cache/ and notebooks/ at runtime; metrics/ must be copied, because
+    creates cache/ at runtime; metrics/ must be copied, because
     what it holds is committed input rather than runtime scratch.
     """
     dockerfile = (ROOT / "src" / "backend" / "Dockerfile").read_text()

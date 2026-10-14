@@ -20,7 +20,6 @@ warehouse/logs
 warehouse/*.duckdb
 
 # Notebooks and docs are not needed at runtime
-notebooks
 docs
 *.ipynb
 

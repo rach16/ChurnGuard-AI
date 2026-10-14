@@ -31,8 +31,7 @@ ENV UV_CACHE_DIR=/tmp/uv-cache
 # │   ├── agents/
 # │   └── ...
 # ├── data/
-# ├── cache/
-# └── notebooks/
+# └── cache/
 # 
 
 # Copy project files for dependency installation
@@ -65,7 +64,7 @@ COPY golden-masters/ ./golden-masters/
 COPY metrics/ ./metrics/
 
 # Written to at runtime, so created rather than copied.
-RUN mkdir -p cache notebooks
+RUN mkdir -p cache
 
 # Stage 1b: Derived artifacts.
 #
@@ -85,34 +84,8 @@ RUN uv sync --no-dev --no-install-project --extra warehouse --extra model \
  && cd warehouse && DBT_PROFILES_DIR=$PWD uv run dbt build \
  && cd /app && uv run python scripts/train_survival_model.py
 
-# Stage 2: FastAPI Backend Service
-FROM base AS jupyter
-
-# Jupyter, plotting and evaluation are extras now, so this stage installs them.
-# The backend stage deliberately does not.
-RUN uv sync --no-dev --no-install-project \
-        --extra notebook --extra visualization --extra evaluation \
-    || uv pip install --system -e ".[notebook,visualization,evaluation]"
-
-# Expose Jupyter port
-EXPOSE 8888
-
-# Create Jupyter config directory
-RUN mkdir -p /root/.jupyter
-
-# Configure Jupyter
-RUN echo "c.ServerApp.ip = '0.0.0.0'" >> /root/.jupyter/jupyter_lab_config.py \
-    && echo "c.ServerApp.port = 8888" >> /root/.jupyter/jupyter_lab_config.py \
-    && echo "c.ServerApp.open_browser = False" >> /root/.jupyter/jupyter_lab_config.py \
-    && echo "c.ServerApp.allow_root = True" >> /root/.jupyter/jupyter_lab_config.py
-
-# Default command (can be overridden in docker-compose)
-CMD ["uv", "run", "jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
-
-
-
 # Stage order matters. A build with no --target builds the LAST stage, and
-# that is what Render and most managed hosts do. With jupyter last, such a
+# that is what Render and most managed hosts do. When a jupyter stage was last, such a
 # build produced an image with the data but no model and no warehouse, and
 # the service came up reporting 'no model at models/survival.joblib' while
 # the correct commit was deployed. Backend is last so the default is right.
@@ -135,4 +108,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Run the full API server with multi-agent RAG system
 CMD ["uv", "run", "python", "/app/src/backend/api.py"]
 
-# Stage 3: Jupyter Notebook Server

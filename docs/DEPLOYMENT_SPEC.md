@@ -56,7 +56,7 @@ Right now your setup is like a shop where customers have to visit two buildings.
 They come to the front shop for the catalogue, then walk across town to the
 warehouse to ask about stock.
 
-The better way, and the way HG Insights does it, is one front door. Customers only
+The better way, and the usual one in production systems, is one front door. Customers only
 ever go to one building. When they ask a question the shop cannot answer, someone
 behind the counter quietly walks to the back and gets it. The customer never learns
 the warehouse exists.
@@ -64,7 +64,7 @@ the warehouse exists.
 That is the whole trick. Everything comes from **one address**. Requests that need
 the back end get quietly forwarded behind the scenes.
 
-At HG they do this with a piece of software called nginx sitting inside the app.
+Larger platforms often do this with a piece of software called nginx sitting inside the app.
 Someone asks for `/api/something`, and nginx passes it to the right internal
 service without the browser ever knowing.
 
@@ -99,7 +99,7 @@ path, to serve the same app to the same number of people.
 **What DNS is.** When you type a name like `google.com`, your computer has no idea
 where that is. It asks a global address book, which replies with the actual
 location. That address book system is called DNS. Route53 is Amazon's version of
-it, and it is what HG uses.
+it.
 
 Do this part yourself in the browser, since it involves paying:
 
@@ -180,8 +180,8 @@ None should mention `onrender.com`.
 Right now you have one live site. If you break it, it is broken for everyone.
 
 Professional setups always keep two copies: a **staging** one for trying things,
-and a **production** one that real people use. HG does exactly this, with
-`market-staging.hginsights.info` and `market.hginsights.com`.
+and a **production** one that real people use, usually on two addresses such as
+`staging.example.com` and `example.com`.
 
 For you:
 
@@ -227,13 +227,13 @@ reports whether it can actually serve requests. Point a free monitoring service 
 `https://churnguard.com/api/ready` and have it email you when that stops answering.
 This is what would have caught the all-zeros problem I saw.
 
-**A test gate.** You already have tests in `test-e2e.sh`. Set them up so they run
+**A test gate.** You already have tests (`pytest tests/`, run by CI on every push). Set them up so they run
 automatically against the staging site, and so a failure blocks the change from
 reaching the live site. Right now nothing stops a broken change going live.
 
-Worth knowing: HG's own version of this gate is subtly broken. It checks whether
-the tests were successfully *started*, not whether they *passed*. So a failing test
-run blocks nothing. Do not copy that bit.
+One trap to avoid: a gate that checks whether the tests were successfully
+*started*, not whether they *passed*. It looks like protection, but a failing test
+run blocks nothing.
 
 **Keep your keys secret.** Your `OPENAI_API_KEY` is already set to `sync: false`,
 which keeps it out of the code. That is exactly right. Leave it that way.
@@ -253,9 +253,8 @@ If you do it, you need to add three things it is currently missing:
 
 1. A certificate for the padlock, requested from Amazon and free.
 2. An address book entry pointing your `api.` name at the Amazon load balancer.
-3. An nginx container, which is the piece that makes it genuinely match how
-   ChurnGuard's big cousin works. There is a real example to copy in the HG files
-   at `piq-customer-ui/base/nginx/nginx.conf`.
+3. An nginx container in front of the app, the standard way larger platforms
+   route `/api` requests internally.
 
 Then change one line in `vercel.json` to point at Amazon instead of Render. Nothing
 else changes, which is the reward for doing Step 2 first.
@@ -267,7 +266,7 @@ When you are done: `terraform destroy` turns everything off and stops the billin
 
 ## Things we are deliberately not doing
 
-Every one of these is something HG uses. None of them make sense for one app.
+Every one of these is common on large platforms. None of them make sense for one app.
 
 | Skipping | Why |
 |---|---|

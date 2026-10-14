@@ -157,8 +157,8 @@ which is not enough to detect the non-stationarity that this dataset showed.
 
 The encoded design matrix is 30 columns wide (17 numeric, plus 10 industries and 3
 segments one-hot). At 284 events that is **9.5 events per feature** — right at the
-conventional floor of ten, and the reason in-sample AUC (0.996) and held-out AUC
-(0.877) diverge as far as they do.
+conventional floor of ten, and the reason in-sample AUC (0.95 and above) sits so far above held-out AUC (0.71 on
+unseen customers, reproducible model, 2026-10-14).
 
 A customer with 40 churn events cannot support this model. They can support a
 health score, which is a weighted sum with no fitting and needs no events at all.
