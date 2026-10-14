@@ -12,7 +12,8 @@ Reports three things, because they fail independently:
   date error   how far off the predicted churn date actually is
 
 A model can score well on the first and be useless on the third, which is exactly
-where 7.2 left it: AUC 0.877 on unseen customers, dates 196 days late. Ranking
+where 7.2 left it: AUC 0.71 on unseen customers (first reported as 0.877, from a
+run that could not be reproduced), dates 196 days late. Ranking
 tells you who to call; calibration is what makes a date mean anything.
 
 Usage:

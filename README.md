@@ -196,7 +196,7 @@ restart.
 **The full check, all of it free and offline:**
 
 ```bash
-uv run --extra dev --extra warehouse pytest tests/     # 108 tests
+uv run --extra dev --extra warehouse --extra model pytest tests/   # 109 tests
 python3 scripts/validate_dataset.py                    # 28 data contracts
 cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build   # 67 dbt tests
 uv run python scripts/benchmark_retrieval.py           # retrieval; query embeddings only
@@ -204,7 +204,7 @@ uv run python scripts/benchmark_retrieval.py           # retrieval; query embedd
 
 | Suite | Result | Measured |
 |---|---|---|
-| pytest | **108 / 108** | 2026-09-04 |
+| pytest | ~~108 (2026-09-04)~~ → **109 / 109** | 2026-10-14 |
 | dbt tests | **67 / 67** | 2026-08-31 |
 | Data contracts | **28 / 28** | 2026-08-31 |
 | SQL ↔ Python scoring parity | 200 / 200 within 0.1 | 2026-08-30 |
@@ -232,7 +232,7 @@ than asserted in prose. The last three are not, and say so.
 | Corrupt evaluation baseline | 500 naming the file, never a silent "nothing measured yet" | `tests/test_evaluation_baseline.py` |
 | No `OPENAI_API_KEY` | Degraded mode: 11 of 12 GET routes still serve from CSV and LLM routes return 503 naming the dependency | **implemented, not tested** — see §10 |
 | No `COHERE_API_KEY` | Reranking unavailable; the fallback currently scores 0.0 recall — a real gap, not a graceful one | §10 |
-| Backend unreachable | UI distinguishes **degraded from offline**; a 503 on one route does not claim the whole backend is down | `frontend/src/app/components/Chatbot.tsx`, `frontend/src/app/ask/page.tsx` |
+| Backend unreachable | UI distinguishes **degraded from offline**; a 503 on one route does not claim the whole backend is down | `frontend/src/app/ask/page.tsx` |
 
 **A scheduled heartbeat** probes the live site every 30 minutes and requires the
 `retrieval_join` key to be *present and true* — an absent key previously read as
@@ -251,13 +251,19 @@ are the ones that actually occurred and were then pinned.
 | Retrieval — single-entity hit rate (hybrid) | **0.971** | 2026-08-31, reproduced 2026-09-04 | `metrics/retrieval_benchmark.csv` |
 | Retrieval — single-entity recall (hybrid) | **0.941** | same | same |
 | Retrieval — single-entity hit rate (naive) | 0.735 | same | same |
-| Survival model — ranking, held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
-| Survival model — top band vs base rate | **27.8%** vs 8.7% | 2026-08-31 | walk-forward backtest |
+| Survival model — ranking, held out by customer | AUC ~~0.877 (2026-08-31)~~ → **0.708**, Brier 0.020 | 2026-10-14 | `scripts/train_survival_model.py` |
+| Survival model — top band vs base rate | 27.8% vs 8.7%, **not reproducible, not yet re-run** | 2026-08-31 | walk-forward backtest |
 | Health score vs churn label | AUC **0.791** | 2026-08-30 | `CustomerHealthScorer.scorer_auc()` |
-| Expected quarterly loss | **$1,208,213** (8.81% of ARR) | 2026-09-01 | `scripts/report_exposure.py` |
-| Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
+| Expected quarterly loss | ~~$1,208,213 (2026-09-01)~~ → **$1,035,495** (7.55% of ARR) | 2026-10-14 | `scripts/report_exposure.py` |
+| Loss concentration — worst 10 accounts | ~~69.5%~~ → **72.2%** of expected loss | 2026-10-14 | same |
 | Concurrency — 5 requests × 0.4s work | **0.42s** (was 2.03s) | 2026-08-31 | threadpool harness |
 | Backend cold start | **>300s cold, 1–2s warm** | 2026-09-03 | free-tier measurement |
+
+**Model figures were re-measured on 2026-10-14.** Training had depended on the order
+rows came out of the warehouse, so each build trained a different model: the same
+code and data gave 0.877, 0.773, 0.712 and 0.708 on unseen customers. Rows are now
+sorted before fitting (`68c81e1`), every build gives the same model, and the
+figures above are that model's. 0.877 was one draw, not the model.
 
 The live evaluation baseline is visible at
 [churnguard.banik.dev/evaluations](https://churnguard.banik.dev/evaluations),

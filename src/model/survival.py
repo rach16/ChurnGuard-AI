@@ -199,6 +199,16 @@ class ChurnSurvivalModel:
                 leaks its own future.
         """
         data = self.prepare(train)
+        # Row order is an input to this model, not a detail. Early stopping holds
+        # out a random 15% of rows by position, so the same table read in another
+        # order trains a different model: shuffling it moved one account's
+        # probability by 0.27 (measured 2026-10-14, 15,711 rows). DuckDB does not
+        # promise an order without ORDER BY, so every image build trained its own
+        # model and the live figures drifted on each deploy. Sorting here makes
+        # the fit a function of the data alone, whoever the caller is.
+        order = [c for c in ("customer_id", "week_start") if c in data.columns]
+        if order:
+            data = data.sort_values(order, kind="mergesort").reset_index(drop=True)
         columns = list(CATEGORICAL) + [c for c in FEATURES if c in data.columns]
         if "never_contacted" in data:
             columns.append("never_contacted")
@@ -407,6 +417,6 @@ def load_training_data(duckdb_path: Path) -> pd.DataFrame:
 
     con = duckdb.connect(str(duckdb_path), read_only=True)
     try:
-        return con.execute("select * from main_gold.train_survival").df()
+        return con.execute("select * from main_gold.train_survival order by customer_id, week_start").df()
     finally:
         con.close()

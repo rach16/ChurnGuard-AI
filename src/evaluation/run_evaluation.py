@@ -251,8 +251,7 @@ def main():
         logger.info("\n✅ Results saved to metrics/ folder")
         logger.info("\nNext steps:")
         logger.info("  1. Review metrics/evaluation_comparison.csv")
-        logger.info("  2. Generate visualizations (metrics_viz.py)")
-        logger.info("  3. Write implementation report")
+        logger.info("  2. Write implementation report")
         
     except Exception as e:
         logger.error(f"❌ Evaluation failed: {e}")

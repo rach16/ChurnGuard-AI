@@ -122,8 +122,8 @@ exists, so nothing is accruing.
 | **4.4** | Evidence scoped to one customer's record | `731e023` | Explanations keyed by customer_id, so another account's story cannot surface | AI · RAG grounding |
 | **4.5** | Knowledge graph deleted; agents on hybrid | `a089a2c` | ~700 lines removed. Agents and /ask default to hybrid (0.971 vs 0.735). | — |
 | **7.3** | Walk-forward backtest; date claim retracted | `70be342` | Dates unfixable (median survival 482d at h=0.04). Replaced with a quarter band: 27.8% vs 8.7% baseline in the top band. | AI · Eval, outer loop |
-| **7.2** | Discrete-time survival model | `7e1a664` | AUC 0.877 held out by customer, calibrated (2.26% predicted vs 1.93% actual). Dates median 196d off — not usable. | AI · Modelling |
-| **5.4** | Cost of inaction: exposure in dollars | `f05625e` | Expected loss $1.21M/qtr (8.81% of ARR). 12 accounts = 12.6% of ARR carry **69.4%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
+| **7.2** | Discrete-time survival model | `7e1a664` | AUC ~~0.877~~ held out by customer, calibrated (2.26% predicted vs 1.93% actual), **not reproducible**, see Known gaps; 0.708 on the fixed-order model, 2026-10-14. Dates median 196d off — not usable. | AI · Modelling |
+| **5.4** | Cost of inaction: exposure in dollars | `f05625e` | Expected loss ~~$1.21M/qtr (8.81% of ARR)~~ → $1.04M (7.55%, 2026-10-14). 12 accounts = ~~12.6%~~ 12.1% of ARR carry ~~69.4%~~ **74.8%** of it. Exposure order differs from likelihood order. | P3 · Artifacts |
 | **5.2** | Site survey instrument + PRD | `d32e017` | Every survey item traced to a named code dependency. Minimum-data thresholds derived, not asserted: **9.5 events/feature**, ~300 events, 2yr weekly history. | P3 · Site survey, scoping |
 | **7.5b** | Heuristic churn date removed from the queue | `b2e4cfe` | The queue showed `~180d` from `np.interp` over a heuristic score, unlabelled, on the screen operators work from. Replaced by the modelled band where one exists. | AI · Proof mechanisms |
 | **0.9** | Vercel deploying green | settings change, no commit | Two settings, not one: **Framework Preset was `FastAPI`** (persisted from auto-detection) as well as Root Directory being unset. Fixing only the root directory left the build failing identically. Live at `churn-guard-ai-nine.vercel.app`, serving real data. | — |
@@ -145,15 +145,15 @@ exists, so nothing is accruing.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → **107/107 pass** | 2026-09-04 | `pytest tests/` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~108~~ → **109/109 pass** | 2026-10-14 | `pytest tests/`, with `--extra model` |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
-| Survival model — held out by customer | AUC **0.877**, Brier 0.019 | 2026-08-31 | `scripts/train_survival_model.py` |
-| Survival model — held out by time | AUC 0.665, Brier 0.049 | 2026-08-31 | same — underpredicts, see gaps |
+| Survival model — held out by customer | AUC ~~0.877 (2026-08-31)~~ → **0.708**, Brier 0.020 | 2026-10-14 | `scripts/train_survival_model.py`, reproducible since `68c81e1` |
+| Survival model — held out by time | AUC ~~0.665 (2026-08-31)~~ → 0.631, Brier 0.046 | 2026-10-14 | same — underpredicts, see gaps |
 | Predicted churn date accuracy | **196 days median abs error** | 2026-08-31 | 10 held-out churners, predicted 180d ahead |
 | DuckDB vs Athena | 6/6 queries agree | 2026-08-30 | `warehouse/verify_athena.py` |
-| Expected quarterly loss | **$1,208,213** (8.81% of ARR) | 2026-09-01 | `scripts/report_exposure.py` |
-| Loss concentration — worst 10 accounts | **69.5%** of expected loss | 2026-09-01 | same |
+| Expected quarterly loss | ~~$1,208,213 (2026-09-01)~~ → **$1,035,495** (7.55% of ARR) | 2026-10-14 | `scripts/report_exposure.py` |
+| Loss concentration — worst 10 accounts | ~~69.5% (2026-09-01)~~ → **72.2%** of expected loss | 2026-10-14 | same |
 | Distinct calibrated probabilities (200 rows) | **12** | 2026-09-01 | `rank_book` on `train_survival` |
 | Corpus size | 771 documents | 2026-08-31 | `ChurnDataLoader.get_all_documents()` |
 | Backend cold start | ~~66s~~ → ~~2s~~ → **>300s cold, 1–2s warm** | 2026-09-03 | 2s was one sample after 17 min idle. After a multi-hour idle, two 150s attempts timed out before the third succeeded. Treat the warm and cold figures as different numbers. |
@@ -235,6 +235,7 @@ artifact; running it would prove orchestration and nothing else.
 
 | Item | Detail |
 |---|---|
+| **Model figures before 2026-10-14 are not reproducible** | Found 2026-10-14. Training depended on row order (early stopping holds out 15% of rows by position) and the warehouse returned rows unordered, so every build trained a different model. Same code and data gave 0.877, 0.773, 0.712 on unseen customers; one account moved from High (1.93×) to Low (0.74×). Fixed in `68c81e1`: rows sorted before fitting, and `tests/test_survival_determinism.py` fails if order matters again. Figures re-measured that day are marked so. **Still to re-run on the fixed model:** the walk-forward backtest (top band 27.8% vs 8.7%, 1.8× understatement, 4.36× underprediction, dates 222 days late), calibration (2.26% vs 1.93%), and the distinct-probability and calibrator-floor counts. |
 | ~~No predictive model~~ **CLOSED** | Was: `risk_score` a weighted sum, `days_until_churn` an `np.interp` over it. Closed by 7.2 — a fitted discrete-time survival model now serves the likelihood band. The heuristic `days_until_churn` remains in `health_scoring.py` and is not surfaced. |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
 | **Absolute probability underpredicts ~2x** | The hazard rate rises across the window, so a model fitted earlier cannot know it. Mitigated by reporting a lift, which is invariant to a level error. |
@@ -251,7 +252,7 @@ artifact; running it would prove orchestration and nothing else.
 | **No renewal calendar in exposure** | A 13-week horizon is applied uniformly; `contract_end_date` exists but is unused, so an account 3 weeks from renewal is weighted like one 11 months out. |
 | **40% of accounts sit at the calibrator floor** | Isotonic collapses everything below its lowest knot, so the Low band carries no ordering inside it. |
 | **Hazard is non-stationary** | Rises monotonically 0%→5.22% across quarters, so a model trained on early data underpredicts later. A generator artifact: every customer has a declining trajectory, so churn concentrates at the end of the window. → 7.3 |
-| In-sample AUC 0.996 vs 0.877 held out | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
+| In-sample AUC 0.996 vs 0.877 held out (2026-08-31, not reproducible, not re-run) | Expected on grouped data — one customer contributes ~100 near-identical rows — but means in-sample metrics carry no information here. |
 | `engagement_slope_4w` is noise | AUC 0.503 against the hazard label. Drop it or widen the window in 7.2. |
 | **`/evaluation-results` returns 500, not 404** | ~~Returns 404 by design~~ — **wrong, corrected 2026-09-01.** A bare `except Exception` catches the deliberately raised `HTTPException(404)` and re-emits it as a 500 with the 404 text in the body. Same shape as the knowledge-graph bug: a broad except swallowing a meaningful error. Two-line fix (re-raise `HTTPException` before the generic handler), not applied — out of scope for 5.3. |
 | Reranking | `COHERE_API_KEY` not set. `langchain_cohere` **is** importable, so `COHERE_AVAILABLE=True` and the Cohere path is attempted. Behaviour unverified with the current benchmark. |

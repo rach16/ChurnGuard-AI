@@ -54,8 +54,9 @@ hazard by 4.36x and 95% of predicted dates landed late by a median of 222 days,
 for structural reasons that no calibration fixes. The lift survives the residual
 level bias because both sides shift together.
 
-*Measured:* AUC 0.877 held out by customer, 0.665 held out by time. Top band
-churns at 27.8% against an 8.7% baseline.
+*Measured 2026-10-14, reproducible model:* AUC 0.708 held out by customer, 0.631 held
+out by time. *Earlier, not reproducible:* ~~0.877~~ and ~~0.665~~ (2026-08-31); top band
+27.8% against an 8.7% baseline, not yet re-run.
 
 ### 3.2 Value — built
 
@@ -115,7 +116,7 @@ Ordered by how hard they are to game.
 | # | Criterion | Threshold | How measured | Status |
 |---|---|---|---|---|
 | **S1** | Beats the customer's existing heuristic | Precision at the queue length they actually work | Backtest both on their history | **Not yet run — no customer** |
-| **S2** | Ranking holds out of time | Held-out-by-time AUC ≥ 0.70 | Walk-forward by quarter | 0.665 — **below threshold**, reported not smoothed |
+| **S2** | Ranking holds out of time | Held-out-by-time AUC ≥ 0.70 | Walk-forward by quarter | ~~0.665~~ → 0.631 (2026-10-14) — **below threshold**, reported not smoothed |
 | **S3** | Bands separate outcomes monotonically | Top band ≥ 2x baseline | Backtest folds | 27.8% vs 8.7% (Q4); 1.59x vs 0.76x (Q1) |
 | **S4** | Every prediction carries evidence from its own account | 100% | Structural — `CustomerEvidence` indexes by `customer_id`, so a cross-account result is unreachable | True by construction; **no automated test covers it** |
 | **S5** | Numbers agree between SQL and the API | 200/200 within 0.1 | `tests/test_warehouse_parity.py` | Met |
