@@ -212,9 +212,11 @@ whole point.
 at the staging address, open the Network tab and confirm `/api/health` answers
 from there, then open the live site and confirm it did not change.
 
-Done so far (2026-10-14): the `render.yaml` entry and the `staging` branch. The
-three dashboard steps need your logins: create the Render service, add the Vercel
-`BACKEND_ORIGIN` value for Preview on `staging`, and optionally the CNAME.
+Done 2026-10-14 and verified: the staging preview answers `/api/health` from the
+staging backend, and the live site did not change. One surprise: Vercel skips a
+branch whose commit it has already built for another branch, so a brand-new
+`staging` pointing at an existing commit gets no preview until something new is
+pushed to it, or one is started by hand. The optional CNAME is not done.
 
 ## Step 4: notice when it breaks
 
