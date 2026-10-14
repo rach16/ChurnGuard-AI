@@ -232,7 +232,7 @@ than asserted in prose. The last three are not, and say so.
 | Corrupt evaluation baseline | 500 naming the file, never a silent "nothing measured yet" | `tests/test_evaluation_baseline.py` |
 | No `OPENAI_API_KEY` | Degraded mode: 11 of 12 GET routes still serve from CSV and LLM routes return 503 naming the dependency | **implemented, not tested** — see §10 |
 | No `COHERE_API_KEY` | Reranking unavailable; the fallback currently scores 0.0 recall — a real gap, not a graceful one | §10 |
-| Backend unreachable | UI distinguishes **degraded from offline**; a 503 on one route does not claim the whole backend is down | `frontend/src/app/components/Chatbot.tsx`, `frontend/src/app/ask/page.tsx` |
+| Backend unreachable | UI distinguishes **degraded from offline**; a 503 on one route does not claim the whole backend is down | `frontend/src/app/ask/page.tsx` |
 
 **A scheduled heartbeat** probes the live site every 30 minutes and requires the
 `retrieval_join` key to be *present and true* — an absent key previously read as

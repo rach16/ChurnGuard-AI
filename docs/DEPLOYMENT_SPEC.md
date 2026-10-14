@@ -202,7 +202,7 @@ reports whether it can actually serve requests. Point a free monitoring service 
 `https://churnguard.com/api/ready` and have it email you when that stops answering.
 This is what would have caught the all-zeros problem I saw.
 
-**A test gate.** You already have tests in `test-e2e.sh`. Set them up so they run
+**A test gate.** You already have tests (`pytest tests/`, run by CI on every push). Set them up so they run
 automatically against the staging site, and so a failure blocks the change from
 reaching the live site. Right now nothing stops a broken change going live.
 
