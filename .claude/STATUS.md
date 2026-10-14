@@ -309,16 +309,34 @@ dropped, not outstanding.
 
 ### Remaining — free
 
-Every zero-cost item in the *original roadmap* is complete. What follows is the
-Salesforce customer engagement, re-planned 2026-10-04 after 5.5.
+Every zero-cost item in the *original roadmap* is complete. What follows was decided
+2026-10-14: **every number the site shows comes from a connected integration**, and the
+synthetic data becomes test data only. It builds on the Salesforce engagement
+re-planned 2026-10-04 after 5.5.
+
+**Done when** every figure on churnguard.banik.dev traces to an integration pull, and
+the Integrations page shows each source, its last sync, and what was cleaned.
 
 | Step | Item | Effort | Why |
 |---|---|---|---|
-| **1** | 1.5b Contracts and dbt on the Salesforce data — **done, see Completed** | 1d | Run the 28 contracts and `dbt build` with `CHURNGUARD_DATA_DIR=data/salesforce`; report failures before changing anything. Then the fixes 5.5 found: exclude the 11 Salesforce sample accounts, one name for the data folder (`DATA_FOLDER` vs `CHURNGUARD_DATA_DIR`), and stop the connector double-counting adoption. 1.5a and 5.5 are done (`61ea46c`, `8e9ab65`). |
-| **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging — **done 2026-10-14** (`6b44b92`) | ½d | Verified end to end 2026-10-14: the Vercel preview of `staging` answered `/api/health` with `OPENAI_API_KEY is not set`, which only the staging backend can say, so the per-branch `BACKEND_ORIGIN` routes to it. Production unchanged: same Vercel deployment as 38 days earlier, backend healthy with AI up. Two things found: Vercel did **not** build `staging` on push, because the commit had already been built for `feat/salesforce-ingest` (triggered by API from the GitHub branch instead); and the preview is login-gated, so checking it needs a logged-in browser. To use it: push to `staging`, Render and Vercel both rebuild. First use, 2026-10-14: staging switched to `CHURNGUARD_DATA_DIR=data/salesforce` and failed as predicted. Scorer, playbook and evidence work on the 139 Salesforce customers; `survival_model` and `exposure` are down (`no model at models/survival_salesforce.joblib`). Staging is left on the Salesforce data so later work shows up there. See Known gaps. |
-| **3** | 1.6 Product usage from Mixpanel | 2d | Closes 5.5's D2 red: the CRM holds one usage snapshot, and weekly usage lives in product analytics in a real SaaS stack. Seed ~2.5 years of weekly usage for the customer accounts (seeded, and labelled so), connector joined to Salesforce on `AccountNumber`, every pull kept in our own warehouse. Mixpanel Free verified 2026-10-04, re-verified 2026-10-14: events backdated 1, 2 and 3 years imported and returned by the export API (`cg_retention_probe`, `scripts/mixpanel_retention_probe.py`; the first run was by hand and left nothing in the repo). PostHog Free rejected for this: 1-year query retention. |
-| **4** | 4.7 Dated risk signals from CSM notes | 1d | LLM extraction over 157 task notes and 233 case descriptions (competitor mentioned, champion left, cancellation asked about) as time-varying features, not only narrative. < $0.05. |
-| **5** | 7.6 Survival model sized to the events | 1–2d | 33 churn events support ~3 features at ten events per feature. Features fixed in advance, penalised discrete-time model, grouped walk-forward validation with bootstrap intervals, compared against the CSMs' own `At Risk` flag (26 accounts). Depends on 1.6. |
+| 1 | 1.5b Contracts and dbt on the Salesforce data — **done, see Completed** | 1d | Run the 28 contracts and `dbt build` with `CHURNGUARD_DATA_DIR=data/salesforce`; report failures before changing anything. Then the fixes 5.5 found: exclude the 11 Salesforce sample accounts, one name for the data folder (`DATA_FOLDER` vs `CHURNGUARD_DATA_DIR`), and stop the connector double-counting adoption. 1.5a and 5.5 are done (`61ea46c`, `8e9ab65`). |
+| 2 | `DEPLOYMENT_SPEC.md` Step 3 — staging — **done 2026-10-14** (`6b44b92`) | ½d | Verified end to end 2026-10-14: the Vercel preview of `staging` answered `/api/health` with `OPENAI_API_KEY is not set`, which only the staging backend can say, so the per-branch `BACKEND_ORIGIN` routes to it. Production unchanged: same Vercel deployment as 38 days earlier, backend healthy with AI up. Two things found: Vercel did **not** build `staging` on push, because the commit had already been built for `feat/salesforce-ingest` (triggered by API from the GitHub branch instead); and the preview is login-gated, so checking it needs a logged-in browser. To use it: push to `staging`, Render and Vercel both rebuild. First use, 2026-10-14: staging switched to `CHURNGUARD_DATA_DIR=data/salesforce` and failed as predicted. Scorer, playbook and evidence work on the 139 Salesforce customers; `survival_model` and `exposure` are down (`no model at models/survival_salesforce.joblib`). Staging is left on the Salesforce data so later work shows up there. See Known gaps. |
+| **3** | **1.7** Integrations page as the hub | ½d | Salesforce card shows last sync, customers written, and what the connector decided: duplicates merged, churn dates inferred, cases dropped (`ingest_report.json`). The one real integration replaces the disclaimers. |
+| **4** | **1.8** Site runs on Salesforce data | ½–1d | Closes the gaps staging found on 2026-10-14: `scripts/train_survival_model.py` ignores `CHURNGUARD_DATA_DIR`, and the image builds only the synthetic warehouse and model. The likelihood band reads "not enough history yet" until 7.6, because 29 training rows cannot support it. |
+| **5** | **1.9** Log in with Salesforce | 1–1.5d | OAuth popup with PKCE and `state`, production orgs only, refuses any org but `churnguard-dev`, token revoked after the pull. Staging only until the live-site decision below. |
+| **6** | **1.10** Durable storage | 1d | A free Postgres for the connection and pulled data. Render's free disk is wiped every time it sleeps. |
+| **7** | **1.11** Sync now | ½d | Re-pull from the Integrations page. |
+| 8 | 1.6 Product usage from Mixpanel | 2d | Closes 5.5's D2 red: the CRM holds one usage snapshot, and weekly usage lives in product analytics in a real SaaS stack. Seed ~2.5 years of weekly usage for the customer accounts (seeded, and labelled so), connector joined to Salesforce on `AccountNumber`, every pull kept in our own warehouse. Mixpanel Free verified 2026-10-04, re-verified 2026-10-14: events backdated 1, 2 and 3 years imported and returned by the export API (`cg_retention_probe`, `scripts/mixpanel_retention_probe.py`; the first run was by hand and left nothing in the repo). PostHog Free rejected for this: 1-year query retention. |
+| 9 | 4.7 Dated risk signals from CSM notes | 1d | LLM extraction over 157 task notes and 233 case descriptions (competitor mentioned, champion left, cancellation asked about) as time-varying features, not only narrative. < $0.05. Optional, and the only item that spends. |
+| 10 | 7.6 Survival model sized to the events | 1–2d | 33 churn events support ~3 features at ten events per feature. Features fixed in advance, penalised discrete-time model, grouped walk-forward validation with bootstrap intervals, compared against the CSMs' own `At Risk` flag (26 accounts). Depends on 1.6. |
+| **11** | **1.12** Synthetic data moves to `tests/fixtures/` | ½d | Once nothing on the site reads it. |
+
+**Open, decided at their step:**
+
+- What a visitor sees before any connection. Proposed: the last `churnguard-dev` sync,
+  labelled as seeded data (ADR-0007).
+- Whether Log in with Salesforce appears on the live site. Options: not on live, an
+  admin key, or real accounts (2.6).
 
 `DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and
 belongs in the paid list below in spirit — it changes nothing except what the
