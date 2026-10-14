@@ -1,6 +1,12 @@
 # ChurnGuard — status
 
-**Reporting date 2026-09-01 · Prepared for the executive sponsor · One page**
+**Reporting date 2026-09-01, model figures re-measured 2026-10-14 · Prepared for the executive sponsor · One page**
+
+> **Correction, 2026-10-14.** The model's earlier figures were not reproducible: training
+> depended on row order, so each build trained a different model. Ranking accuracy on
+> unseen customers was reported as 0.877; the reproducible figure is 0.708. Dollar
+> figures below are re-measured. The band-separation figures (27.8% vs 8.7%) are from
+> the earlier model and have not been re-run.
 
 ---
 
@@ -38,9 +44,9 @@ against an 8.7% baseline — a twelve-fold spread between the extremes. That is 
 question a retention decision actually turns on, and unlike the date, the data
 supports it.
 
-**We put a number on the risk.** Expected loss over one quarter is **$1.21M, 8.8%
+**We put a number on the risk.** Expected loss over one quarter is **$1.04M, 7.6%
 of ARR under management**. The finding worth acting on: **twelve accounts holding
-12.6% of ARR carry 69.4% of that loss.**
+12.1% of ARR carry 74.8% of that loss.**
 
 ---
 
@@ -48,14 +54,14 @@ of ARR under management**. The finding worth acting on: **twelve accounts holdin
 
 | Band | Accounts | ARR | Expected quarterly loss | Share |
 |---|---|---|---|---|
-| Very high | 12 | $1.73M | $838k | **69.4%** |
-| Moderate | 42 | $3.82M | $295k | 24.4% |
-| Low | 75 | $8.16M | $75k | 6.2% |
+| Very high | 12 | $1.65M | $775k | **74.8%** |
+| Moderate | 26 | $2.43M | $218k | 21.0% |
+| Low | 91 | $9.63M | $43k | 4.1% |
 
 Two caveats travel with these figures and should travel with them into any deck:
 
-- The **dollar totals are conservative by a measured factor of 1.80**. Treat $1.21M
-  as a floor and $2.17M as the upper bound.
+- The **dollar totals are conservative by a measured factor of 1.80**. Treat $1.04M
+  as a floor and $1.86M as the upper bound.
 - The **share column is the durable figure.** It is a ratio, so it is unaffected by
   that bias. Concentration is the finding; the absolute total is context.
 
@@ -69,9 +75,9 @@ worth $487k. A team with finite hours needs the money ordering.
 
 | Claim | Evidence | Confidence |
 |---|---|---|
-| Ranks at-risk accounts better than chance | AUC 0.877 held out by customer | **High** |
-| Ranking holds over time | AUC 0.665 held out by time — **below our 0.70 bar** | **Medium** |
-| Bands separate real outcomes | 27.8% vs 8.7% (Q4); narrows to 1.59x vs 0.76x (Q1) | Medium |
+| Ranks at-risk accounts better than chance | AUC 0.708 held out by customer (was reported as 0.877, not reproducible) | **Medium** |
+| Ranking holds over time | AUC 0.631 held out by time — **below our 0.70 bar** | **Medium** |
+| Bands separate real outcomes | 27.8% vs 8.7% (Q4); narrows to 1.59x vs 0.76x (Q1), from the earlier model, not re-run | **Low** |
 | Explanations are the right account's | True by construction — selected by account key | High |
 | Recommendations reflect what works | Only successful interventions were ever recorded | **Low — upper bound only** |
 | Any of this holds on real data | Never tested. All data is synthetic | **None** |
@@ -84,7 +90,7 @@ The last row is the one that governs everything above it.
 
 | Risk | Status | Response |
 |---|---|---|
-| Out-of-time performance below bar | **Open** — 0.665 vs 0.70 | Reported, not smoothed. Likely a property of synthetic data whose churn concentrates late |
+| Out-of-time performance below bar | **Open** — 0.631 vs 0.70 | Reported, not smoothed. Likely a property of synthetic data whose churn concentrates late |
 | Recovery estimate is survivorship-biased | **Accepted** | Labelled an upper bound everywhere it appears. Only a holdout would fix it |
 | Never validated on real data | **Open, largest** | Needs a pilot. This is the recommendation below |
 | Adopted then abandoned | **Not yet live** | Design answer: deliver into the CS team's existing tool, not a second dashboard |

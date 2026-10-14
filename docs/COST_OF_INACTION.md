@@ -1,6 +1,11 @@
 # Cost of inaction
 
-**Measured 2026-09-01 · regenerate with `uv run --extra warehouse python scripts/report_exposure.py`**
+**Measured 2026-10-14 · regenerate with `uv run --extra warehouse --extra model python scripts/report_exposure.py`**
+
+> **Re-measured 2026-10-14.** The 2026-09-01 figures came from a model that could not be
+> reproduced: training depended on row order, so each build gave different numbers
+> (expected loss was $1,208,213, 8.81% of ARR; the worst 10 held 69.5%). The figures
+> below are from the reproducible model. Sections not re-run are marked.
 
 What the churn risk in the book is worth over one quarter, where it concentrates,
 and how much of it the recorded plays could plausibly reach. Every figure here is
@@ -16,29 +21,29 @@ dollar totals inherit a known bias, stated below.
 |---|---|
 | Active accounts | 129 |
 | ARR under management | $13,715,500 |
-| **Expected loss, one quarter** | **$1,208,213** (8.81% of ARR) |
-| Upper bound | $2,174,783 |
-| Recoverable, upper estimate | $212,863 (17.6% of expected loss) |
-| Held by the worst 10 accounts | **69.5% of expected loss** |
+| **Expected loss, one quarter** | **$1,035,495** (7.55% of ARR) |
+| Upper bound | $1,863,891 |
+| Recoverable, upper estimate | $80,828 (7.8% of expected loss) |
+| Held by the worst 10 accounts | **72.2% of expected loss** |
 
 Expected loss is `P(churn within 13 weeks) x ARR`, summed. That is an expectation
 over a book. For a single account it is a probability times a number, and that
 account will either renew or it will not — it is not a forecast, and it is not a
 figure to quote to the customer.
 
-The 8.81% is a useful sanity check rather than a coincidence: the observed
-quarterly base rate in the 2025-Q4 backtest fold was 8.7%. An expected-loss share
-that lands on the base rate is what a roughly-unbiased ranker should produce.
+The 7.55% is a useful sanity check: the observed quarterly base rate in the
+2025-Q4 backtest fold was 8.7%. Landing a little below the base rate is what a
+model known to underpredict the absolute level should produce.
 
 ## Where it concentrates
 
 | Band | Accounts | ARR | Expected loss | Share of loss |
 |---|---|---|---|---|
-| Very high | 12 | $1,731,200 | $838,366 | **69.4%** |
-| Moderate | 42 | $3,820,100 | $295,032 | 24.4% |
-| Low | 75 | $8,164,200 | $74,814 | 6.2% |
+| Very high | 12 | $1,653,900 | $775,007 | **74.8%** |
+| Moderate | 26 | $2,434,700 | $217,707 | 21.0% |
+| Low | 91 | $9,626,900 | $42,781 | 4.1% |
 
-**Twelve accounts holding 12.6% of ARR carry 69.4% of the expected loss.** That is
+**Twelve accounts holding 12.1% of ARR carry 74.8% of the expected loss.** That is
 the finding worth acting on, and it is a ratio, so the calibration bias below does
 not touch it.
 
@@ -59,7 +64,7 @@ genuinely differ.
 
 ## What the plays could reach
 
-$212,863, or 17.6% of expected loss. **This is an upper estimate and a sensitivity,
+$80,828, or 7.8% of expected loss. **This is an upper estimate and a sensitivity,
 not a promise**, for two independent reasons:
 
 1. **Survivorship.** `success_stories.csv` records 60 accounts where a solution was
