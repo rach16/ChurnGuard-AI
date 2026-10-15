@@ -111,7 +111,8 @@ export function Console() {
     (async () => {
       try {
         const [c, s] = await Promise.all([
-          apiClient.getAtRiskCustomers(0, 50),
+          // The whole active book, so scrolling and the filter reach every account.
+          apiClient.getAtRiskCustomers(0, 1000),
           apiClient.getDashboardStats(),
         ]);
         setCustomers(c.at_risk_customers);
@@ -303,6 +304,10 @@ export function Console() {
                   ['Trend', selected.trend],
                   ['Competitor', selected.competitor || 'None recorded'],
                   ['Segment', selected.segment],
+                  ...(selected.crm_created_date
+                    ? [['In Salesforce since', new Date(`${selected.crm_created_date}T00:00:00`)
+                        .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })]]
+                    : []),
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

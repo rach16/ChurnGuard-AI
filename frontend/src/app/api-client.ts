@@ -313,6 +313,7 @@ export interface AtRiskCustomer {
   support_tickets_30d: number;
   feature_adoption_rate: number;
   competitor?: string;
+  crm_created_date?: string | null;
 }
 
 export interface DashboardStats {

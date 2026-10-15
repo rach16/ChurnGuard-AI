@@ -175,6 +175,10 @@ class CustomerHealthScorer:
             "engagement_score": round(engagement, 3),
             "mean_csat": round(csat, 2) if csat is not None else None,
             "competitor": competitor if isinstance(competitor, str) and competitor else None,
+            # Only on integration data; the synthetic set has no source system.
+            "crm_created_date": (row.get("crm_created_date")
+                                 if isinstance(row.get("crm_created_date"), str)
+                                 and row.get("crm_created_date") else None),
             "risk_factors": {k: round(v, 3) for k, v in factors.items()},
         }
 

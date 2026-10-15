@@ -48,7 +48,7 @@ SELECT Id, AccountNumber, Name, Industry, Type, AnnualRevenue, NumberOfEmployees
        ARR__c, Seats__c, Segment__c, Region__c, Customer_Status__c,
        Contract_Start_Date__c, Contract_End_Date__c, Churn_Date__c, Churn_Category__c,
        Churn_Reason__c, Competitor__c, Active_Users__c, Feature_Adoption__c,
-       Last_Login_Date__c, NPS_Score__c
+       Last_Login_Date__c, NPS_Score__c, CreatedDate
 FROM Account
 """
 
@@ -79,6 +79,10 @@ CUSTOMER_COLUMNS = [
     "customer_id", "company_name", "segment", "industry", "region", "arr", "seats",
     "contract_start_date", "contract_end_date", "tenure_months", "is_churned",
     "churn_date", "churn_category", "specific_reason", "competitor",
+    # When the account was created in the source system. Separate from when it was
+    # pulled: every sync re-reads every record, so the pull date says nothing about
+    # which batch an account came from.
+    "crm_created_date",
 ]
 TICKET_COLUMNS = [
     "ticket_id", "customer_id", "company_name", "segment", "category", "issue_type",
@@ -495,6 +499,7 @@ def transform(raw: dict[str, list[dict]], as_of: date) -> tuple[dict[str, list[d
             "seats": int(_num(a.get("Seats__c")) or 0),
             "contract_start_date": _iso(start),
             "contract_end_date": _iso(_d(a.get("Contract_End_Date__c"))),
+            "crm_created_date": _iso(_d(a.get("CreatedDate"))),
             "tenure_months": _months(start, end_ref),
             "is_churned": label.is_churned,
             "churn_date": label.churn_date.isoformat() if label.churn_date else "",

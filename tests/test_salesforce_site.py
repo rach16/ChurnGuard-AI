@@ -139,3 +139,13 @@ def test_source_names_the_data_on_screen(api_on):
 
     api = api_on("data")
     assert asyncio.run(api.get_source())["synthetic"] is True
+
+
+def test_each_account_says_when_it_entered_the_crm():
+    # The pull date is the same for every account (each sync re-reads everything);
+    # the created date is what tells the two seeded batches apart.
+    scored = CustomerHealthScorer(data_folder=SALESFORCE).score_active_customers()
+    assert all(c["crm_created_date"] for c in scored)
+    assert {c["crm_created_date"] for c in scored} == {"2026-10-04", "2026-10-15"}
+    synthetic = CustomerHealthScorer(data_folder="data").score_active_customers()
+    assert all(c["crm_created_date"] is None for c in synthetic)
