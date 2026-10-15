@@ -48,8 +48,6 @@ Browser                      ChurnGuard API                 Salesforce
   ever holds the one-time code, which cannot be redeemed without the client secret.
 - Production orgs authorise at `login.salesforce.com`; sandboxes at
   `test.salesforce.com`. The environment is chosen at connect time and recorded.
-  Developer Edition orgs, `churnguard-dev` included, are production-type and use
-  `login.salesforce.com`.
 
 **Alternatives considered**
 
@@ -84,7 +82,7 @@ One row per tenant per Salesforce org.
 | `id`, `tenant_id` | Every query is scoped by tenant |
 | `provider`, `auth_method` | `salesforce`; `web_server_pkce` or `jwt_bearer` |
 | `org_id` | From the token response's identity URL. **Pinned**: a reconnect that returns a different org is refused and audited |
-| `instance_url` | **Validated** before first use: parsed as a URL (not string-matched), scheme `https`, default port, no user info, and the host ends in `.my.salesforce.com`. A suffix match, not a one-label wildcard, because real hosts carry extra labels: Developer Edition is `<name>.develop.my.salesforce.com` (`churnguard-dev` is `orgfarm-e065461ef9-dev-ed.develop.my.salesforce.com`), sandboxes `<name>.sandbox.my.salesforce.com`. My Domain is mandatory for every org, so no legacy `*.salesforce.com` instance host is accepted. **Pinned** with `org_id`: after the first connect, API calls go only to that exact host, and a changed host is accepted only on a reconnect that passes the org pin and is audited. Prevents a tampered response turning the sync into a request to an arbitrary host |
+| `instance_url` | **Validated** against `https://*.my.salesforce.com` and `*.salesforce.com` before first use. Every API call goes only there. Prevents a tampered response turning the sync into a request to an arbitrary host |
 | `environment` | `production` or `sandbox` |
 | `scopes`, `connected_by`, `connected_at` | Who granted what, when |
 | `status` | `active`, `needs_reauth`, `revoked`, `disabled` |
@@ -199,7 +197,7 @@ The site never serves a half-finished or contract-failing sync.
 | Forged callback (CSRF) | `state`, single-use, session-bound, expiring |
 | XSS on the site | No token ever reaches the browser |
 | Org swap on reconnect | `org_id` pinned |
-| SSRF through `instance_url` | Parsed host suffix check before first use, then the exact host pinned |
+| SSRF through `instance_url` | Host allowlist before first use |
 | Token in logs | Redaction filter plus a failing test |
 | Over-broad access | Read-only integration user, two scopes |
 | Stale or broken data shown | Contracts gate promotion; last good snapshot kept |
@@ -212,7 +210,7 @@ pieces live, and each stand-in is stated where it is used.
 
 | Production | This deployment | Cost |
 |---|---|---|
-| KMS-held master key (AWS KMS, envelope via `GenerateDataKey`) | **Decided 2026-10-15: a local master key in the Render secret store**, behind the same `KeyProvider` interface. Weaker than KMS: the key sits in the app's environment, with no hardware boundary and no per-use audit trail from the key service. Moving to KMS is a new `KeyProvider` plus a rewrap, no schema or caller change | $0 (KMS would be ~$1/mo) |
+| KMS-held master key (AWS KMS, envelope via `GenerateDataKey`) | **Decision for the owner:** AWS KMS (about $1 a month per key plus requests) **or** a master key in the Render secret store behind the same `KeyProvider` interface | KMS ~$1/mo, local $0 |
 | Managed Postgres | Neon free tier (0.5 GB): connections, secrets, runs, watermarks, audit, raw landings, snapshots | $0 |
 | Durable snapshot storage | Postgres. Render's disk is wiped on every sleep, so a waking server restores the serving snapshot from Postgres before it answers | $0 |
 | Scheduler | Sync now, plus sync on wake, plus an external scheduler calling a signed, operator-only trigger. The same scheduler doubles as the keep-alive the backend has lacked | $0 |
@@ -232,10 +230,7 @@ rotation, `invalid_grant`, limits, pagination, deletes); property tests on
 encryption round-trips, wrong associated data and key versions; failure injection
 (token expiry mid-run, crash mid-run then resume, contract failure blocks
 promotion); security tests (state mismatch, org swap, off-allowlist
-`instance_url`, no secret in any log or response); the allowlist accepts
-`churnguard-dev`'s real host and rejects look-alikes such as
-`https://my.salesforce.com.evil.com`, `https://evil.com/x.my.salesforce.com`,
-`https://x.my.salesforce.com@evil.com`, `http://` and a non-default port; and an end-to-end run against
+`instance_url`, no secret in any log or response); and an end-to-end run against
 `churnguard-dev` on staging before anything reaches the live site.
 
 ## Consequences
@@ -244,4 +239,4 @@ promotion); security tests (state mismatch, org swap, off-allowlist
 - A Postgres dependency enters the system, with migrations and a backup story.
 - The live site's data becomes as fresh as the last promoted sync, and its
   freshness is visible on every page.
-- Master key decided 2026-10-15: local key in the Render secret store ($0), KMS named as the production swap.
+- One owner decision is open before 1.9 starts: AWS KMS or a local master key.
