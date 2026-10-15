@@ -29,8 +29,10 @@ services:
         value: 0.0.0.0
       - key: LOG_LEVEL
         value: INFO
+      # The live site shows integration data only (1.8). The synthetic set is test
+      # data; set this back to `data` to roll back, which is a restart, not a rebuild.
       - key: CHURNGUARD_DATA_DIR
-        value: data
+        value: data/salesforce
 
       # Set in the dashboard, not here. ':memory:' works but rebuilds the index
       # on every wake -- 771 documents embedded, about a cent and ~60s of a
