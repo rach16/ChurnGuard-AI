@@ -15,7 +15,7 @@ real services holding **seeded** data. "Production" describes the engineering
 standard (real connectors, scheduled sync, monitoring, security). It is not a claim
 of real customers, and nothing may be written as if it were (ADR-0007).
 
-Work in flight: `feat/salesforce-ingest`, unmerged. **The system on `main` is deployed and public.**
+**Since 2026-10-15 the live site runs on the Salesforce data** (`fc64bb3`, production `CHURNGUARD_DATA_DIR=data/salesforce`; rollback is setting it back to `data`, a restart). The synthetic set is test data only. Verified live that day: source Salesforce, 27 at risk / $3.45M of 132 active, 294 accounts read → 187 customers, no invented fields, `/ready?require_ai_stack=true` ready with the AI stack off by design.
 
 **Live at https://churnguard.banik.dev** (2026-09-03).
 
@@ -25,6 +25,7 @@ Work in flight: `feat/salesforce-ingest`, unmerged. **The system on `main` is de
 | Certificate | Let's Encrypt via Vercel, auto-renews, valid to 2026-12-02 | ✅ |
 | Frontend | Vercel. `churn-guard-ai-nine.vercel.app` still resolves, deliberately | ✅ |
 | Backend | Render free tier, reached only through the `/api` rewrite | ✅ |
+| Data | Salesforce org `churnguard-dev` (seeded test org), pulled 2026-10-15 | ✅ |
 | Vector index | Qdrant Cloud free tier, us-west-2 | ✅ |
 | AI chat | Render + OpenAI key | ✅ |
 | Staging | `churnguard-backend-staging.onrender.com` (free, branch `staging`, no OpenAI key) behind a Vercel preview of `staging`, login-gated | ✅ |

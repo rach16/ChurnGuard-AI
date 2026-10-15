@@ -7,9 +7,13 @@ engagement data, a survival model over customer-weeks, hybrid retrieval over the
 supporting documents, and LangGraph agents that turn all three into a defensible
 weekly queue.
 
-**This is a demonstration project.** The customer data is synthetic and generated
-by a script in this repository. Every number below names the script that produced
-it and the date it was taken. Where something has not been measured, it says so.
+**The live site runs on a Salesforce org seeded as a stand-in customer.** Everything
+it shows arrives through the Salesforce connector, mess and all; the synthetic
+dataset generated in this repository is test data only. The prediction model and
+its metrics below are measured on the synthetic data, because one week of
+Salesforce usage cannot support a model yet. Every number names the script that
+produced it and the date it was taken. Where something has not been measured, it
+says so.
 
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688?logo=fastapi&logoColor=white)
@@ -298,8 +302,10 @@ Tracked, not hidden. The full register is in [`.claude/STATUS.md`](.claude/STATU
 - **Cold start exceeds the frontend's 90-second timeout.** A first visitor to a
   sleeping free-tier instance can see "backend unreachable". This is a hosting-tier
   fact, not a code defect, and the fix is a keep-alive pinger.
-- **The data is synthetic with no ingestion path.** This is the largest gap between
-  this project and something a customer could use.
+- **The Salesforce org is seeded, not a real customer, and holds one week of
+  usage.** The ingestion path is real; the data is not. Predictions stay off on it
+  until weekly usage arrives from product analytics, and the save-play outcomes on
+  the site are planted by `scripts/seed_salesforce.py`.
 - **Single-tenant by construction**, on 512 MB and 0.1 CPU.
 - No keyboard navigation in the queue.
 
@@ -315,7 +321,7 @@ In order, and none of it speculative — each item names the constraint it remov
    CRMs record that an account closed and not when it decided to. A red on D3
    does not end the engagement; it changes the deliverable to ranking today
    rather than prediction.
-2. **Ingest one real dataset before promising anything.** Every figure here comes
+2. **Ingest one real dataset before promising anything.** The model figures here come
    from data this project generated, so the model looks good partly because the
    data was designed to make it look good. Real subscription data has no churn
    column; the label has to be derived, and auto-renew and cancellation flags
