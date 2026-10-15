@@ -49,6 +49,7 @@ from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
 from core.datasource import data_dir, survival_model_path, warehouse_path
+from connectors.salesforce import describe_report
 from core.llm import active_configuration
 import security
 from model.survival import ChurnSurvivalModel
@@ -852,6 +853,37 @@ def _read_retrieval_baseline(path: Path) -> dict:
         },
         "note": f"Retrieval scored against the golden set's expected_context ({context}){stamp}",
     }
+
+
+# Where the Salesforce connector writes its report. A relative path, resolved per
+# request, so tests that point ROOT elsewhere are not reading the real repo.
+SALESFORCE_REPORT = Path("data") / "salesforce" / "ingest_report.json"
+
+
+@app.get("/integrations/salesforce")
+async def get_salesforce_integration():
+    """What the last Salesforce pull brought in, and what the connector decided.
+
+    Read from the report the connector writes on every pull, so every number on
+    the Integrations page traces to a run rather than to copy. It describes the
+    Salesforce source whatever CHURNGUARD_DATA_DIR the rest of the API is serving:
+    the page reports the integration, not the data the site happens to show.
+    """
+    import json
+
+    path = ROOT / SALESFORCE_REPORT
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No Salesforce pull recorded yet. Run the connector: "
+                   "python -m src.connectors.salesforce --out data/salesforce",
+        )
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        logger.error(f"Error reading {path}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read {path.name}: {type(e).__name__}")
+    return describe_report(report)
 
 
 @app.get("/evaluation-results")
