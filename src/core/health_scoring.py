@@ -10,6 +10,7 @@ Everything here is deterministic: the same dataset produces the same scores.
 """
 
 import logging
+import math
 from datetime import timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -22,6 +23,10 @@ logger = logging.getLogger(__name__)
 # How much each observed signal contributes to the risk score. Documented here
 # rather than buried in the arithmetic, because this is the number a customer
 # success lead will want to argue with -- and should be able to.
+# "At risk" means the riskiest fifth of the active book. A share rather than a score
+# line, so it means the same thing on any source; see top_of_book. Chosen 2026-10-15.
+AT_RISK_SHARE = 0.20
+
 RISK_WEIGHTS = {
     "engagement": 0.35,    # latest weekly engagement score
     "adoption": 0.20,      # latest feature adoption rate
@@ -162,7 +167,6 @@ class CustomerHealthScorer:
             "tenure_years": round(int(row["tenure_months"]) / 12, 1),
             "risk_score": risk_score,
             "risk_level": self._risk_level(risk_score),
-            "days_until_churn": self._days_until_churn(risk_score),
             "risk_reason": RISK_REASONS[dominant],
             "trend": trend,
             "last_engagement_days": last_engagement_days,
@@ -184,11 +188,6 @@ class CustomerHealthScorer:
             return "Medium"
         return "Low"
 
-    @staticmethod
-    def _days_until_churn(score: float) -> int:
-        """Higher risk means a nearer predicted churn date. Deterministic, not sampled."""
-        return int(round(float(np.interp(score, [20, 50, 80, 100], [180, 90, 21, 7]))))
-
     # ------------------------------------------------------------------ query
 
     def score_active_customers(self) -> List[Dict]:
@@ -206,6 +205,25 @@ class CustomerHealthScorer:
 
     def get_customer(self, customer_id: int) -> Optional[Dict]:
         return next((c for c in self.score_active_customers() if c["id"] == customer_id), None)
+
+    def history_weeks(self) -> int:
+        """The most weeks of usage history any one account has."""
+        if self.snapshots.empty:
+            return 0
+        return int(self.snapshots.groupby("customer_id")["week_start"].nunique().max())
+
+    @staticmethod
+    def top_of_book(scored: List[Dict]) -> List[Dict]:
+        """The riskiest AT_RISK_SHARE of the scored book, at least one account.
+
+        A fixed line (score >= 60) was tuned on the synthetic data. On the first
+        Salesforce pull no account scored above 51.8 (staging, 2026-10-15), so the
+        line flagged nobody: one week of usage leaves the trend factor at zero and
+        the scores sit lower. A share of the book ranks the real scores against each
+        other on any source, and says so wherever it is shown.
+        """
+        ranked = sorted(scored, key=lambda c: -c["risk_score"])
+        return ranked[: max(1, math.ceil(len(ranked) * AT_RISK_SHARE))] if ranked else []
 
     def get_at_risk_customers(self, risk_threshold: float = 60.0, limit: int = 10) -> List[Dict]:
         at_risk = [c for c in self.score_active_customers() if c["risk_score"] >= risk_threshold]
@@ -247,13 +265,12 @@ class CustomerHealthScorer:
             "risk_level": self._risk_level(risk_score),
             "risk_reason": RISK_REASONS[dominant],
             "risk_factors": risk_factors,
-            "days_until_churn": self._days_until_churn(risk_score),
         }
 
     def get_dashboard_stats(self) -> Dict:
         """Aggregates for the dashboard, computed over the scored active base."""
         scored = self.score_active_customers()
-        at_risk = [c for c in scored if c["risk_score"] >= 60]
+        at_risk = self.top_of_book(scored)
 
         churned = self.customers[self.customers["is_churned"] == 1]
         historical_churn_rate = len(churned) / len(self.customers) if len(self.customers) else 0.0
@@ -262,21 +279,13 @@ class CustomerHealthScorer:
             "total_at_risk": len(at_risk),
             "critical_risk_count": sum(1 for c in at_risk if c["risk_score"] >= 80),
             "total_arr_at_risk": round(sum(c["arr"] for c in at_risk), 2),
-            "avg_days_to_churn": round(float(np.mean([c["days_until_churn"] for c in at_risk])), 1)
-            if at_risk else 0.0,
+            "at_risk_basis": f"top {AT_RISK_SHARE:.0%} of active accounts by risk score",
             "total_active_customers": len(scored),
             "historical_churn_rate": round(historical_churn_rate, 3),
             "as_of": self.as_of.date().isoformat(),
         }
 
     # ----------------------------------------------------------- detail views
-
-    # The dataset records one overall adoption rate per week, not per-feature
-    # telemetry. Rather than invent a fresh breakdown on every request -- which is
-    # what the API used to do -- spread the real rate across the feature list
-    # deterministically, so a given customer always renders the same chart.
-    FEATURES = ["Dashboard", "Analytics", "Reports", "Integrations",
-                "API", "Mobile App", "Automation", "Collaboration"]
 
     def get_engagement_history(self, customer_id: str) -> List[Dict]:
         """Real weekly engagement history for this customer."""
@@ -321,18 +330,6 @@ class CustomerHealthScorer:
             for _, r in rows.iterrows()
         ]
 
-    def get_feature_usage(self, customer_id: str, adoption_rate: float) -> List[Dict]:
-        """Per-feature adoption, spread deterministically around the observed rate."""
-        usage = []
-        for i, feature in enumerate(self.FEATURES):
-            # Stable offset per (customer, feature); no randomness, no per-request drift.
-            offset = ((hash((customer_id, feature)) % 41) - 20) / 100.0
-            usage.append({
-                "feature": feature,
-                "usage_rate": round(float(np.clip(adoption_rate + offset, 0.0, 1.0)), 2),
-            })
-        return usage
-
     def get_customer_detail(self, customer_id: int) -> Optional[Dict]:
         """Everything the customer detail page needs, all from observed data."""
         customer = self.get_customer(customer_id)
@@ -347,11 +344,8 @@ class CustomerHealthScorer:
             "analysis": {
                 "engagement_history": self.get_engagement_history(cid),
                 "support_tickets": self.get_support_tickets(cid),
-                "feature_usage": self.get_feature_usage(cid, customer["feature_adoption_rate"]),
                 "interactions": self.get_interactions(cid),
                 "predictions": {
-                    "churn_probability": round(customer["risk_score"] / 100, 2),
-                    "days_until_churn": customer["days_until_churn"],
                     "contributing_factors": [
                         {
                             "factor": RISK_REASONS[name],

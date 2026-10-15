@@ -47,3 +47,22 @@ def survival_model_path() -> Path:
     if os.getenv("SURVIVAL_MODEL_PATH"):
         return Path(os.environ["SURVIVAL_MODEL_PATH"])
     return Path(f"models/survival{_suffix()}.joblib")
+
+
+def source_name() -> str:
+    """'synthetic' for the generated set, else the folder's source (data/salesforce -> salesforce)."""
+    folder = data_dir()
+    if folder == DEFAULT_DATA_DIR:
+        return "synthetic"
+    return folder.removeprefix(f"{DEFAULT_DATA_DIR}/").replace("/", "_")
+
+
+def is_synthetic() -> bool:
+    """True when the process serves the generated dataset rather than an integration.
+
+    The site shows only integration data (decided 2026-10-14); the synthetic set is
+    test data. Features built only for the synthetic set -- the narrative corpus
+    behind the assistant, the evaluation question set -- switch themselves off
+    when this is False rather than answer about companies that are not there.
+    """
+    return source_name() == "synthetic"

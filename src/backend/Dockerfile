@@ -84,6 +84,11 @@ RUN uv sync --no-dev --no-install-project --extra warehouse --extra model \
  && cd warehouse && DBT_PROFILES_DIR=$PWD uv run dbt build \
  && cd /app && uv run python scripts/train_survival_model.py
 
+# The Salesforce warehouse too, so its contracts and dbt tests gate every image the
+# way the synthetic ones do. No model is trained on it: one week of usage cannot
+# support one, and the API says so instead (docs/SITE_SURVEY.md, V1).
+RUN cd warehouse && CHURNGUARD_DATA_DIR=data/salesforce DBT_PROFILES_DIR=$PWD uv run dbt build
+
 # Stage order matters. A build with no --target builds the LAST stage, and
 # that is what Render and most managed hosts do. When a jupyter stage was last, such a
 # build produced an image with the data but no model and no warehouse, and
@@ -96,6 +101,7 @@ FROM base AS backend
 # /customer/{id}/likelihood and /book/exposure return 503 and the demo loses the
 # two things it is actually for.
 COPY --from=artifacts /app/warehouse/churnguard.duckdb ./warehouse/churnguard.duckdb
+COPY --from=artifacts /app/warehouse/churnguard_salesforce.duckdb ./warehouse/churnguard_salesforce.duckdb
 COPY --from=artifacts /app/models/ ./models/
 
 # Expose port

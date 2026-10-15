@@ -71,11 +71,8 @@ services:
   # by an external pinger (~730 h), there is no room left for this service and
   # Render suspends both until the month ends. Watch the hours, not the price.
   #
-  # Starts on the synthetic data, same as production, so the first thing staging
-  # proves is the pipeline itself. Switch CHURNGUARD_DATA_DIR here to try the
-  # Salesforce data; the image carries only the synthetic warehouse and model
-  # (see src/backend/Dockerfile, artifacts stage), so that switch is expected to
-  # fail until the build produces both. That failure is what staging is for.
+  # Serves the Salesforce data, which is what the site shows once 1.8 reaches
+  # production. Production keeps the synthetic set until that switch is approved.
   - type: web
     name: churnguard-backend-staging
     runtime: docker
@@ -93,7 +90,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: CHURNGUARD_DATA_DIR
-        value: data
+        value: data/salesforce
       # Shared with production: one free Qdrant cluster, and the index is read,
       # never rebuilt, at startup. Never set REINDEX_ON_START here.
       - key: QDRANT_URL

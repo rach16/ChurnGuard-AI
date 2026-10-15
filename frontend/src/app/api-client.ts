@@ -307,7 +307,6 @@ export interface AtRiskCustomer {
   arr: number;
   tenure_years: number;
   risk_score: number;
-  days_until_churn: number;
   risk_reason: string;
   trend: string;
   last_engagement_days: number;
@@ -320,7 +319,7 @@ export interface DashboardStats {
   total_at_risk: number;
   critical_risk_count: number;
   total_arr_at_risk: number;
-  avg_days_to_churn: number;
+  at_risk_basis?: string;
   historical_churn_rate: number;
   as_of: string;
   total_active_customers: number;

@@ -38,6 +38,11 @@ interface Likelihood {
   horizon_weeks: number;
 }
 
+// Served instead of a band when the source has too little history for a model.
+interface NoLikelihood { available: false; reason: string }
+
+const hasBand = (l: Likelihood | NoLikelihood | null): l is Likelihood => !!l && 'band' in l;
+
 interface EvidenceItem { text: string; source: string; doc_id: string }
 
 interface Play {
@@ -49,6 +54,7 @@ interface Play {
   confidence: 'strong' | 'moderate' | 'limited';
 }
 import { Rail } from './shell';
+import { SourceLabel, useSource } from './source';
 
 function money(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
@@ -64,11 +70,14 @@ function severity(score: number) {
   return { label: 'Low', cls: 'text-sev-low' };
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Stat({ label, value, tone, hint }: { label: string; value: string; tone?: string; hint?: string }) {
   return (
     <div className="px-4">
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('mt-0.5 text-lg font-semibold tabular', tone)}>{value}</p>
+      <p className={cn('mt-0.5 whitespace-nowrap text-lg font-semibold tabular', tone)}>
+        {value}
+        {hint && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{hint}</span>}
+      </p>
     </div>
   );
 }
@@ -80,7 +89,8 @@ export function Console() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [plays, setPlays] = useState<Play[] | null>(null);
-  const [likelihood, setLikelihood] = useState<Likelihood | null>(null);
+  const [likelihood, setLikelihood] = useState<Likelihood | NoLikelihood | null>(null);
+  const source = useSource();
   const [evidence, setEvidence] = useState<EvidenceItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [waking, setWaking] = useState(false);
@@ -227,20 +237,22 @@ export function Console() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-14 items-center justify-between border-b px-5">
           <div className="flex items-center divide-x">
-            <Stat label="At risk" value={String(stats?.total_at_risk ?? 0)} />
+            <Stat label="At risk" value={String(stats?.total_at_risk ?? 0)} hint="top 20%" />
             <Stat label="ARR at risk" value={stats ? money(stats.total_arr_at_risk) : '$0'} />
             <Stat
               label="Churn rate"
               value={stats ? `${(stats.historical_churn_rate * 100).toFixed(1)}%` : '—'}
             />
-            <Stat label="Median warning" value={stats ? `${Math.round(stats.avg_days_to_churn)}d` : '—'} />
           </div>
+          <div className="flex items-center gap-4">
+          <SourceLabel />
           <Button variant="outline" size="sm" asChild>
             <a href="/ask">
               <MessageSquare className="mr-2 h-4 w-4" />
               Ask
             </a>
           </Button>
+          </div>
         </div>
 
         {selected ? (
@@ -270,9 +282,11 @@ export function Console() {
                 {[
                   [
                     'Churn likelihood, 1 quarter',
-                    likelihood
+                    hasBand(likelihood)
                       ? `${likelihood.band}${likelihood.lift >= 1 ? ` · ${likelihood.lift.toFixed(1)}× average` : ''}`
-                      : '—',
+                      : likelihood
+                        ? 'Not enough history yet'
+                        : '—',
                   ],
                   ['Primary driver', selected.risk_reason],
                   ['Adoption', `${Math.round(selected.feature_adoption_rate * 100)}%`],
@@ -334,8 +348,9 @@ export function Console() {
                   <p className="mt-3 text-sm text-muted-foreground">Looking for comparable cases…</p>
                 ) : plays.length === 0 ? (
                   <p className="mt-3 text-sm text-muted-foreground">
-                    No resolved case has enough evidence behind it to recommend. Better
-                    to say so than to invent a play.
+                    {source && !source.synthetic
+                      ? 'No recorded outcomes in this org yet. Plays appear once interventions and their results are recorded.'
+                      : 'No resolved case has enough evidence behind it to recommend. Better to say so than to invent a play.'}
                   </p>
                 ) : (
                   <div className="mt-3 space-y-2">
@@ -374,7 +389,7 @@ export function Console() {
                   onClick={() =>
                     navigator.clipboard.writeText(
                       `Follow up with ${selected.name}\nRisk ${Math.round(selected.risk_score)}${
-                        likelihood
+                        hasBand(likelihood)
                           ? ` · ${likelihood.band} likelihood this quarter, ${likelihood.lift.toFixed(1)}× book average`
                           : ''
                       }\nDriver: ${selected.risk_reason}`
@@ -386,12 +401,11 @@ export function Console() {
               </div>
 
               <p className="mt-8 text-xs leading-relaxed text-muted-foreground">
-                Likelihood is a band and a lift against the book average over one
-                quarter, not a date. The survival model ranks accounts well but its
-                median-survival date is unusable, and its absolute probability runs
-                about 2&times; low, so a lift is reported instead &mdash; it is
-                unaffected by that bias. Roughly 40% of accounts sit at the low end
-                of the calibrator and carry no ordering between them. See ADR-0009.
+                {hasBand(likelihood)
+                  ? 'Likelihood is a band and a lift against the book average over one quarter, not a date. Its absolute probability runs low, so a lift is reported instead, which that bias does not affect. See ADR-0009.'
+                  : likelihood
+                    ? likelihood.reason
+                    : null}
               </p>
             </div>
           </ScrollArea>

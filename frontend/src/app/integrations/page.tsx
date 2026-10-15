@@ -20,6 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { BootGate, Shell } from '../shell';
+import { useSource } from '../source';
 
 const PLANNED = [
   { name: 'HubSpot', category: 'CRM', supplies: 'Lifecycle stage, deal history' },
@@ -77,6 +78,7 @@ function FunnelStep({ value, label, last }: { value: number; label: string; last
 }
 
 function SalesforcePanel() {
+  const source = useSource();
   const [report, setReport] = useState<Report | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'none' | 'error'>('loading');
 
@@ -182,8 +184,9 @@ function SalesforcePanel() {
         ))}
 
         <p className="text-xs text-muted-foreground">
-          The rest of the site still shows the demo dataset. Switching it to this data
-          is the next step.
+          {source?.source === 'salesforce'
+            ? 'Every page on this site runs on this data.'
+            : 'The rest of the site still shows the synthetic test data. Switching it to this data is the next step.'}
         </p>
       </CardContent>
     </Card>

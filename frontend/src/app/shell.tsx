@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
 import { WakeGate, WakeScreen } from './wake-screen';
 
@@ -130,7 +131,10 @@ export function Shell({
               <p className="truncate text-xs text-muted-foreground">{description}</p>
             )}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          <div className="flex shrink-0 items-center gap-3">
+            <SourceLabel />
+            {actions}
+          </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>

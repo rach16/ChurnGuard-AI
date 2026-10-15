@@ -21,13 +21,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import pandas as pd
 
+from core.datasource import survival_model_path, warehouse_path
 from model.survival import ChurnSurvivalModel, load_training_data
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-DUCKDB = ROOT / "warehouse" / "churnguard.duckdb"
-MODEL_OUT = ROOT / "models" / "survival.joblib"
+# Both follow CHURNGUARD_DATA_DIR, like the API and dbt. They were hardcoded to the
+# synthetic files, so a run pointed at Salesforce trained the synthetic model and
+# saved it under the synthetic name without a word (found on staging 2026-10-14).
+DUCKDB = ROOT / warehouse_path()
+MODEL_OUT = ROOT / survival_model_path()
 
 
 def main() -> int:
