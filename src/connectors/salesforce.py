@@ -172,6 +172,73 @@ class IngestReport:
         }
 
 
+# What each decision means, in the words an operator would use. Kept beside the code
+# that makes the decisions so a new one cannot ship without saying what it is:
+# tests/test_integrations_report.py reads every key transform() can record and
+# fails on any that has no entry here.
+#
+# Groups: "excluded" removed a record before it became a customer, "dropped" removed
+# a child record, "inferred" filled or corrected a value, "label" is how churn was
+# decided, "limit" is a property of the source the connector cannot fix.
+DECISION_LABELS: dict[str, tuple[str, str]] = {
+    "salesforce_sample_account_excluded": ("excluded", "Salesforce demo records excluded"),
+    "no_type_or_status_treated_as_prospect": ("excluded", "Accounts with no type or status treated as prospects"),
+    "duplicate_account_groups": ("inferred", "Duplicate company groups found"),
+    "company_name_disambiguated": ("inferred", "Company names told apart by account number"),
+    "churn_date_inferred_from_opportunity": ("inferred", "Churn dates worked out from a lost renewal"),
+    "status_stale_vs_lost_renewal": ("inferred", "Status still active despite a lost renewal"),
+    "arr_from_latest_won_opportunity": ("inferred", "ARR taken from the latest won deal"),
+    "arr_missing_set_zero": ("inferred", "ARR missing, set to zero"),
+    "segment_inferred_from_arr": ("inferred", "Segment worked out from ARR"),
+    "contract_start_from_first_won_opportunity": ("inferred", "Contract start taken from the first won deal"),
+    "contract_start_missing": ("inferred", "Contract start missing"),
+    "case_date_from_createddate_not_legacy": ("inferred", "Case dated by load date, no original date"),
+    "csat_out_of_range_blanked": ("inferred", "Out-of-range CSAT scores blanked"),
+    "case_priority_unmapped_defaulted_medium": ("inferred", "Unknown case priority set to medium"),
+    "opportunity_without_account_dropped": ("dropped", "Deals not linked to any account dropped"),
+    "churned_without_any_date_dropped": ("dropped", "Churned accounts with no date dropped"),
+    "case_not_on_a_customer_dropped": ("dropped", "Support cases not linked to a customer dropped"),
+    "case_after_churn_date_dropped": ("dropped", "Support cases after the customer left dropped"),
+    "activity_not_on_a_customer_dropped": ("dropped", "Activities not linked to a customer dropped"),
+    "activity_after_churn_date_dropped": ("dropped", "Activities after the customer left dropped"),
+    "no_usage_fields_engagement_skipped": ("dropped", "Customers with no usage fields, engagement skipped"),
+    "churn_label_source:status": ("label", "Churned by status only"),
+    "churn_label_source:lost_renewal": ("label", "Churned by lost renewal only"),
+    "churn_label_source:status+lost_renewal": ("label", "Churned by status and lost renewal"),
+    "churn_label_source:active": ("label", "Active"),
+    "engagement_weeks_of_history_per_customer": ("limit", "Weeks of usage history per customer"),
+}
+
+
+def describe_report(report: dict[str, Any]) -> dict[str, Any]:
+    """An ingest report as the Integrations page shows it: the funnel, then each
+    decision with its label, group and examples. Pure, so the API and tests share it.
+
+    A key with no label is passed through under group "unlabelled" rather than
+    dropped, so a reader still sees it. The test is what stops that shipping.
+    """
+    decisions = report.get("decisions", {})
+    examples = report.get("examples", {})
+    rows = []
+    for key, count in decisions.items():
+        group, label = DECISION_LABELS.get(key, ("unlabelled", key))
+        rows.append({"key": key, "group": group, "label": label,
+                     "count": count, "examples": examples.get(key, [])[:3]})
+    order = {"excluded": 0, "inferred": 1, "dropped": 2, "label": 3, "limit": 4, "unlabelled": 5}
+    rows.sort(key=lambda r: (order[r["group"]], -r["count"], r["label"]))
+    return {
+        "source": "salesforce",
+        "as_of": report.get("as_of"),
+        "funnel": {
+            "accounts_read": report.get("accounts_read", 0),
+            "prospects_excluded": report.get("prospects_excluded", 0),
+            "sample_records_excluded": decisions.get("salesforce_sample_account_excluded", 0),
+            "customers_written": report.get("customers_written", 0),
+        },
+        "decisions": rows,
+    }
+
+
 # --------------------------------------------------------------------------------------
 # Small helpers
 # --------------------------------------------------------------------------------------

@@ -87,8 +87,8 @@ export function Rail() {
  * rail visible while waiting, because a bare centred message on a blank page
  * reads as an error screen no matter what it says.
  *
- * Pages that need no backend -- /integrations is static -- deliberately do not
- * use it. Making them wait for a server they never call would be a regression.
+ * A page that never calls the backend should not use it: making it wait for a
+ * server it does not need would be a regression. Every page currently does.
  */
 export function BootGate({ children }: { children: React.ReactNode }) {
   return (
