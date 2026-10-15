@@ -2,7 +2,11 @@
 -- null, and the numeric id the API exposes derived from the business key.
 select
     customer_id,
-    cast(regexp_extract(customer_id, 'CUST-(\d+)', 1) as integer) as customer_num,
+    -- Any PREFIX-digits key: CUST-0001 (synthetic) and ACC-10001 (Salesforce) both
+    -- parse. A key that does not match yields null, which dim_customer's not_null test
+    -- then fails on, rather than a cast error that skips every downstream model.
+    try_cast(nullif(regexp_extract(customer_id, '^[A-Za-z]+-(\d+)$', 1), '') as integer)
+                                     as customer_num,
     company_name,
     segment,
     industry,

@@ -66,8 +66,12 @@ factors as (
         greatest(0.0, least(1.0, 1.0 - l.feature_adoption_rate))       as f_adoption,
         greatest(0.0, least(1.0, -tr.engagement_slope / 0.01))         as f_trend,
         greatest(0.0, least(1.0, tk.tickets_30d / {{ var('high_ticket_volume') }}.0)) as f_support,
-        -- No tickets is not evidence of unhappiness, so treat it as neutral.
-        coalesce(greatest(0.0, least(1.0, (5.0 - tk.mean_csat) / 4.0)), 0.5) as f_satisfaction
+        -- No tickets is not evidence of unhappiness, so treat it as neutral. The null
+        -- test must come first: DuckDB's least()/greatest() skip NULL arguments, so
+        -- least(1.0, NULL) is 1.0 and a coalesce around them never fires. That scored
+        -- every account without CSAT as maximally unhappy (+7.5 risk) until 2026-10-04.
+        case when tk.mean_csat is null then 0.5
+             else greatest(0.0, least(1.0, (5.0 - tk.mean_csat) / 4.0)) end as f_satisfaction
     from {{ ref('sl_customers') }} c
     join latest l using (customer_id)
     join trend tr using (customer_id)

@@ -84,6 +84,12 @@ never produces one.
 
 ## 4. Data, control, and evidence flows
 
+![ChurnGuard integrations-first architecture: Salesforce and Mixpanel feed connectors, a durable store and a dbt warehouse, which feed scoring, the survival model, evidence search and an LLM agent, served by FastAPI to a Next.js console](docs/architecture.excalidraw.svg)
+
+*Where the project is going: every number the site shows comes from a connected integration. Solid parts are built and running; dashed parts are planned. The drawing is embedded in the SVG, so it opens for editing in [Excalidraw](https://excalidraw.com) or the VS Code Excalidraw extension.*
+
+The flows as they run today:
+
 ```
                           ┌──────────────────────────────────────┐
  DATA        CSV source ─▶│ dbt: bronze → silver → gold          │─▶ DuckDB / Athena
@@ -196,7 +202,7 @@ restart.
 **The full check, all of it free and offline:**
 
 ```bash
-uv run --extra dev --extra warehouse --extra model pytest tests/   # 109 tests
+uv run --extra dev --extra warehouse --extra model pytest tests/   # 134 tests
 python3 scripts/validate_dataset.py                    # 28 data contracts
 cd warehouse && DBT_PROFILES_DIR=$PWD uv run --project .. dbt build   # 67 dbt tests
 uv run python scripts/benchmark_retrieval.py           # retrieval; query embeddings only
@@ -204,7 +210,7 @@ uv run python scripts/benchmark_retrieval.py           # retrieval; query embedd
 
 | Suite | Result | Measured |
 |---|---|---|
-| pytest | ~~108 (2026-09-04)~~ → **109 / 109** | 2026-10-14 |
+| pytest | ~~108 (2026-09-04)~~ → ~~118~~ → ~~128~~ → **134 / 134** | 2026-10-14 |
 | dbt tests | **67 / 67** | 2026-08-31 |
 | Data contracts | **28 / 28** | 2026-08-31 |
 | SQL ↔ Python scoring parity | 200 / 200 within 0.1 | 2026-08-30 |

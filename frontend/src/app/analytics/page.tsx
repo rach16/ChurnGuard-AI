@@ -69,7 +69,7 @@ function AnalyticsPage() {
     (async () => {
       try {
         const [c, s] = await Promise.all([
-          apiClient.getAtRiskCustomers(0, 200),
+          apiClient.getAtRiskCustomers(0, 1000),
           apiClient.getDashboardStats(),
         ]);
         setCustomers(c.at_risk_customers);

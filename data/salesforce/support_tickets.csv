@@ -1,0 +1,240 @@
+ticket_id,customer_id,company_name,segment,category,issue_type,severity,created_date,resolved_date,resolution_hours,description,resolution_notes,csat_score
+00001041,ACC-10001,Northwind Logistics [ACC-10001],SMB,Other,Installation,Medium,2026-06-29,2026-06-29,11,Customer reported: api rate limit errors. Steps to reproduce attached in email thread.,,3
+00001042,ACC-10007,Redwood Analytics [ACC-10007],Commercial,Feature Request,Feedback,High,2026-08-31,,8,Customer reported: billing address update. Steps to reproduce attached in email thread.,,
+00001044,ACC-10015,Oakmont Insurance Group,SMB,Feature Request,Performance,High,2026-01-11,,17,Customer reported: feature request: dark mode. Steps to reproduce attached in email thread.,,
+00001045,ACC-10017,Sterling Legal LLP,Commercial,Problem,Complex functionality,Medium,2026-09-02,,8,Customer reported: webhook returning 500. Steps to reproduce attached in email thread.,,3
+00001046,ACC-10012,Greenleaf Organics,SMB,Feature Request,Breakdown,Medium,2026-09-27,,13,Customer reported: need training session for new hires. Steps to reproduce attached in email thread.,,4
+00001047,ACC-10026,ACME Industrial Supply Inc. [ACC-10026],Commercial,Question,Dashboard loading slowly,High,2026-06-16,,7,Customer reported: dashboard loading slowly. Steps to reproduce attached in email thread.,,3
+00001049,ACC-10014,Meridian Telecom [ACC-10014],SMB,Feature Request,Installation,Medium,2026-01-08,,19,Customer reported: billing address update. Steps to reproduce attached in email thread.,,4
+00001054,ACC-10002,Acme Industrial Supply [ACC-10002],Enterprise,Other,Invoice shows wrong amount,Low,2026-06-11,,10,Invoice shows wrong amount,,
+00001026,ACC-10015,Oakmont Insurance Group,SMB,Feature Request,Breakdown,High,2026-04-23,,59,Customer reported: password reset email not received. Steps to reproduce attached in email thread.,,
+00001027,ACC-10004,Cascade Outdoor Co,Commercial,Other,Performance,High,2026-04-28,,23,Customer reported: need training session for new hires. Steps to reproduce attached in email thread.,,
+00001028,ACC-10009,Lumen Education Systems,SMB,Question,Feedback,High,2026-01-16,2026-01-18,54,Customer reported: report export times out. Steps to reproduce attached in email thread.,,3
+00001033,ACC-10004,Cascade Outdoor Co,Commercial,Other,Complex functionality,High,2025-10-20,2025-10-21,31,Customer reported: webhook returning 500. Steps to reproduce attached in email thread.,,4
+00001034,ACC-10002,Acme Industrial Supply [ACC-10002],Enterprise,Feature Request,Breakdown,Medium,2025-10-11,,11,Customer reported: cannot log in after sso change. Steps to reproduce attached in email thread.,,3
+00001035,ACC-10007,Redwood Analytics [ACC-10007],Commercial,Problem,Feedback,Low,2026-03-31,,18,Customer reported: need training session for new hires. Steps to reproduce attached in email thread.,,3
+00001036,ACC-10021,Keystone Manufacturing,SMB,Feature Request,Performance,High,2026-03-29,2026-03-30,27,Customer reported: data sync failing nightly. Steps to reproduce attached in email thread.,,5
+00001037,ACC-10010,Harborview Hospitality,SMB,Question,Complex functionality,High,2025-12-28,,63,Customer reported: api rate limit errors. Steps to reproduce attached in email thread.,,
+00001039,ACC-10023,Coastal Credit Union,Commercial,Question,Breakdown,Medium,2026-04-09,2026-04-10,27,Customer reported: billing address update. Steps to reproduce attached in email thread.,,
+00001058,ACC-20109,BEACON BANK INC Group [ACC-20109],SMB,Feature Request,Performance,Low,2026-04-16,2026-04-18,51,Customer reported: webhook returning 500. Affects all users.,,3
+00001059,ACC-20124,Zenith Logistics Corp,Commercial,Feature Request,Breakdown,Medium,2026-07-20,2026-07-20,16,Customer reported: invoice shows wrong amount. See previous case.,,5
+00001060,ACC-20059,Prairie Energy,SMB,Feature Request,Complex functionality,Low,2026-04-04,2026-04-04,12,Customer reported: renewal question. Affects all users.,,4
+00001063,ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,Feature Request,Performance,Medium,2026-08-03,,52,Customer reported: dashboard loading slowly. See previous case.,,3
+00001064,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Feature Request,Performance,Medium,2026-07-27,,20,Customer reported: asdf. Affects all users.,,4
+00001065,ACC-20067,Vista Analytics,SMB,Problem,Breakdown,High,2026-07-20,2026-07-20,17,Customer reported: duplicate records after import. Happens intermittently.,,2
+00001066,ACC-20056,Delta Consulting Co [ACC-20056],Commercial,Feature Request,Complex functionality,Medium,2024-05-31,,20,Customer reported: re: re: fw: question. Affects all users.,,2
+00001067,ACC-20036,BEACON BANK INC [ACC-20036],SMB,Question,Feedback,High,2026-08-20,,58,Customer reported: webhook returning 500. Steps attached in email thread.,,1
+00001068,ACC-20123,Titan Analytics Group,SMB,Other,Breakdown,High,2026-09-08,2026-09-08,16,Customer reported: report export times out. Affects all users.,,3
+00001070,ACC-20083,Frontier Bank Corp,Commercial,Problem,Installation,Low,2026-05-20,2026-05-20,21,Customer reported: feature request: dark mode. Happens intermittently.,,4
+00001071,ACC-20029,River Pharma Co,Enterprise,Question,Need training session,High,2025-12-06,,25,Customer reported: need training session. Steps attached in email thread.,,
+00001072,ACC-20196,Titan Realty Corp,Enterprise,Problem,Installation,Medium,2026-02-02,2026-02-04,54,Customer reported: api rate limit errors. See previous case.,,2
+00001073,ACC-20028,Pacific Consulting Inc.,SMB,Question,Breakdown,Low,2026-06-29,2026-06-30,30,Customer reported: webhook returning 500. Started after last release.,,4
+00001074,ACC-20064,Metro Pharma Group [ACC-20064],SMB,Question,Duplicate records after import,Medium,2026-04-16,2026-04-17,29,Customer reported: duplicate records after import. Happens intermittently.,,4
+00001075,ACC-20153,PRAIRIE HEALTH [ACC-20153],Enterprise,Other,URGENT!!! system down,High,2026-07-13,,22,Customer reported: urgent!!! system down. Happens intermittently.,,4
+00001077,ACC-20097,Silver Software Inc. [ACC-20097],SMB,Question,Integration with Slack broken,High,2025-12-18,,49,Customer reported: integration with slack broken. Steps attached in email thread.,,
+00001078,ACC-20003,Union Manufacturing Inc,SMB,Question,Complex functionality,High,2025-11-17,2025-11-17,20,Customer reported: billing address update. Affects all users.,,
+00001079,ACC-20158,Crimson Retail Inc.,SMB,Other,Existing problem,Medium,2026-03-27,,20,Customer reported: report export times out. Happens intermittently.,,4
+00001080,ACC-20175,Zenith Energy Corp [ACC-20175],Commercial,Feature Request,Existing problem,Medium,2024-10-14,,57,Customer reported: report export times out. Started after last release.,,2
+00001082,ACC-20059,Prairie Energy,SMB,Other,Integration with Slack broken,Low,2026-01-17,2026-01-17,18,Customer reported: integration with slack broken. See previous case.,,4
+00001083,ACC-20038,Granite Consulting Co,Commercial,Feature Request,Complex functionality,High,2025-08-09,,32,Integration with Slack broken,,1
+00001085,ACC-20072,Echo Consulting Inc,SMB,Problem,Breakdown,High,2025-04-04,,80,Customer reported: request to add 10 users. Steps attached in email thread.,,1
+00001086,ACC-20084,Vista Systems Group,SMB,Problem,Performance,High,2025-10-23,2025-10-23,21,Customer reported: renewal question. Happens intermittently.,,
+00001088,ACC-20122,"Cedar Manufacturing, Inc",SMB,Other,Installation,High,2026-03-07,,5,Customer reported: request to add 10 users. Happens intermittently.,,2
+00001090,ACC-20142,Juniper Systems Inc.,SMB,Feature Request,help,High,2026-04-05,2026-04-06,25,help,,4
+00001091,ACC-20103,Northstar Freight Corp,SMB,Other,Breakdown,Medium,2026-02-18,2026-02-19,26,Customer reported: duplicate records after import. Started after last release.,,3
+00001092,ACC-20170,"Crimson Health, Inc",Enterprise,Problem,Billing address update,High,2026-09-06,,28,Customer reported: billing address update. Steps attached in email thread.,,4
+00001094,ACC-20153,PRAIRIE HEALTH [ACC-20153],Enterprise,Feature Request,Installation,Medium,2026-07-21,,13,Customer reported: cancel my account. See previous case.,,3
+00001095,ACC-20091,Apex Labs Co [ACC-20091],Enterprise,Feature Request,Existing problem,Medium,2026-01-29,,13,Customer reported: api rate limit errors. Happens intermittently.,,5
+00001097,ACC-20083,Frontier Bank Corp,Commercial,Feature Request,RE: RE: FW: question,High,2026-05-14,2026-05-14,10,Customer reported: re: re: fw: question. Steps attached in email thread.,,3
+00001098,ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,Problem,Feedback,Low,2026-01-29,,22,help,,4
+00001100,ACC-20142,Juniper Systems Inc.,SMB,Problem,Installation,Medium,2026-03-06,,12,Customer reported: feature request: dark mode. Affects all users.,,4
+00001101,ACC-20057,Echo Pharma [ACC-20057],SMB,Other,Request to add 10 users,Medium,2025-12-11,,10,Request to add 10 users,,3
+00001102,ACC-20056,Delta Consulting Co [ACC-20056],Commercial,Problem,Existing problem,Low,2024-04-06,,52,Data sync failing nightly,,2
+00001103,ACC-20190,Vista Foods Inc [ACC-20190],SMB,Other,Feedback,High,2026-05-08,,12,Customer reported: report export times out. Steps attached in email thread.,,3
+00001105,ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,Question,Complex functionality,Low,2026-08-27,2026-08-28,25,Customer reported: cannot log in after sso change. Happens intermittently.,,3
+00001106,ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,Question,Complex functionality,Low,2025-10-29,2025-10-30,24,Customer reported: cannot log in after sso change. Happens intermittently.,,3
+00001108,ACC-20131,zenith bank [ACC-20131],SMB,Other,Installation,High,2025-10-11,2025-10-12,38,Customer reported: duplicate records after import. Steps attached in email thread.,,3
+00001109,ACC-20131,zenith bank [ACC-20131],SMB,Other,Installation,Medium,2025-12-16,2025-12-16,11,Customer reported: duplicate records after import. Steps attached in email thread.,,3
+00001110,ACC-20170,"Crimson Health, Inc",Enterprise,Question,Feedback,High,2025-12-09,2025-12-10,24,Feature request: dark mode,,5
+00001114,ACC-20163,Titan Foods LLC,Commercial,Feature Request,Breakdown,High,2026-05-06,2026-05-07,36,Customer reported: need training session. Happens intermittently.,,3
+00001116,ACC-20049,Vista Media Corp,Commercial,Other,Breakdown,Medium,2025-12-03,,11,Customer reported: cancel my account. Happens intermittently.,,4
+00001117,ACC-20064,Metro Pharma Group [ACC-20064],SMB,Other,Feedback,High,2026-02-14,2026-02-14,19,Customer reported: urgent!!! system down. Started after last release.,,5
+00001124,ACC-20029,River Pharma Co,Enterprise,Feature Request,Complex functionality,Medium,2026-03-04,,24,Customer reported: re: re: fw: question. Started after last release.,,5
+00001125,ACC-20061,Frontier Manufacturing Corp [ACC-20061],Enterprise,Feature Request,asdf,High,2025-11-29,,52,Customer reported: asdf. Started after last release.,,1
+00001126,ACC-20059,Prairie Energy,SMB,Feature Request,Invoice shows wrong amount,Medium,2026-04-29,,16,Customer reported: invoice shows wrong amount. See previous case.,,4
+00001127,ACC-20019,Cedar Pharma Co [ACC-20019],Commercial,Other,Existing problem,High,2026-07-01,,79,Customer reported: dashboard loading slowly. Started after last release.,,1
+00001129,ACC-20006,Prairie Health [ACC-20006],SMB,Question,Dashboard loading slowly,High,2025-11-18,,8,Customer reported: dashboard loading slowly. Affects all users.,,5
+00001130,ACC-20035,Granite Software Group,SMB,Question,Breakdown,High,2026-03-20,,20,help,,4
+00001132,ACC-20195,Harbor Aerospace Inc,Commercial,Other,Cannot log in after SSO change,Low,2026-07-09,,64,Customer reported: cannot log in after sso change. Started after last release.,,2
+00001137,ACC-20111,quartz telecom llc [ACC-20111],Commercial,Problem,Feedback,Medium,2025-12-21,,5,Customer reported: billing address update. Started after last release.,,
+00001138,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Problem,Breakdown,High,2026-09-08,,13,Customer reported: re: re: fw: question. Happens intermittently.,,
+00001139,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Problem,Breakdown,High,2025-12-25,,29,Customer reported: re: re: fw: question. Happens intermittently.,,3
+00001141,ACC-20142,Juniper Systems Inc.,SMB,Other,Performance,Low,2026-01-14,,7,Customer reported: asdf. Steps attached in email thread.,,4
+00001142,ACC-20190,Vista Foods Inc [ACC-20190],SMB,Feature Request,Installation,High,2026-05-30,2026-05-31,43,Integration with Slack broken,,3
+00001144,ACC-20057,Echo Pharma [ACC-20057],SMB,Feature Request,Complex functionality,Medium,2026-01-23,,19,Duplicate records after import,,3
+00001146,ACC-20134,"Lakeside Hotels, Inc",SMB,Feature Request,Complex functionality,Medium,2026-05-15,2026-05-16,26,Customer reported: urgent!!! system down. Steps attached in email thread.,,4
+00001147,ACC-20157,WESTFIELD CONSULTING INC. [ACC-20157],Commercial,Problem,Installation,Medium,2026-08-28,,19,RE: RE: FW: question,,4
+00001148,ACC-20011,Cedar Health Inc,Commercial,Problem,Feedback,Medium,2025-10-14,,8,Password reset email not received,,5
+00001149,ACC-20006,Prairie Health [ACC-20006],SMB,Question,Feedback,High,2026-01-27,,11,Customer reported: dashboard loading slowly. Affects all users.,,4
+00001150,ACC-20160,PACIFIC LOGISTICS [ACC-20160],Enterprise,Feature Request,Existing problem,Medium,2025-11-05,,19,Customer reported: help. Happens intermittently.,,
+00001151,ACC-20028,Pacific Consulting Inc.,SMB,Question,Breakdown,High,2026-02-08,2026-02-09,37,Customer reported: integration with slack broken. Steps attached in email thread.,,3
+00001154,ACC-20182,Lakeside Bank Co,Enterprise,Question,Feedback,Low,2026-01-28,,17,RE: RE: FW: question,,5
+00001156,ACC-20129,Titan Energy Corp,SMB,Feature Request,Breakdown,Medium,2026-01-07,,25,Customer reported: report export times out. See previous case.,,2
+00001157,ACC-20170,"Crimson Health, Inc",Enterprise,Other,Installation,Medium,2026-07-07,,12,Customer reported: dashboard loading slowly. Started after last release.,,3
+00001159,ACC-20167,"Zenith Media, Inc [ACC-20167]",SMB,Problem,Data sync failing nightly,Medium,2026-05-20,2026-05-20,14,Customer reported: data sync failing nightly. Affects all users.,,5
+00001160,ACC-20144,Delta Foods Co,SMB,Problem,Breakdown,Medium,2025-10-06,,11,Customer reported: re: re: fw: question. Steps attached in email thread.,,4
+00001161,ACC-20154,blue aerospace corp [ACC-20154],SMB,Problem,Complex functionality,High,2026-02-21,,84,Customer reported: duplicate records after import. Affects all users.,,
+00001162,ACC-20060,Harbor Freight Inc,Enterprise,Feature Request,Breakdown,Medium,2025-12-12,,17,Customer reported: renewal question. Affects all users.,,
+00001163,ACC-20166,Harbor Manufacturing Corp,SMB,Other,Performance,Low,2026-05-05,2026-05-05,23,URGENT!!! system down,,4
+00001166,ACC-20177,Frontier Pharma,Commercial,Question,Existing problem,High,2026-01-18,2026-01-18,16,Customer reported: password reset email not received. Started after last release.,,3
+00001170,ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,Question,Feature request: dark mode,High,2026-09-28,2026-09-28,12,Feature request: dark mode,,4
+00001171,ACC-20188,Granite Aerospace,Commercial,Question,Existing problem,Medium,2026-03-21,,16,Customer reported: feature request: dark mode. Happens intermittently.,,4
+00001173,ACC-20003,Union Manufacturing Inc,SMB,Question,Installation,Medium,2025-11-18,,18,Customer reported: re: re: fw: question. Happens intermittently.,,4
+00001174,ACC-20183,River Energy Group,Commercial,Question,Complex functionality,Low,2025-11-28,2025-11-28,12,Customer reported: billing address update. Started after last release.,,
+00001175,ACC-20122,"Cedar Manufacturing, Inc",SMB,Problem,API rate limit errors,High,2025-11-12,,35,API rate limit errors,,2
+00001176,ACC-20092,"Union Insurance, Inc [ACC-20092]",SMB,Question,Installation,Medium,2026-01-17,,24,Customer reported: cannot log in after sso change. See previous case.,,4
+00001178,ACC-20195,Harbor Aerospace Inc,Commercial,Feature Request,Installation,High,2026-09-27,,26,URGENT!!! system down,,
+00001179,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Feature Request,Need training session,High,2026-05-26,2026-05-26,8,Need training session,,3
+00001181,ACC-20188,Granite Aerospace,Commercial,Other,Performance,Low,2026-08-06,2026-08-07,26,Invoice shows wrong amount,,3
+00001182,ACC-20188,Granite Aerospace,Commercial,Other,Performance,Low,2025-12-06,2025-12-06,10,Invoice shows wrong amount,,5
+00001184,ACC-20168,"Cedar Analytics, Inc",SMB,Other,Invoice shows wrong amount,Medium,2026-03-20,,21,Invoice shows wrong amount,,5
+00001187,ACC-20094,Echo Pharma Co [ACC-20094],SMB,Feature Request,Feedback,Low,2025-10-07,,21,Customer reported: billing address update. See previous case.,,4
+00001188,ACC-20035,Granite Software Group,SMB,Other,Breakdown,Low,2026-07-09,,10,Customer reported: duplicate records after import. Started after last release.,,4
+00001189,ACC-20035,Granite Software Group,SMB,Other,Breakdown,Low,2025-10-27,,11,Customer reported: duplicate records after import. Started after last release.,,4
+00001190,ACC-20034,"Metro Manufacturing, Inc",Commercial,Question,Feature request: dark mode,Low,2025-10-17,,81,Feature request: dark mode,,1
+00001193,ACC-20122,"Cedar Manufacturing, Inc",SMB,Feature Request,Existing problem,High,2026-08-28,,50,Customer reported: data sync failing nightly. Happens intermittently.,,2
+00001196,ACC-20067,Vista Analytics,SMB,Question,Existing problem,Medium,2026-04-29,2026-05-01,55,Feature request: dark mode,,1
+00001198,ACC-20097,Silver Software Inc. [ACC-20097],SMB,Problem,Performance,High,2025-10-28,2025-10-29,37,Customer reported: asdf. Steps attached in email thread.,,2
+00001201,ACC-20103,Northstar Freight Corp,SMB,Other,RE: RE: FW: question,Medium,2025-11-26,,16,Customer reported: re: re: fw: question. Started after last release.,,
+00001202,ACC-20144,Delta Foods Co,SMB,Other,Performance,High,2026-05-29,2026-05-29,17,RE: RE: FW: question,,4
+00001203,ACC-20184,Silver Health LLC [ACC-20184],SMB,Feature Request,Existing problem,High,2026-06-08,,22,Customer reported: asdf. See previous case.,,3
+00001206,ACC-20158,Crimson Retail Inc.,SMB,Feature Request,Complex functionality,High,2026-02-09,,19,help,,5
+00001208,ACC-20036,BEACON BANK INC [ACC-20036],SMB,Problem,Performance,Low,2026-07-16,2026-07-19,75,Customer reported: integration with slack broken. Happens intermittently.,,
+00001209,ACC-20059,Prairie Energy,SMB,Feature Request,Integration with Slack broken,Low,2025-12-31,,22,Customer reported: integration with slack broken. Started after last release.,,3
+00001210,ACC-20042,Granite Foods Co,SMB,Problem,Installation,High,2026-10-04,,26,Report export times out,,3
+00001211,ACC-20009,Titan Software Co,SMB,Feature Request,Existing problem,High,2026-06-24,,83,Customer reported: invoice shows wrong amount. Affects all users.,,1
+00001213,ACC-20118,Apex Logistics Inc.,SMB,Problem,URGENT!!! system down,Medium,2025-11-22,,20,Customer reported: urgent!!! system down. Happens intermittently.,,5
+00001214,ACC-20188,Granite Aerospace,Commercial,Other,Breakdown,Medium,2026-02-22,,23,Customer reported: api rate limit errors. Affects all users.,,3
+00001215,ACC-20046,CEDAR LOGISTICS INC [ACC-20046],Commercial,Other,API rate limit errors,High,2026-06-18,2026-06-18,11,API rate limit errors,,3
+00001216,ACC-20163,Titan Foods LLC,Commercial,Feature Request,Complex functionality,High,2025-11-17,2025-11-18,28,Customer reported: integration with slack broken. Affects all users.,,2
+00001217,ACC-20116,Pacific Foods,SMB,Other,Complex functionality,High,2026-01-19,,72,Customer reported: request to add 10 users. Affects all users.,,1
+00001218,ACC-20056,Delta Consulting Co [ACC-20056],Commercial,Question,Existing problem,High,2024-02-18,,78,Customer reported: feature request: dark mode. Started after last release.,,2
+00001219,ACC-20061,Frontier Manufacturing Corp [ACC-20061],Enterprise,Problem,Complex functionality,Medium,2025-11-11,2025-11-12,27,Customer reported: feature request: dark mode. See previous case.,,2
+00001220,ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,Feature Request,Existing problem,High,2025-11-15,2025-11-16,41,Customer reported: need training session. Steps attached in email thread.,,3
+00001221,ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,Feature Request,Existing problem,High,2025-12-23,2025-12-24,45,Customer reported: need training session. Steps attached in email thread.,,3
+00001227,ACC-20006,Prairie Health [ACC-20006],SMB,Question,Report export times out,High,2026-04-14,,19,Customer reported: report export times out. Happens intermittently.,,5
+00001230,ACC-20109,BEACON BANK INC Group [ACC-20109],SMB,Question,Performance,Low,2025-10-26,,52,Customer reported: cannot log in after sso change. Affects all users.,,2
+00001231,ACC-20126,Silver Health [ACC-20126],SMB,Problem,Installation,High,2026-03-29,,30,Dashboard loading slowly,,1
+00001232,ACC-20088,Pacific Energy Corp,Enterprise,Problem,Cancel my account,Low,2025-11-08,,24,Customer reported: cancel my account. Started after last release.,,5
+00001233,ACC-20112,Cedar Pharma [ACC-20112],SMB,Feature Request,Feedback,Low,2026-09-28,2026-09-28,22,Customer reported: renewal question. Steps attached in email thread.,,3
+00001234,ACC-20052,Iron Software Inc.,Commercial,Question,Feedback,Medium,2026-04-20,,19,Customer reported: webhook returning 500. Affects all users.,,4
+00001236,ACC-20083,Frontier Bank Corp,Commercial,Other,Installation,Low,2025-10-24,2025-10-24,18,Customer reported: password reset email not received. Happens intermittently.,,
+00001237,ACC-20056,Delta Consulting Co [ACC-20056],Commercial,Problem,Existing problem,High,2024-03-22,2024-03-24,56,Customer reported: need training session. See previous case.,,1
+00001238,ACC-20057,Echo Pharma [ACC-20057],SMB,Question,Complex functionality,Low,2025-12-11,,25,Customer reported: billing address update. Steps attached in email thread.,,3
+00001239,ACC-20064,Metro Pharma Group [ACC-20064],SMB,Feature Request,Complex functionality,Low,2026-06-28,2026-06-28,13,Customer reported: invoice shows wrong amount. Started after last release.,,4
+00001241,ACC-20067,Vista Analytics,SMB,Other,Data sync failing nightly,Medium,2026-07-10,2026-07-12,67,Customer reported: data sync failing nightly. Steps attached in email thread.,,2
+00001242,ACC-20116,Pacific Foods,SMB,Question,Request to add 10 users,High,2026-02-20,2026-02-22,57,Customer reported: request to add 10 users. See previous case.,,
+00001245,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Feature Request,Complex functionality,High,2026-03-08,,35,asdf,,3
+00001246,ACC-20187,Zenith Bank Inc [ACC-20187],Commercial,Feature Request,Breakdown,Medium,2026-09-18,,58,Customer reported: duplicate records after import. See previous case.,,3
+00001247,ACC-20003,Union Manufacturing Inc,SMB,Problem,Performance,Medium,2026-09-22,2026-09-22,11,Invoice shows wrong amount,,
+00001250,ACC-20184,Silver Health LLC [ACC-20184],SMB,Other,Performance,Low,2025-10-18,,23,Invoice shows wrong amount,,3
+00001251,ACC-20050,Zenith Energy Co [ACC-20050],Enterprise,Problem,Password reset email not received,High,2026-07-19,,15,Customer reported: password reset email not received. Happens intermittently.,,
+00001252,ACC-20175,Zenith Energy Corp [ACC-20175],Commercial,Question,Feedback,High,2024-08-16,,8,Duplicate records after import,,1
+00001253,ACC-20003,Union Manufacturing Inc,SMB,Other,Performance,High,2026-08-31,2026-08-31,7,Customer reported: help. See previous case.,,5
+00001254,ACC-20001,Iron Consulting Inc,SMB,Problem,Password reset email not received,Medium,2025-12-21,2025-12-23,53,Customer reported: password reset email not received. See previous case.,,3
+00001255,ACC-20041,ECHO BANK INC [ACC-20041],SMB,Problem,Installation,Low,2025-10-30,2025-10-31,27,Customer reported: invoice shows wrong amount. Started after last release.,,4
+00001259,ACC-20034,"Metro Manufacturing, Inc",Commercial,Other,Integration with Slack broken,High,2026-01-03,,71,Customer reported: integration with slack broken. Steps attached in email thread.,,1
+00001266,ACC-20060,Harbor Freight Inc,Enterprise,Other,Complex functionality,High,2026-07-25,2026-07-26,28,Request to add 10 users,,2
+00001268,ACC-20064,Metro Pharma Group [ACC-20064],SMB,Question,help,High,2026-09-16,,28,Customer reported: help. Happens intermittently.,,
+00001269,ACC-20188,Granite Aerospace,Commercial,Feature Request,Feedback,Low,2026-02-24,2026-02-24,21,Cannot log in after SSO change,,5
+00001271,ACC-20191,Echo Systems Group,SMB,Other,Existing problem,Medium,2025-10-29,,40,Customer reported: urgent!!! system down. See previous case.,,3
+00001273,ACC-20144,Delta Foods Co,SMB,Question,Installation,High,2026-07-06,,22,Customer reported: report export times out. See previous case.,,3
+00001275,ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,Other,Feedback,Medium,2025-12-22,,58,Customer reported: cannot log in after sso change. See previous case.,,3
+00001276,ACC-20003,Union Manufacturing Inc,SMB,Question,Breakdown,Low,2026-06-25,,18,Customer reported: invoice shows wrong amount. Affects all users.,,3
+00001278,ACC-20067,Vista Analytics,SMB,Feature Request,Installation,High,2026-07-11,,82,Customer reported: cannot log in after sso change. Affects all users.,,2
+00001279,ACC-20003,Union Manufacturing Inc,SMB,Question,Complex functionality,Medium,2026-03-05,2026-03-05,11,Customer reported: integration with slack broken. Started after last release.,,4
+00001283,ACC-20029,River Pharma Co,Enterprise,Problem,Existing problem,High,2026-06-30,,24,Customer reported: duplicate records after import. See previous case.,,
+00001285,ACC-20127,"QUARTZ LOGISTICS, INC [ACC-20127]",SMB,Feature Request,Data sync failing nightly,High,2026-01-19,,80,Customer reported: data sync failing nightly. Affects all users.,,2
+00001287,ACC-20188,Granite Aerospace,Commercial,Feature Request,Breakdown,Medium,2026-09-29,,25,Customer reported: report export times out. Happens intermittently.,,
+00001288,ACC-20056,Delta Consulting Co [ACC-20056],Commercial,Other,Existing problem,High,2024-04-18,,75,Customer reported: webhook returning 500. Affects all users.,,1
+00001289,ACC-20030,westfield health co,Enterprise,Problem,Installation,Medium,2026-07-07,2026-07-07,6,Customer reported: invoice shows wrong amount. Steps attached in email thread.,,3
+00001290,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Problem,Breakdown,High,2025-12-17,,24,Customer reported: feature request: dark mode. Affects all users.,,3
+00001291,ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,Problem,Breakdown,High,2025-11-18,,46,Customer reported: feature request: dark mode. Affects all users.,,3
+00001292,ACC-20092,"Union Insurance, Inc [ACC-20092]",SMB,Other,Password reset email not received,High,2025-12-21,,7,Password reset email not received,,4
+00001294,ACC-20094,Echo Pharma Co [ACC-20094],SMB,Problem,Renewal question,High,2026-03-26,2026-03-26,8,Customer reported: renewal question. Affects all users.,,
+00001296,ACC-20049,Vista Media Corp,Commercial,Problem,asdf,Medium,2026-09-27,,17,Customer reported: asdf. Happens intermittently.,,
+00001298,ACC-20042,Granite Foods Co,SMB,Problem,Performance,Medium,2026-07-28,,32,Customer reported: need training session. Affects all users.,,3
+00001299,ACC-20153,PRAIRIE HEALTH [ACC-20153],Enterprise,Feature Request,Breakdown,Low,2026-06-24,2026-06-24,17,Password reset email not received,,
+00001302,ACC-20187,Zenith Bank Inc [ACC-20187],Commercial,Problem,Installation,Medium,2025-12-18,2025-12-19,46,Cannot log in after SSO change,,3
+00001304,ACC-20173,Beacon Energy Co,Commercial,Problem,Performance,High,2025-12-28,2025-12-29,42,Customer reported: dashboard loading slowly. Affects all users.,,1
+00001305,ACC-20016,Coral Retail LLC,SMB,Question,Installation,High,2026-09-23,,18,Customer reported: cancel my account. Affects all users.,,3
+00001306,ACC-20107,Harbor Insurance Co,SMB,Other,help,Low,2026-03-23,,12,Customer reported: help. Affects all users.,,
+00001307,ACC-20144,Delta Foods Co,SMB,Feature Request,Password reset email not received,Medium,2026-07-09,,7,Customer reported: password reset email not received. See previous case.,,4
+00001308,ACC-20057,Echo Pharma [ACC-20057],SMB,Other,Existing problem,Low,2026-04-06,,5,Customer reported: invoice shows wrong amount. Happens intermittently.,,4
+00001309,ACC-20057,Echo Pharma [ACC-20057],SMB,Other,Existing problem,Low,2025-10-31,,9,Customer reported: invoice shows wrong amount. Happens intermittently.,,4
+00001310,ACC-20067,Vista Analytics,SMB,Feature Request,Feedback,Medium,2026-07-04,,18,Customer reported: integration with slack broken. Started after last release.,,1
+00001312,ACC-20123,Titan Analytics Group,SMB,Question,Feedback,High,2025-12-13,2025-12-13,9,help,,3
+00001313,ACC-20193,Delta Hotels [ACC-20193],SMB,Question,Breakdown,High,2025-11-29,,33,Customer reported: urgent!!! system down. Steps attached in email thread.,,1
+00001314,ACC-20042,Granite Foods Co,SMB,Question,Integration with Slack broken,Medium,2026-03-09,2026-03-10,29,Customer reported: integration with slack broken. See previous case.,,3
+00001315,ACC-20166,Harbor Manufacturing Corp,SMB,Other,Existing problem,High,2026-06-05,,14,Customer reported: cancel my account. Affects all users.,,4
+00001317,ACC-20081,Coral Labs Group,Enterprise,Question,Installation,High,2026-07-20,,27,Customer reported: renewal question. Happens intermittently.,,4
+00001319,ACC-20151,Juniper Foods LLC,Commercial,Problem,Breakdown,Medium,2026-08-06,,5,Cannot log in after SSO change,,3
+00001320,ACC-20061,Frontier Manufacturing Corp [ACC-20061],Enterprise,Question,Installation,Medium,2025-10-13,,14,Customer reported: request to add 10 users. Happens intermittently.,,1
+00001322,ACC-20058,Vista Pharma LLC,SMB,Feature Request,Cannot log in after SSO change,Medium,2026-05-06,,47,Customer reported: cannot log in after sso change. See previous case.,,2
+00001323,ACC-20166,Harbor Manufacturing Corp,SMB,Other,Breakdown,Medium,2026-02-28,2026-03-01,25,Customer reported: asdf. Started after last release.,,4
+00001325,ACC-20012,Delta Labs Inc [ACC-20012],SMB,Problem,Feedback,High,2025-11-16,,38,Customer reported: data sync failing nightly. Happens intermittently.,,1
+00001327,ACC-20049,Vista Media Corp,Commercial,Other,Feature request: dark mode,Low,2026-02-10,,19,Customer reported: feature request: dark mode. See previous case.,,
+00001329,ACC-20030,westfield health co,Enterprise,Question,Performance,High,2026-03-27,2026-03-27,20,Password reset email not received,,5
+00001330,ACC-20184,Silver Health LLC [ACC-20184],SMB,Feature Request,URGENT!!! system down,Medium,2026-03-02,,31,Customer reported: urgent!!! system down. See previous case.,,
+00001333,ACC-20083,Frontier Bank Corp,Commercial,Feature Request,Existing problem,High,2025-11-12,,24,Billing address update,,4
+00001334,ACC-20011,Cedar Health Inc,Commercial,Question,Existing problem,Medium,2026-06-12,2026-06-12,15,Customer reported: invoice shows wrong amount. See previous case.,,
+00001335,ACC-20188,Granite Aerospace,Commercial,Problem,Installation,Low,2026-05-15,2026-05-15,18,Customer reported: invoice shows wrong amount. See previous case.,,
+00001336,ACC-20168,"Cedar Analytics, Inc",SMB,Other,Complex functionality,Low,2026-01-16,,30,Customer reported: cancel my account. Happens intermittently.,,4
+00001341,ACC-20095,Echo Software Inc,Commercial,Other,Feedback,High,2026-03-08,2026-03-09,27,Customer reported: cancel my account. See previous case.,,4
+00001342,ACC-20131,zenith bank [ACC-20131],SMB,Problem,Existing problem,High,2026-08-09,,52,Dashboard loading slowly,,
+00001343,ACC-20190,Vista Foods Inc [ACC-20190],SMB,Feature Request,Installation,Medium,2026-02-23,2026-02-24,31,Customer reported: duplicate records after import. Started after last release.,,3
+00001344,ACC-20190,Vista Foods Inc [ACC-20190],SMB,Feature Request,Installation,Medium,2025-11-14,2025-11-14,23,Customer reported: duplicate records after import. Started after last release.,,3
+00001346,ACC-20195,Harbor Aerospace Inc,Commercial,Other,Performance,High,2025-10-10,,57,Customer reported: cannot log in after sso change. See previous case.,,2
+00001348,ACC-20042,Granite Foods Co,SMB,Question,Complex functionality,High,2026-07-22,,43,Customer reported: feature request: dark mode. Steps attached in email thread.,,2
+00001349,ACC-20060,Harbor Freight Inc,Enterprise,Other,Performance,High,2026-03-22,,22,Customer reported: renewal question. Happens intermittently.,,2
+00001351,ACC-20126,Silver Health [ACC-20126],SMB,Question,Installation,Low,2026-02-17,,30,RE: RE: FW: question,,2
+00001353,ACC-20111,quartz telecom llc [ACC-20111],Commercial,Feature Request,Complex functionality,Medium,2026-05-06,2026-05-06,14,Customer reported: re: re: fw: question. Happens intermittently.,,
+00001355,ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,Feature Request,Performance,High,2025-11-12,2025-11-12,16,Customer reported: report export times out. Started after last release.,,3
+00001357,ACC-20003,Union Manufacturing Inc,SMB,Problem,Complex functionality,High,2026-07-25,,28,Customer reported: password reset email not received. Steps attached in email thread.,,3
+00001358,ACC-20183,River Energy Group,Commercial,Question,Installation,Medium,2026-09-16,,14,Customer reported: asdf. See previous case.,,
+00001361,ACC-20182,Lakeside Bank Co,Enterprise,Other,Existing problem,Medium,2026-05-31,,12,Customer reported: request to add 10 users. See previous case.,,3
+00001364,ACC-20001,Iron Consulting Inc,SMB,Question,Feedback,High,2026-06-06,,55,Customer reported: cannot log in after sso change. Happens intermittently.,,3
+00001365,ACC-20092,"Union Insurance, Inc [ACC-20092]",SMB,Other,Performance,Low,2026-06-22,2026-06-22,13,Customer reported: urgent!!! system down. Started after last release.,,3
+00001368,ACC-20059,Prairie Energy,SMB,Other,Performance,High,2026-07-03,2026-07-04,25,Customer reported: cannot log in after sso change. See previous case.,,
+00001372,ACC-30043,Westgate Education Corp,SMB,Question,Webhook not firing,Medium,2026-06-20,2026-06-22,52,Customer reported the issue through the support portal.,,4
+00001373,ACC-30045,Ironbridge Retail Co,SMB,Question,Permissions not applied to new users,Low,2026-04-01,,69,Customer reported the issue through the support portal.,,2
+00001375,ACC-30039,Granite Security Inc,Commercial,Other,Billing invoice incorrect,High,2026-06-21,,32,Customer reported the issue through the support portal.,,4
+00001376,ACC-30015,Quarrystone Education Ltd,Enterprise,Other,Need help configuring alerts,High,2026-06-20,,38,Customer reported the issue through the support portal.,,4
+00001377,ACC-30007,Cedarview Security Group,SMB,Problem,Export to CSV fails,Low,2026-07-09,,64,Customer reported the issue through the support portal.,,5
+00001378,ACC-30024,Quarrystone Logistics Co,SMB,Problem,Export to CSV fails,Low,2026-04-24,,73,Customer reported the issue through the support portal.,,1
+00001380,ACC-30015,Quarrystone Education Ltd,Enterprise,Feature Request,Webhook not firing,High,2026-05-05,,71,Customer reported the issue through the support portal.,,1
+00001382,ACC-30009,Copperleaf Analytics Inc,SMB,Feature Request,Report totals look wrong,High,2026-04-24,,59,Customer reported the issue through the support portal.,,3
+00001383,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Question,Report totals look wrong,Low,2026-06-26,,3,Customer reported the issue through the support portal.,,4
+00001384,ACC-30031,Pinecrest Insurance Group,Commercial,Other,Need help configuring alerts,Medium,2026-07-14,,28,Customer reported the issue through the support portal.,,2
+00001385,ACC-30004,Evergreen Media Group,Commercial,Problem,Export to CSV fails,Low,2026-06-02,,31,Customer reported the issue through the support portal.,,
+00001387,ACC-30004,Evergreen Media Group,Commercial,Question,Mobile app crashes on sync,Low,2026-07-22,,42,Customer reported the issue through the support portal.,,
+00001390,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Question,Dashboard loading slowly,Medium,2026-09-21,,40,Customer reported the issue through the support portal.,,5
+00001391,ACC-30031,Pinecrest Insurance Group,Commercial,Feature Request,Billing invoice incorrect,Medium,2026-04-09,,45,Customer reported the issue through the support portal.,,5
+00001392,ACC-30024,Quarrystone Logistics Co,SMB,Question,Cannot log in after SSO change,High,2026-09-17,,34,Customer reported the issue through the support portal.,,5
+00001393,ACC-30026,Clearpath Security Group,Enterprise,Other,Need help configuring alerts,Low,2026-06-20,,78,Customer reported the issue through the support portal.,,
+00001394,ACC-30042,Northstar Logistics Co,SMB,Feature Request,Cannot log in after SSO change,Medium,2026-04-22,,55,Customer reported the issue through the support portal.,,4
+00001395,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Feature Request,Need help configuring alerts,High,2026-05-31,,84,Customer reported the issue through the support portal.,,3
+00001396,ACC-30040,Starlight Foods Group,SMB,Other,Billing invoice incorrect,Medium,2026-07-14,,34,Customer reported the issue through the support portal.,,
+00001398,ACC-30028,Harborpoint Systems Ltd,Commercial,Feature Request,Cannot log in after SSO change,Medium,2026-04-13,,48,Customer reported the issue through the support portal.,,4
+00001399,ACC-30013,Keystone Software Group,Commercial,Feature Request,Dashboard loading slowly,High,2026-06-11,,22,Customer reported the issue through the support portal.,,
+00001401,ACC-30040,Starlight Foods Group,SMB,Feature Request,Permissions not applied to new users,High,2026-09-29,,36,Customer reported the issue through the support portal.,,2
+00001403,ACC-30010,Amberfield Networks Co,SMB,Problem,Need help configuring alerts,Low,2026-04-05,,75,Customer reported the issue through the support portal.,,
+00001404,ACC-30039,Granite Security Inc,Commercial,Feature Request,Export to CSV fails,Low,2026-09-08,2026-09-09,25,Customer reported the issue through the support portal.,,4
+00001407,ACC-30011,Westgate Biotech Ltd,SMB,Question,API rate limit errors,Medium,2026-09-07,,89,Customer reported the issue through the support portal.,,4
+00001408,ACC-30032,Copperleaf Labs Inc,SMB,Problem,Cannot log in after SSO change,Medium,2026-05-04,,10,Customer reported the issue through the support portal.,,1
+00001410,ACC-30024,Quarrystone Logistics Co,SMB,Problem,Cannot log in after SSO change,High,2026-08-28,,52,Customer reported the issue through the support portal.,,2
+00001411,ACC-30031,Pinecrest Insurance Group,Commercial,Other,API rate limit errors,Medium,2026-04-27,,6,Customer reported the issue through the support portal.,,3
+00001412,ACC-30006,Amberfield Media LLC,Commercial,Problem,Report totals look wrong,Medium,2026-10-12,,29,Customer reported the issue through the support portal.,,5
+00001416,ACC-30045,Ironbridge Retail Co,SMB,Feature Request,Webhook not firing,Medium,2026-08-16,,10,Customer reported the issue through the support portal.,,4
+00001417,ACC-30010,Amberfield Networks Co,SMB,Problem,Billing invoice incorrect,High,2026-06-25,,47,Customer reported the issue through the support portal.,,2
+00001419,ACC-30006,Amberfield Media LLC,Commercial,Problem,Cannot log in after SSO change,High,2026-05-12,,67,Customer reported the issue through the support portal.,,1

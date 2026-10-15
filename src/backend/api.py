@@ -48,6 +48,8 @@ from core.health_scoring import CustomerHealthScorer
 from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
+from core.datasource import data_dir, is_synthetic, source_name, survival_model_path, warehouse_path
+from connectors.salesforce import describe_report
 from core.llm import active_configuration
 import security
 from model.survival import ChurnSurvivalModel
@@ -86,6 +88,10 @@ class ServiceState:
         self.evidence: Optional[CustomerEvidence] = None
         self.exposure: Optional[ExposureModel] = None
         self.errors: dict[str, str] = {}
+        # Components off on purpose for this data source, with the reason. Not a
+        # fault: the data does not support them yet. Kept apart from errors so a
+        # health check can tell "switched off by design" from "broken".
+        self.not_applicable: dict[str, str] = {}
         # (monotonic timestamp, problem or None) for the retrieval probe.
         self._probe_cache: Optional[tuple[float, Optional[str]]] = None
 
@@ -97,6 +103,16 @@ class ServiceState:
     def unavailable(self, component: str, reason: str) -> None:
         self.errors[component] = reason
         logger.warning(f"⚠️  {component} unavailable: {reason}")
+
+    def switched_off(self, component: str, reason: str) -> None:
+        """Off by design for this source. Recorded as a reason too, so a 503 explains itself."""
+        self.not_applicable[component] = reason
+        self.errors[component] = reason
+        logger.info(f"○ {component} off for this data source: {reason}")
+
+    @property
+    def ai_not_applicable(self) -> bool:
+        return all(c in self.not_applicable for c in AI_COMPONENTS)
 
     @property
     def ai_ready(self) -> bool:
@@ -171,9 +187,7 @@ state = ServiceState()
 def _init_health_scorer() -> None:
     """Health scoring works from CSV alone -- no API key, no vector store."""
     try:
-        state.health_scorer = CustomerHealthScorer(
-            churn_data_path=os.getenv("CHURN_DATA_PATH", "data/churned_customers_cleaned.csv")
-        )
+        state.health_scorer = CustomerHealthScorer(data_folder=data_dir())
         logger.info("✓ Health scorer initialized")
     except Exception as e:
         state.unavailable("health_scorer", f"{type(e).__name__}: {e}")
@@ -181,7 +195,7 @@ def _init_health_scorer() -> None:
     # Recommendations are computed from recorded outcomes, not generated, so they
     # work without an API key and belong in the degraded-mode tier.
     try:
-        state.playbook = PlaybookEngine(os.getenv("DATA_FOLDER", "data"))
+        state.playbook = PlaybookEngine(data_dir())
         logger.info("✓ Playbook initialized")
     except Exception as e:
         state.unavailable("playbook", f"{type(e).__name__}: {e}")
@@ -190,7 +204,7 @@ def _init_health_scorer() -> None:
     # BM25, so it needs neither an API key nor the vector store.
     try:
         from utils.data_loader import ChurnDataLoader
-        docs = ChurnDataLoader(os.getenv("DATA_FOLDER", "data")).get_all_documents()
+        docs = ChurnDataLoader(data_dir()).get_all_documents()
         state.evidence = CustomerEvidence(docs)
         logger.info("✓ Evidence index initialized")
     except Exception as e:
@@ -201,12 +215,26 @@ def _init_health_scorer() -> None:
     _init_survival()
 
 
+# Weekly history a source needs before a churn model is fitted to it. Two years:
+# 12-week rolling features plus a 13-week label horizon consume the first and last
+# quarter of any window (docs/SITE_SURVEY.md, V1).
+MIN_HISTORY_WEEKS = 104
+
+
 def _init_survival() -> None:
     """Load the trained survival model and the feature rows it scores."""
-    model_path = Path(os.getenv("SURVIVAL_MODEL_PATH", "models/survival.joblib"))
-    warehouse = Path(os.getenv("DUCKDB_PATH", "warehouse/churnguard.duckdb"))
+    model_path = survival_model_path()
+    warehouse = warehouse_path()
 
     if not model_path.exists():
+        weeks = state.health_scorer.history_weeks() if state.health_scorer else None
+        if weeks is not None and weeks < MIN_HISTORY_WEEKS:
+            reason = (f"Not enough history yet: {weeks} week{'s' if weeks != 1 else ''} of usage per "
+                      f"account, and a churn prediction needs about {MIN_HISTORY_WEEKS} weeks "
+                      f"(two years).")
+            state.switched_off("survival_model", reason)
+            state.switched_off("exposure", reason)
+            return
         state.unavailable("survival_model", f"no model at {model_path}; run scripts/train_survival_model.py")
         return
     if not warehouse.exists():
@@ -255,6 +283,14 @@ def _init_ai_stack() -> None:
         _ai_unavailable("disabled via ENABLE_RAG=false")
         return
 
+    if not is_synthetic():
+        reason = (f"The assistant searches documents written for the synthetic test data. "
+                  f"It is off on {source_name()} data until it is rebuilt on that source's "
+                  f"notes and cases.")
+        for component in AI_COMPONENTS:
+            state.switched_off(component, reason)
+        return
+
     if not os.getenv("OPENAI_API_KEY"):
         _ai_unavailable("OPENAI_API_KEY is not set")
         return
@@ -266,7 +302,7 @@ def _init_ai_stack() -> None:
             qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333"),
         )
         num_docs = state.rag_retriever.load_and_process_documents(
-            data_folder=os.getenv("DATA_FOLDER", "data")
+            data_folder=data_dir()
         )
         logger.info(f"✓ Indexed {num_docs} documents")
     except Exception as e:
@@ -418,6 +454,8 @@ class HealthResponse(BaseModel):
     degraded: bool = False
     components: dict = {}
     errors: dict = {}
+    not_applicable: dict = {}
+    source: str = ""
     llm: dict = {}
     security: dict = {}
 
@@ -458,12 +496,15 @@ async def health_check():
     fail, so on its own it cannot gate traffic.
     """
     return HealthResponse(
-        status="healthy" if state.ai_ready else "degraded" if state.core_ready else "unhealthy",
+        status=("healthy" if state.ai_ready or state.ai_not_applicable
+                else "degraded" if state.core_ready else "unhealthy"),
         timestamp=datetime.now().isoformat(),
         service="customer-churn-rag-api",
-        degraded=not state.ai_ready,
+        degraded=not (state.ai_ready or state.ai_not_applicable),
         components=state.components(),
         errors=state.errors,
+        not_applicable=state.not_applicable,
+        source=source_name(),
         # Which provider is actually configured, so a deployment can be audited
         # without reading the environment. Never includes a credential.
         llm=active_configuration(),
@@ -483,12 +524,18 @@ async def readiness_check(require_ai_stack: bool = False):
     readiness means the CSV-backed endpoints work; pass require_ai_stack=true to also
     demand the LLM stack.
     """
-    ready = state.ai_ready if require_ai_stack else state.core_ready
+    # An AI stack switched off for this source is not a failure: there is nothing
+    # it could serve. Broken and off-by-design are reported apart, under errors and
+    # not_applicable, so a monitor can still tell them apart.
+    ai_ok = state.ai_ready or state.ai_not_applicable
+    ready = ai_ok if require_ai_stack else state.core_ready
     payload = {
         "ready": ready,
         "timestamp": datetime.now().isoformat(),
+        "source": source_name(),
         "components": state.components(),
         "errors": state.errors,
+        "not_applicable": state.not_applicable,
     }
     # Name the specific fault rather than leaving a caller to infer it from a
     # false in the components map.
@@ -855,6 +902,63 @@ def _read_retrieval_baseline(path: Path) -> dict:
     }
 
 
+# Where the Salesforce connector writes its report. A relative path, resolved per
+# request, so tests that point ROOT elsewhere are not reading the real repo.
+SALESFORCE_REPORT = Path("data") / "salesforce" / "ingest_report.json"
+
+
+@app.get("/source")
+async def get_source():
+    """Which data this deployment serves, so every page can say so.
+
+    The site shows integration data only; the synthetic set is test data. A page
+    that does not know which it is showing cannot be honest about it.
+    """
+    import json
+
+    name = source_name()
+    if name == "synthetic":
+        return {"source": name, "label": "Synthetic test data", "synthetic": True,
+                "as_of": None, "seeded": False}
+    info = {"source": name, "label": name.replace("_", " ").title(), "synthetic": False,
+            "as_of": None, "seeded": False}
+    if name == "salesforce":
+        info.update(label="Salesforce", seeded=True)
+        report = ROOT / SALESFORCE_REPORT
+        if report.exists():
+            try:
+                info["as_of"] = json.loads(report.read_text()).get("as_of")
+            except (OSError, ValueError):
+                pass
+    return info
+
+
+@app.get("/integrations/salesforce")
+async def get_salesforce_integration():
+    """What the last Salesforce pull brought in, and what the connector decided.
+
+    Read from the report the connector writes on every pull, so every number on
+    the Integrations page traces to a run rather than to copy. It describes the
+    Salesforce source whatever CHURNGUARD_DATA_DIR the rest of the API is serving:
+    the page reports the integration, not the data the site happens to show.
+    """
+    import json
+
+    path = ROOT / SALESFORCE_REPORT
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No Salesforce pull recorded yet. Run the connector: "
+                   "python -m src.connectors.salesforce --out data/salesforce",
+        )
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        logger.error(f"Error reading {path}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to read {path.name}: {type(e).__name__}")
+    return describe_report(report)
+
+
 @app.get("/evaluation-results")
 async def get_evaluation_results():
     """Whichever evaluation baseline has been recorded, or 404 if none has.
@@ -876,6 +980,14 @@ async def get_evaluation_results():
     questions referencing customers that existed in no data file, and it
     produced the retracted 94.7% claim. See ADR-0007.
     """
+    if not is_synthetic():
+        raise HTTPException(
+            status_code=404,
+            detail=(f"No evaluation for {source_name()} data yet. The question set is "
+                    f"built from the synthetic test data, so its scores say nothing "
+                    f"about this source."),
+        )
+
     metrics_dir = ROOT / "metrics"
 
     for path, reader in ((metrics_dir / RAGAS_BASELINE_NAME, _read_ragas_baseline),
@@ -1038,6 +1150,19 @@ async def get_customer_evidence(customer_id: int):
     }
 
 
+def not_enough_history(component: str) -> Optional[dict]:
+    """The response for a model-backed endpoint on a source without the history for it.
+
+    200, not 503: nothing is broken, the data does not support a prediction yet, and
+    the page should say that rather than show an error.
+    """
+    if component not in state.not_applicable:
+        return None
+    return {"available": False, "reason": state.not_applicable[component],
+            "weeks_of_history": state.health_scorer.history_weeks() if state.health_scorer else None,
+            "weeks_needed": MIN_HISTORY_WEEKS}
+
+
 @app.get("/customer/{customer_id}/likelihood")
 async def get_customer_likelihood(customer_id: int):
     """How likely this account is to churn within a quarter.
@@ -1050,6 +1175,8 @@ async def get_customer_likelihood(customer_id: int):
     """
     health_scorer = require_health_scorer()
 
+    if (off := not_enough_history("survival_model")) is not None:
+        return off
     if state.survival is None or state.survival_frame is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1115,7 +1242,10 @@ async def get_customer_plays(customer_id: int):
         "risk_reason": customer["risk_reason"],
         "segment": customer["segment"],
         "plays": [p.to_dict() for p in plays],
-        "basis": "Outcomes recorded on accounts that faced the same challenge",
+        "basis": ("Renewals after save plays recorded in the CRM, failures counted"
+                  if state.playbook.mode == "outcomes"
+                  else "Outcomes recorded on accounts that faced the same challenge"),
+        "mode": state.playbook.mode,
     }
 
 
@@ -1135,6 +1265,8 @@ async def get_book_exposure(horizon_weeks: int = 13, top_n: int = 10):
     """
     health_scorer = require_health_scorer()
 
+    if (off := not_enough_history("exposure")) is not None:
+        return off
     if state.exposure is None or state.survival_frame is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1157,6 +1289,8 @@ async def get_customer_exposure(customer_id: int, horizon_weeks: int = 13):
     """One account's ARR weighted by its probability of leaving this quarter."""
     health_scorer = require_health_scorer()
 
+    if (off := not_enough_history("exposure")) is not None:
+        return off
     if state.exposure is None or state.survival_frame is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

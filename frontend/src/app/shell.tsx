@@ -23,6 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
 import { WakeGate, WakeScreen } from './wake-screen';
 
@@ -87,8 +88,8 @@ export function Rail() {
  * rail visible while waiting, because a bare centred message on a blank page
  * reads as an error screen no matter what it says.
  *
- * Pages that need no backend -- /integrations is static -- deliberately do not
- * use it. Making them wait for a server they never call would be a regression.
+ * A page that never calls the backend should not use it: making it wait for a
+ * server it does not need would be a regression. Every page currently does.
  */
 export function BootGate({ children }: { children: React.ReactNode }) {
   return (
@@ -130,7 +131,10 @@ export function Shell({
               <p className="truncate text-xs text-muted-foreground">{description}</p>
             )}
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          <div className="flex shrink-0 items-center gap-3">
+            <SourceLabel />
+            {actions}
+          </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>

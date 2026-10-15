@@ -112,6 +112,13 @@ jobs:
           # sail through this check while nothing verified the join, which is
           # the same false green this workflow exists to prevent.
           components = data.get("components") or {}
+          # The AI stack is switched off on integration data until it is rebuilt
+          # on that source (1.8). Off by design is reported under not_applicable,
+          # never under a false component, so this cannot mask a broken join.
+          off = data.get("not_applicable") or {}
+          if "rag_retriever" in off:
+              print(f"ready=true; AI stack off for source {data.get('source')!r}: {off['rag_retriever']}")
+              sys.exit(0)
           if "retrieval_join" not in components:
               print("::error::backend does not report retrieval_join; it predates "
                     "the readiness probe, so this check verified nothing")

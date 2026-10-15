@@ -79,13 +79,85 @@ class Play:
         }
 
 
+@dataclass
+class OutcomePlay:
+    """A save play and what happened at the renewal after it, failures included.
+
+    Built from recorded interventions (a CSM's save play, then the renewal deal),
+    not from success write-ups, so a play that usually fails shows as one.
+    """
+
+    action: str
+    challenge: str
+    scope: str                 # "this challenge" or "any challenge"
+    renewed: int
+    decided: int               # renewed + churned; pending renewals are not counted
+    pending: int
+    examples: List[str] = field(default_factory=list)
+
+    @property
+    def save_rate(self) -> float:
+        return self.renewed / self.decided if self.decided else 0.0
+
+    @property
+    def save_rate_floor(self) -> float:
+        """Lower end of a 90% Wilson interval on the save rate.
+
+        Ranking on the raw rate puts 3 of 3 above 9 of 11; ranking on case count put a
+        play that renewed 1 of 6 at the top of "what has worked". The interval's floor
+        rewards a high rate and penalises a thin record, in one number.
+        """
+        n, z = self.decided, 1.645
+        if not n:
+            return 0.0
+        rate = self.renewed / n
+        centre = rate + z * z / (2 * n)
+        margin = z * ((rate * (1 - rate) + z * z / (4 * n)) / n) ** 0.5
+        return max(0.0, (centre - margin) / (1 + z * z / n))
+
+    @property
+    def confidence(self) -> str:
+        if self.decided >= 15:
+            return "strong"
+        if self.decided >= 8:
+            return "moderate"
+        return "limited"
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": "outcome",
+            "action": self.action,
+            "challenge": self.challenge,
+            "scope": self.scope,
+            "renewed": self.renewed,
+            "decided": self.decided,
+            "pending": self.pending,
+            "save_rate": round(self.save_rate, 3),
+            "save_rate_floor": round(self.save_rate_floor, 3),
+            "cases": self.decided,
+            "confidence": self.confidence,
+            "examples": self.examples,
+        }
+
+
 class PlaybookEngine:
     """Matches an at-risk account to solutions that worked on comparable accounts."""
 
     def __init__(self, data_folder: str = "data"):
         path = Path(data_folder) / "success_stories.csv"
         self.stories = pd.read_csv(path)
-        logger.info(f"Playbook loaded: {len(self.stories)} resolved cases")
+
+        # A source that records save plays and the renewal after each (Salesforce,
+        # via the connector's interventions table) is the better evidence: it counts
+        # the plays that failed. When it exists, it is used instead of write-ups.
+        interventions = Path(data_folder) / "interventions.csv"
+        self.interventions = (pd.read_csv(interventions, keep_default_na=False)
+                              if interventions.exists() else pd.DataFrame())
+        decided = (self.interventions["outcome"].isin(["renewed", "churned"]).sum()
+                   if not self.interventions.empty else 0)
+        self.mode = "outcomes" if decided else "stories"
+        logger.info(f"Playbook loaded: {len(self.stories)} resolved cases, "
+                    f"{len(self.interventions)} recorded save plays ({self.mode})")
 
     def plays_for(
         self,
@@ -104,6 +176,8 @@ class PlaybookEngine:
         categories = DRIVER_TO_CHALLENGE.get(risk_reason, [])
         if not categories:
             return []
+        if self.mode == "outcomes":
+            return self._outcome_plays(categories, limit)
 
         matched = self.stories[self.stories["challenge_category"].isin(categories)]
         if matched.empty:
@@ -141,6 +215,37 @@ class PlaybookEngine:
             key=lambda p: (p.same_segment_cases, p.cases, p.median_adoption_gain),
             reverse=True,
         )
+        return plays[:limit]
+
+    def _outcome_plays(self, categories: List[str], limit: int) -> List["OutcomePlay"]:
+        """Plays ranked by decided renewals, on this challenge where the sample allows.
+
+        Falls back to the play's record on any challenge, and says so, when fewer
+        than MIN_CASES renewals have been decided on this one. Never reports a play
+        on fewer than MIN_CASES decided renewals at all.
+        """
+        frame = self.interventions
+        plays: List[OutcomePlay] = []
+        for action, group in frame.groupby("play"):
+            on_challenge = group[group["challenge_category"].isin(categories)]
+            scope, rows = ("this challenge", on_challenge)
+            decided = rows[rows["outcome"].isin(["renewed", "churned"])]
+            if len(decided) < MIN_CASES:
+                scope, rows = ("any challenge", group)
+                decided = rows[rows["outcome"].isin(["renewed", "churned"])]
+            if len(decided) < MIN_CASES:
+                continue
+            plays.append(OutcomePlay(
+                action=action,
+                challenge=", ".join(categories) if scope == "this challenge" else "any",
+                scope=scope,
+                renewed=int((decided["outcome"] == "renewed").sum()),
+                decided=len(decided),
+                pending=int((rows["outcome"] == "pending").sum()),
+                examples=decided["company_name"].head(3).tolist(),
+            ))
+        # Best supported save rate first; see save_rate_floor.
+        plays.sort(key=lambda p: (p.save_rate_floor, p.decided), reverse=True)
         return plays[:limit]
 
     def coverage(self) -> Dict[str, int]:

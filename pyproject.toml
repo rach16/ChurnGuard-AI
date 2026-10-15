@@ -71,6 +71,11 @@ warehouse = [
     "dbt-core>=1.9.0",
     "dbt-duckdb>=1.9.0",
 ]
+# Salesforce ingestion (src/connectors/salesforce.py). Only the fetch half needs it;
+# transform() and its tests are stdlib-only.
+salesforce = [
+    "simple-salesforce>=1.12.6",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",

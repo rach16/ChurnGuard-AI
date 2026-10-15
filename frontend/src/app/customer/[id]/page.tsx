@@ -62,11 +62,8 @@ interface Detail {
   analysis: {
     engagement_history: { date: string; engagement_score: number; feature_adoption_rate: number }[];
     support_tickets: Record<string, any>[];
-    feature_usage: { feature: string; usage_rate: number }[];
     interactions: { date: string; type: string; content: string }[];
     predictions: {
-      churn_probability: number;
-      days_until_churn: number;
       contributing_factors: {
         factor: string;
         weight: number;
@@ -142,9 +139,6 @@ function CustomerPage() {
               <Badge variant="outline" className="mt-2">
                 {c.risk_level}
               </Badge>
-              <p className="mt-3 text-center text-xs text-muted-foreground">
-                ~{a.predictions.days_until_churn} days · heuristic, not modelled
-              </p>
             </CardContent>
           </Card>
 
@@ -174,7 +168,7 @@ function CustomerPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Engagement</CardTitle>
             <p className="text-xs text-muted-foreground">
-              {a.engagement_history.length} weekly observations
+              {a.engagement_history.length} weekly observation{a.engagement_history.length === 1 ? '' : 's'}
             </p>
           </CardHeader>
           <CardContent>
@@ -319,13 +313,6 @@ function CustomerPage() {
             ))}
           </CardContent>
         </Card>
-
-        <p className="pb-2 text-xs leading-relaxed text-muted-foreground">
-          Feature usage is spread deterministically around the observed adoption rate;
-          the dataset records one overall figure rather than per-feature telemetry.
-          The predicted horizon comes from the heuristic score and carries no
-          confidence interval until the survival model is calibrated.
-        </p>
       </div>
     </Shell>
   );

@@ -29,8 +29,10 @@ services:
         value: 0.0.0.0
       - key: LOG_LEVEL
         value: INFO
-      - key: DATA_FOLDER
-        value: data
+      # The live site shows integration data only (1.8). The synthetic set is test
+      # data; set this back to `data` to roll back, which is a restart, not a rebuild.
+      - key: CHURNGUARD_DATA_DIR
+        value: data/salesforce
 
       # Set in the dashboard, not here. ':memory:' works but rebuilds the index
       # on every wake -- 771 documents embedded, about a cent and ~60s of a
@@ -60,3 +62,50 @@ services:
 
       # No API_KEYS: a public demo cannot ask a visitor for a credential. The
       # rate limits above are what protect it instead.
+
+  # Staging: the same service built from the `staging` branch, so a change can
+  # be seen running before it reaches the live site. DEPLOYMENT_SPEC.md Step 3.
+  #
+  # Free hours are pooled: 750 a month across every free service in the
+  # workspace. Production uses roughly half (the heartbeat lets it sleep between
+  # probes). Staging sleeps unless something is hitting it, so it costs hours
+  # only while it is being used. If production is ever kept permanently awake
+  # by an external pinger (~730 h), there is no room left for this service and
+  # Render suspends both until the month ends. Watch the hours, not the price.
+  #
+  # Serves the Salesforce data, which is what the site shows once 1.8 reaches
+  # production. Production keeps the synthetic set until that switch is approved.
+  - type: web
+    name: churnguard-backend-staging
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: staging
+    autoDeploy: true
+    dockerfilePath: ./src/backend/Dockerfile
+    dockerContext: .
+    dockerCommand: uv run python /app/src/backend/api.py
+    healthCheckPath: /health
+    envVars:
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: LOG_LEVEL
+        value: INFO
+      - key: CHURNGUARD_DATA_DIR
+        value: data/salesforce
+      # Shared with production: one free Qdrant cluster, and the index is read,
+      # never rebuilt, at startup. Never set REINDEX_ON_START here.
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: LLM_MAX_TOKENS
+        value: "1024"
+      - key: MAX_QUESTION_CHARS
+        value: "2000"
+      - key: LLM_RATE_LIMIT_PER_HOUR
+        value: "10"
+      - key: LLM_DAILY_BUDGET
+        value: "200"
+      # Deliberately absent on staging: OPENAI_API_KEY. Everything except the AI
+      # question box works without it, and staging should not be able to spend.

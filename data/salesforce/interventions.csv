@@ -1,0 +1,49 @@
+customer_id,company_name,segment,play,challenge_category,play_date,outcome,renewal_close_date
+ACC-30001,Pinecrest Software Inc [ACC-30001],Commercial,Ran dedicated onboarding sessions,Pricing Concerns,2025-12-19,churned,2026-02-22
+ACC-30002,Clearpath Software Group [ACC-30002],SMB,Ran dedicated onboarding sessions,Support Issues,2025-12-18,churned,2026-02-15
+ACC-30003,Clearpath Logistics LLC [ACC-30003],SMB,Held executive business review,Adoption Challenges,2025-12-25,churned,2026-03-03
+ACC-30004,Evergreen Media Group,Commercial,Provided API access for customization,Competition,2026-07-17,churned,2026-08-25
+ACC-30005,Harborpoint Foods Ltd,Enterprise,Provided API access for customization,Competition,2026-07-19,renewed,2026-08-27
+ACC-30007,Cedarview Security Group,SMB,Offered custom pricing tier,Adoption Challenges,2026-05-18,renewed,2026-06-24
+ACC-30008,Foxglove Logistics Corp,Commercial,Offered custom pricing tier,Adoption Challenges,2026-03-15,churned,2026-05-31
+ACC-30009,Copperleaf Analytics Inc,SMB,Created internal champions program,Pricing Concerns,2026-03-15,renewed,2026-05-08
+ACC-30010,Amberfield Networks Co,SMB,Created internal champions program,Competition,2025-12-09,renewed,2026-01-14
+ACC-30012,Ironbridge Security LLC,Commercial,Created internal champions program,Pricing Concerns,2026-12-26,pending,2027-02-06
+ACC-30013,Keystone Software Group,Commercial,Ran dedicated onboarding sessions,Adoption Challenges,2026-07-22,churned,2026-09-27
+ACC-30014,Foxglove Robotics Inc,Enterprise,Ran dedicated onboarding sessions,Product Fit,2026-01-22,renewed,2026-03-02
+ACC-30015,Quarrystone Education Ltd,Enterprise,Held executive business review,Product Fit,2026-06-10,churned,2026-07-11
+ACC-30016,Meridian Systems LLC,Enterprise,Provided API access for customization,Support Issues,2026-01-11,churned,2026-03-14
+ACC-30017,Quarrystone Health Co,Commercial,Held executive business review,Adoption Challenges,2026-06-13,churned,2026-07-21
+ACC-30018,Sterling Capital Ltd,SMB,Offered custom pricing tier,Product Fit,2026-06-08,churned,2026-07-21
+ACC-30019,Oakridge Systems Co,Enterprise,Provided API access for customization,Competition,2026-08-08,churned,2026-09-08
+ACC-30020,Starlight Biotech Corp,Enterprise,Created internal champions program,Competition,2026-08-20,pending,2026-11-06
+ACC-30021,Cedarview Foods Corp,Commercial,Provided API access for customization,Adoption Challenges,2025-11-03,churned,2026-01-25
+ACC-30022,Oakridge Robotics Corp,Commercial,Offered custom pricing tier,Adoption Challenges,2025-09-20,churned,2025-12-19
+ACC-30023,Pinecrest Logistics Group,SMB,Offered custom pricing tier,Product Fit,2026-04-18,churned,2026-07-03
+ACC-30024,Quarrystone Logistics Co,SMB,Provided API access for customization,Product Fit,2026-05-02,renewed,2026-07-25
+ACC-30025,Foxglove Media Corp,SMB,Held executive business review,Product Fit,2026-07-28,renewed,2026-09-22
+ACC-30026,Clearpath Security Group,Enterprise,Created internal champions program,Competition,2026-10-20,pending,2026-12-19
+ACC-30027,Cedarview Insurance LLC,SMB,Held executive business review,Pricing Concerns,2025-12-15,churned,2026-01-20
+ACC-30028,Harborpoint Systems Ltd,Commercial,Held executive business review,Pricing Concerns,2026-09-29,pending,2026-11-08
+ACC-30029,Starlight Freight Co,Commercial,Provided API access for customization,Product Fit,2026-02-28,renewed,2026-04-07
+ACC-30030,Foxglove Education Inc,SMB,Created internal champions program,Product Fit,2026-04-23,churned,2026-05-26
+ACC-30031,Pinecrest Insurance Group,Commercial,Offered custom pricing tier,Support Issues,2026-12-08,pending,2027-01-14
+ACC-30032,Copperleaf Labs Inc,SMB,Offered custom pricing tier,Competition,2026-04-17,churned,2026-05-24
+ACC-30033,Sterling Health Ltd,SMB,Provided API access for customization,Adoption Challenges,2026-04-10,renewed,2026-07-02
+ACC-30034,Ironbridge Biotech LLC,SMB,Ran dedicated onboarding sessions,Product Fit,2025-12-09,churned,2026-02-13
+ACC-30035,Copperleaf Freight LLC,SMB,Created internal champions program,Product Fit,2026-08-06,renewed,2026-09-16
+ACC-30036,Oakridge Manufacturing Corp,SMB,Provided API access for customization,Competition,2025-12-21,renewed,2026-01-25
+ACC-30037,Northstar Telecom Corp,SMB,Offered custom pricing tier,Pricing Concerns,2025-12-12,churned,2026-03-01
+ACC-30038,Copperleaf Systems Co,Commercial,Offered custom pricing tier,Adoption Challenges,2025-11-13,churned,2026-02-11
+ACC-30039,Granite Security Inc,Commercial,Ran dedicated onboarding sessions,Support Issues,2026-11-12,pending,2026-12-25
+ACC-30040,Starlight Foods Group,SMB,Created internal champions program,Pricing Concerns,2026-02-27,renewed,2026-04-02
+ACC-30041,Pinecrest Education Co,Enterprise,Ran dedicated onboarding sessions,Competition,2026-04-28,renewed,2026-06-04
+ACC-30042,Northstar Logistics Co,SMB,Created internal champions program,Pricing Concerns,2026-04-06,renewed,2026-06-18
+ACC-30043,Westgate Education Corp,SMB,Created internal champions program,Support Issues,2026-01-14,renewed,2026-03-08
+ACC-30044,Quarrystone Analytics Corp,SMB,Held executive business review,Pricing Concerns,2026-03-12,churned,2026-05-19
+ACC-30045,Ironbridge Retail Co,SMB,Ran dedicated onboarding sessions,Support Issues,2026-07-13,churned,2026-09-28
+ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Held executive business review,Adoption Challenges,2026-11-05,pending,2027-01-13
+ACC-30047,"CLEARPATH SOFTWARE, INC. [ACC-30047]",Enterprise,Created internal champions program,Adoption Challenges,2026-11-13,pending,2027-02-04
+ACC-30048,"CLEARPATH LOGISTICS, CORP. [ACC-30048]",SMB,Provided API access for customization,Adoption Challenges,2025-11-08,renewed,2025-12-28
+ACC-30038,Copperleaf Systems Co,Commercial,Held executive business review,Pricing Concerns,2025-11-13,churned,2026-02-11
+ACC-30003,Clearpath Logistics LLC [ACC-30003],SMB,Held executive business review,Adoption Challenges,2025-12-25,churned,2026-03-03

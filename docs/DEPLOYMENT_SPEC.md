@@ -185,13 +185,38 @@ and a **production** one that real people use, usually on two addresses such as
 
 For you:
 
-- Make a branch in git called `staging`. Vercel will automatically publish it to
-  `staging.churnguard.com`.
-- Make a second free Render service for the staging back end.
-- Point the staging site's rewrite at the staging back end.
+- A branch in git called `staging`. Vercel already builds every branch to its own
+  address, so this one gets `churn-guard-ai-git-staging-<team>.vercel.app` with no
+  setup. (A nicer name like `staging.churnguard.banik.dev` is one CNAME at Porkbun
+  plus assigning the domain to the branch in Vercel. Optional.)
+- A second free Render service, `churnguard-backend-staging`, built from the
+  `staging` branch. It is defined in `render.yaml` next to the live one.
+- The staging site's rewrite pointed at the staging back end. `BACKEND_ORIGIN` is
+  read when the site is *built*, so in Vercel it is set per environment: the
+  **Production** value stays as it is, and a second value for **Preview**,
+  restricted to the `staging` branch, holds the staging Render address.
 
-**How to check it worked:** push a change to the `staging` branch, see it appear on
-the staging address, and confirm the live site did not change.
+Two things to know. Vercel shows preview sites only to people logged in to your
+Vercel account, which is fine: it is a practice copy, not a public one. And Render's
+free plan gives 750 hours a month shared across all your free services; staging
+sleeps when nobody is using it, so it costs almost none, but a pinger that keeps
+production awake all month would leave no room for it.
+
+Staging starts on the same synthetic data as the live site, so the first thing it
+proves is the copy itself. Pointing it at the Salesforce data is the first real
+test, and it is expected to fail at first: the Docker image only builds the
+synthetic warehouse and model. Finding that out on staging instead of live is the
+whole point.
+
+**How to check it worked:** push a change to the `staging` branch, see it appear
+at the staging address, open the Network tab and confirm `/api/health` answers
+from there, then open the live site and confirm it did not change.
+
+Done 2026-10-14 and verified: the staging preview answers `/api/health` from the
+staging backend, and the live site did not change. One surprise: Vercel skips a
+branch whose commit it has already built for another branch, so a brand-new
+`staging` pointing at an existing commit gets no preview until something new is
+pushed to it, or one is started by hand. The optional CNAME is not done.
 
 ## Step 4: notice when it breaks
 

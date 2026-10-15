@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-09-02 · `main` @ `be7d69b` · 133 commits since fork.
+Last updated 2026-10-15 · `feat/salesforce-ingest` and `staging` @ `cc5520c` (unmerged) · `main` @ `76058b1`.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -9,7 +9,13 @@ predicted churn date. See **Re-derivation** at the foot for what moved and why.
 
 ## In flight
 
-Nothing. **The system is deployed and public.**
+**Positioning, decided 2026-10-04:** a production-grade churn product for B2B SaaS
+companies. The reference customer is a Salesforce org plus a Mixpanel project, both
+real services holding **seeded** data. "Production" describes the engineering
+standard (real connectors, scheduled sync, monitoring, security). It is not a claim
+of real customers, and nothing may be written as if it were (ADR-0007).
+
+Work in flight: `feat/salesforce-ingest`, unmerged. **The system on `main` is deployed and public.**
 
 **Live at https://churnguard.banik.dev** (2026-09-03).
 
@@ -21,6 +27,7 @@ Nothing. **The system is deployed and public.**
 | Backend | Render free tier, reached only through the `/api` rewrite | ✅ |
 | Vector index | Qdrant Cloud free tier, us-west-2 | ✅ |
 | AI chat | Render + OpenAI key | ✅ |
+| Staging | `churnguard-backend-staging.onrender.com` (free, branch `staging`, no OpenAI key) behind a Vercel preview of `staging`, login-gated | ✅ |
 
 Verified on the new domain 2026-09-03: page 200 in 1.0s, `/api/health` healthy
 and not degraded, `/api/dashboard-stats` returns $2,234,200 across 129 accounts,
@@ -107,6 +114,12 @@ exists, so nothing is accruing.
 | **2.9** | Backend live on Render; site works with the laptop off | `989eb89`, `b82345c`, `786a758` | **The demo is now reachable by anyone.** Three bugs no local run could catch: model and warehouse absent from the image, `scikit-learn` and `duckdb` not installed at runtime, and `jupyter` being the last Docker stage so a target-less build shipped the wrong image. Fetch timeout 10s → 90s for free-tier cold starts. | P2 · Deployment |
 | **2.10** | Vector index persisted; cold start 66s → 2s | `e8ffac3`, `79c51d9` | Startup dropped and re-embedded 771 documents on **every wake** — most of a 66s cold start, ~1¢ each time. Index now lives in a free Qdrant Cloud cluster and startup binds to it. Measured 2026-09-02 after 17 min idle. | P2 · Deployment |
 | **2.2w** | Terraform written, not applied | `782c291` | 26 resources across 643 lines; `terraform validate` passes. $0 spent. | P2 · IaC, networking |
+| **1.5a** | Salesforce connector; first pull from `churnguard-dev` | `61ea46c` | **First data in the project this repo did not generate itself.** 244 accounts read → 150 customers, 94 prospects excluded, 33 churned. 40 duplicate-name groups flagged (5 planted, 35 not). Raw pull gitignored; canonical CSVs and `ingest_report.json` tracked. Figures in ADR-0011. | P1 · Data quality, ingestion |
+| **5.5** | Site survey of the Salesforce org | `8e9ab65` | **🔴 Red**, first survey against a real org (seeded data, marked as such). Binding reds D2 (1 week of usage) and V2 (33 events vs ~300 floor), not D3, so the scope becomes ranking, not prediction. D3 passes too neatly: status and opportunity churn dates identical on 28/28. 4 new known gaps. `docs/SITE_SURVEY_SALESFORCE.md` | P3 · Site Survey |
+| **1.5b** | Contracts, dbt and scoring pass on Salesforce data | `84d54a8` | Contracts 22 pass + 1 fail + crash → **22 pass, 6 skipped**; dbt 37/83 → **83/83**; parity **139/139** on Salesforce. One data setting now picks the CSVs, warehouse and model file. Running parity per source exposed two latent scorer bugs (SQL NULL handling, Python NaN) that synthetic data never hit. | P1 · Data quality |
+| **1.7** | Integrations page shows what the Salesforce connector did | `45df3ef` | The page listed six planned connectors and a disclaimer; it now leads with the one that exists. Every figure comes from `data/salesforce/ingest_report.json` via `GET /integrations/salesforce`: 244 accounts read, 92 prospects and 13 Salesforce demo records excluded, 139 customers, plus each decision with an example. `tests/test_integrations_report.py` reads every key the connector can record from its source and fails on any without a label. pytest 134 → 139. Verified on staging 2026-10-14. | P1 · Data quality, ingestion |
+| **1.8** | Site runs on Salesforce data, and shows nothing invented | `2feab3a`, `cc5520c` | Staging serves Salesforce data on every page. Removed on every source because they were invented: per-feature usage (eight figures made up from one adoption rate, with `hash()` offsets that changed on restart), the heuristic churn date behind "median warning" and "~N days", and a `churn_probability` that was the score divided by 100. Where Salesforce cannot support a figure the API says so: likelihood and exposure return `available: false` (1 week of usage against 104 needed, `docs/SITE_SURVEY.md` V1); the assistant and evaluation are off on non-synthetic data. "At risk" is the top 20% of the active book (the fixed line of 60 flagged no Salesforce account). Queue loads every active account; each shows "In Salesforce since". `GET /source` and a data-source label on every page. pytest 139 → 160. Verified on staging 2026-10-15. Live site not switched. | P1 · Data quality, ingestion |
+| **1.5c** | Second seeded batch; save plays and their outcomes | `b2df893` | `scripts/seed_salesforce.py` (committed, deterministic, tagged `ACC-300xx`, dry run by default) wrote 300 records to `churnguard-dev` with planted mess. The connector reads "Save play:" tasks and takes the first renewal after each as the outcome; "What has worked" reports renewals after each play, failures counted, ranked by the floor of a 90% Wilson interval. Outcomes are planted by the seed and the script states the rates. Exposed and fixed a connector gap: 16 usage readings after the churn date. Salesforce calls go through the CLI login (`sf api request rest`); no token in code. | P1 · Data quality, ingestion |
 
 ### Architecture
 
@@ -145,7 +158,15 @@ exists, so nothing is accruing.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~108~~ → **109/109 pass** | 2026-10-14 | `pytest tests/`, with `--extra model` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~118 (2026-10-04, 1.5a)~~ → ~~128 (2026-10-04)~~ → ~~133~~ → ~~134~~ → ~~139~~ → **160/160 pass** | 2026-10-15 | `pytest tests/` with `--extra model`, on `feat/salesforce-ingest` after merging `main` |
+| Salesforce org: customers / churn events | ~~150~~ → ~~139 / 33 (2026-10-04)~~ → **187 / 55** | 2026-10-15 | `data/salesforce/ingest_report.json`; 139 accounts created 2026-10-04, 48 created 2026-10-15 (`crm_created_date`) |
+| Contracts on Salesforce data | **22 pass, 6 skipped**, 0 fail | 2026-10-15 | `CHURNGUARD_DATA_DIR=data/salesforce scripts/validate_dataset.py`. Failed once that day (16 usage rows after churn) until the connector dropped them. Skipped = narrative-corpus checks |
+| dbt on Salesforce data | **83/83** | 2026-10-15 | `dbt build`, warehouse `churnguard_salesforce.duckdb`, now also built in the image |
+| SQL/Python parity | 200/200 synthetic, ~~139/139~~ → **171/171 Salesforce** (customers with a usage reading) | 2026-10-15 | `tests/test_warehouse_parity.py` |
+| Salesforce org: weeks of usage history | **1** | 2026-10-04 | `scripts/survey_salesforce.py`. Blocks the survival model on this source |
+| Salesforce at risk (top 20% of active book) | **27 accounts, $3,450,579 ARR** of 132 active | 2026-10-15 | `GET /dashboard-stats` on staging |
+| Salesforce save plays | **48 read**: 16 renewed, 24 churned, 8 pending; 2 unrecognised, dropped | 2026-10-15 | `data/salesforce/interventions.csv`, `ingest_report.json`. Outcomes planted by `scripts/seed_salesforce.py` |
+| Salesforce org: data storage | ~~1 MB of 5 MB left (2026-10-04)~~ → **5 of 5 MB used, full** | 2026-10-15 | `sf org list limits` (whole-MB granularity). No room for another batch |
 | Training rows / hazard positives | 15,711 / 284 (1.81%) | 2026-08-31 | `main_gold.train_survival` |
 | Best single feature (point-in-time) | AUC **0.769** `engagement_mean_4w` | 2026-08-31 | rank AUC vs `event_in_next_period` |
 | Survival model — held out by customer | AUC ~~0.877 (2026-08-31)~~ → **0.708**, Brier 0.020 | 2026-10-14 | `scripts/train_survival_model.py`, reproducible since `68c81e1` |
@@ -259,6 +280,14 @@ artifact; running it would prove orchestration and nothing else.
 | No keyboard navigation in the queue | No j/k or command palette. Expected in an operator tool. |
 | No per-feature telemetry | Feature-usage chart derived deterministically from one adoption rate |
 | Vercel builds red | Cosmetic. → 0.9 |
+| ~~Salesforce: 11 sample accounts written as customers~~ **CLOSED by 1.5b** | The connector excludes prospects but not Salesforce's own sample records (Edge Communications, GenePoint, …). They carry no usage and 26 tickets dated 2026-09-27, the org's creation date, which land inside the 30-day ticket window. Found 2026-10-04 by 5.5. Fix belongs in 1.5b. |
+| **Health score on a single snapshot: trend factor silently zero** | With one engagement row the slope is 0, so the 15% trend weight contributes nothing and every account reads "stable". Nothing in the output says so. Found 2026-10-04 by 5.5. | **2026-10-15:** still open; its visible effect (no Salesforce account above 60, so "0 at risk") is avoided by ranking the top 20% instead of a fixed line.
+| ~~Salesforce `engagement_score` double-counts adoption~~ **CLOSED by 1.5b** — now seat utilisation only | The connector builds it as ½ utilisation + ½ adoption, and the scorer weights adoption again: effective weight 0.375, not 0.20. Found 2026-10-04 by 5.5. |
+| ~~Two names for the data folder~~ **CLOSED by 1.5b** — `CHURNGUARD_DATA_DIR` drives the API, contracts and dbt via `src/core/datasource.py`; the warehouse and survival-model files follow it. `DATA_FOLDER` still read | The API reads `DATA_FOLDER`; the contracts and dbt read `CHURNGUARD_DATA_DIR` (added by 1.5a). Easy to point them at different data. Unify in 1.5b. |
+| ~~No Salesforce model or warehouse in the image~~ **CLOSED by 1.8** | The image builds and tests the Salesforce warehouse, and the training script follows `CHURNGUARD_DATA_DIR`. No model is trained on Salesforce: 1 week of usage cannot support one, and the API says so (`available: false`) rather than erroring. Needs 1.6 and 7.6. |
+| **Salesforce scorer AUC 1.0 is leakage** | Measured 2026-10-04 (`CustomerHealthScorer.scorer_auc()` on `data/salesforce`). The usage fields are the *current* snapshot, so a churned account's usage is read after it left: the score sees the outcome. **Do not quote it.** A fair figure needs point-in-time usage, so 0.2b must follow 1.6. |
+| ~~SQL scorer treated missing CSAT as maximally unhappy~~ **CLOSED by 1.5b** | DuckDB's `least()`/`greatest()` skip NULL, so `coalesce(greatest(0, least(1, NULL)), 0.5)` gave 1.0, not 0.5: +7.5 risk on every account without CSAT. Python averaged an all-blank CSAT column to NaN and crashed. Neither showed on synthetic data, where every ticket is rated; found when parity was first run on Salesforce. |
+| ~~Leftover from a mis-targeted dbt run~~ **CLOSED 2026-10-04**, deleted | `warehouse/churnguard_sf.duckdb` (gitignored) and `warehouse/target_sf/` (untracked) are from 2026-10-04, before the warehouse file followed the data setting. Safe to delete. |
 
 ## Next — ordered by the critical path
 
@@ -286,13 +315,34 @@ dropped, not outstanding.
 
 ### Remaining — free
 
-Every zero-cost item in the *original roadmap* is complete. Two things sit
-outside it, added 2026-09-02.
+Every zero-cost item in the *original roadmap* is complete. What follows was decided
+2026-10-14: **every number the site shows comes from a connected integration**, and the
+synthetic data becomes test data only. It builds on the Salesforce engagement
+re-planned 2026-10-04 after 5.5.
+
+**Done when** every figure on churnguard.banik.dev traces to an integration pull, and
+the Integrations page shows each source, its last sync, and what was cleaned.
 
 | Step | Item | Effort | Why |
 |---|---|---|---|
-| **1** | Ingest KKBox subscription data | ~1w | The one substantive gap, named when the FDE question was put directly on 2026-09-02. Every figure in the app currently comes from data this project generated, so the model looks good partly because the data was designed to make it look good. KKBox is real subscription data with **no churn column** — the label has to be derived, and the auto-renew and cancellation flags contradict the obvious definition. Having that argument, and defending the choice, is the FDE job; it is exactly the D3 failure `docs/SITE_SURVEY.md` warns about and the one thing this project cannot currently demonstrate. Size and file layout **not yet checked** — the week is an estimate, not a measurement. |
-| **2** | `DEPLOYMENT_SPEC.md` Step 3 — staging | ½d | A branch and a second free Render service, so a broken change cannot reach the live site. Worth doing *before* the KKBox work, which is the first change large enough to break things. |
+| 1 | 1.5b Contracts and dbt on the Salesforce data — **done, see Completed** | 1d | Run the 28 contracts and `dbt build` with `CHURNGUARD_DATA_DIR=data/salesforce`; report failures before changing anything. Then the fixes 5.5 found: exclude the 11 Salesforce sample accounts, one name for the data folder (`DATA_FOLDER` vs `CHURNGUARD_DATA_DIR`), and stop the connector double-counting adoption. 1.5a and 5.5 are done (`61ea46c`, `8e9ab65`). |
+| 2 | `DEPLOYMENT_SPEC.md` Step 3 — staging — **done 2026-10-14** (`6b44b92`) | ½d | Verified end to end 2026-10-14: the Vercel preview of `staging` answered `/api/health` with `OPENAI_API_KEY is not set`, which only the staging backend can say, so the per-branch `BACKEND_ORIGIN` routes to it. Production unchanged: same Vercel deployment as 38 days earlier, backend healthy with AI up. Two things found: Vercel did **not** build `staging` on push, because the commit had already been built for `feat/salesforce-ingest` (triggered by API from the GitHub branch instead); and the preview is login-gated, so checking it needs a logged-in browser. To use it: push to `staging`, Render and Vercel both rebuild. First use, 2026-10-14: staging switched to `CHURNGUARD_DATA_DIR=data/salesforce` and failed as predicted. Scorer, playbook and evidence work on the 139 Salesforce customers; `survival_model` and `exposure` are down (`no model at models/survival_salesforce.joblib`). Staging is left on the Salesforce data so later work shows up there. See Known gaps. |
+| 3 | 1.7 Integrations page as the hub, **done 2026-10-14, see Completed** | ½d | Salesforce panel from the connector's own report. |
+| 4 | 1.8 Site runs on Salesforce data, **done 2026-10-15, see Completed** | ½–1d | Every page on Salesforce data, nothing invented. |
+| **5** | **1.9** Log in with Salesforce | 1–1.5d | OAuth popup with PKCE and `state`, production orgs only, refuses any org but `churnguard-dev`, token revoked after the pull. Staging only until the live-site decision below. |
+| **6** | **1.10** Durable storage | 1d | A free Postgres for the connection and pulled data. Render's free disk is wiped every time it sleeps. |
+| **7** | **1.11** Sync now | ½d | Re-pull from the Integrations page. |
+| 8 | 1.6 Product usage from Mixpanel | 2d | Closes 5.5's D2 red: the CRM holds one usage snapshot, and weekly usage lives in product analytics in a real SaaS stack. Seed ~2.5 years of weekly usage for the customer accounts (seeded, and labelled so), connector joined to Salesforce on `AccountNumber`, every pull kept in our own warehouse. Mixpanel Free verified 2026-10-04, re-verified 2026-10-14: events backdated 1, 2 and 3 years imported and returned by the export API (`cg_retention_probe`, `scripts/mixpanel_retention_probe.py`; the first run was by hand and left nothing in the repo). PostHog Free rejected for this: 1-year query retention. |
+| 9 | 4.7 Dated risk signals from CSM notes | 1d | LLM extraction over 157 task notes and 233 case descriptions (competitor mentioned, champion left, cancellation asked about) as time-varying features, not only narrative. < $0.05. Optional, and the only item that spends. |
+| 10 | 7.6 Survival model sized to the events | 1–2d | 33 churn events support ~3 features at ten events per feature. Features fixed in advance, penalised discrete-time model, grouped walk-forward validation with bootstrap intervals, compared against the CSMs' own `At Risk` flag (26 accounts). Depends on 1.6. |
+| **11** | **1.12** Synthetic data moves to `tests/fixtures/` | ½d | Once nothing on the site reads it. |
+
+**Open, decided at their step:**
+
+- What a visitor sees before any connection. Proposed: the last `churnguard-dev` sync,
+  labelled as seeded data (ADR-0007).
+- Whether Log in with Salesforce appears on the live site. Options: not on live, an
+  admin key, or real accounts (2.6).
 
 `DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and
 belongs in the paid list below in spirit — it changes nothing except what the
@@ -363,6 +413,7 @@ the step that catches this class of failure.
 
 | Item | Reason |
 |---|---|
+| Present the project as a 0–6 FDE loop, plus agent least-privilege, an agent SQL tool over gold views, and an agent audit log | **Parked 2026-10-14**, not declined. Raised after comparing with a reference FDE project (legacy source → secured semantic view → agent with tools → audit log → UI → deploy). The three agent items are real gaps: nothing scopes the agent to clean views, it cannot query the warehouse, and no step it takes is recorded. Best after 1.8, so the agent works on integration data. |
 | 2.2a `terraform apply` | **Declined 2026-09-01 on goal, not cost.** The goal is a link a recruiter can open. The ALB is HTTP-only — HTTPS needs a certificate, which needs a domain — and browsers block an HTTPS page from fetching HTTP, so the deployed AWS backend could not have served the Vercel site. Render gives HTTPS on a free tier. Terraform remains written and validated as the IaC artifact; running it would prove orchestration and nothing else. |
 | Precomputed static snapshot | Considered as a $0 alternative to hosting a backend at all — 2.2 MB of precomputed responses shipped with the site. Not needed once Render was chosen, since that keeps the AI question box working, which a snapshot cannot. Revisit if the free tier's cold starts prove unacceptable. |
 | Duplicate `frontend` Vercel project | **Self-inflicted, resolved 2026-09-01.** Running `vercel build` from inside `frontend/` silently created and Git-linked a second Vercel project named after the directory. It had no Root Directory set, so it failed on every push while `churn-guard-ai` succeeded — one red X and one green on the same commit. Project deleted and `frontend/.vercel` removed. Lesson: `vercel build` is not read-only; it links. |
@@ -397,5 +448,6 @@ image and Terraform all stand; they are simply no longer the critical path.
 | Item | Reason |
 |---|---|
 | Stage 7 UI phase | Proposed; not adopted. UI items tracked under Known gaps instead. |
+| KKBox subscription data | **Rejected 2026-10-04.** Was Step 1 from 2026-09-02, to get prediction onto data this project did not design. KKBox is consumer music subscriptions, and the project is positioned as churn for B2B SaaS companies; its unit (a ~$5 subscriber) has no ARR, seats, CSM or save motion, so it could prove the model but not the product. The same gap is now closed on the B2B stack: Salesforce for the CRM (1.5) and Mixpanel for usage history (1.6). |
 | `SALESFORCE_COMPARISON.md` | Deleted 2026-08-31. Compared to Einstein on unsupportable numbers, including sales scripts asserting "we're 94.7% accurate". |
 | Keeping the stale comprehensive doc live | Archived, not deleted — ADRs cite what it claimed. |

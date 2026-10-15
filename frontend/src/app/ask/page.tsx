@@ -41,10 +41,15 @@ function AskPage() {
       .then((h: any) => {
         setReachable(true);
         const errors = h?.errors ?? {};
+        // Off by design for this data source counts as unavailable here too: the
+        // service is healthy, but there is nothing for the assistant to search.
+        const off = h?.not_applicable ?? {};
         setAiReason(
-          h?.degraded
-            ? errors.rag_retriever ?? errors.multi_agent_system ?? 'AI stack unavailable'
-            : null
+          off.rag_retriever
+            ? off.rag_retriever
+            : h?.degraded
+              ? errors.rag_retriever ?? errors.multi_agent_system ?? 'AI stack unavailable'
+              : null
         );
       })
       .catch(() => setReachable(false));
@@ -174,7 +179,7 @@ function AskPage() {
             </p>
           ) : aiReason ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              AI features unavailable — {aiReason}. The queue and analytics work without it.
+              AI features unavailable — {aiReason.replace(/\.$/, '')}. The queue and analytics work without it.
             </p>
           ) : null}
         </div>

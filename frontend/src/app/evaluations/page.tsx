@@ -19,21 +19,41 @@ import {
 } from '@/components/ui/table';
 
 import { BootGate, Shell } from '../shell';
+import { useSource } from '../source';
 
 const API = '/api';
 
 function EvaluationsPage() {
   const [data, setData] = useState<any>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'empty'>('loading');
+  const [reason, setReason] = useState<string | null>(null);
+  const source = useSource();
 
   useEffect(() => {
     fetch(`${API}/evaluation-results`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        const body = await r.json().catch(() => null);
+        if (typeof body?.detail === 'string') setReason(body.detail);
+        return Promise.reject();
+      })
       .then((d) => { setData(d); setState('ready'); })
       .catch(() => setState('empty'));
   }, []);
 
-  if (state === 'loading') {
+  if (state === 'empty' && source && !source.synthetic) {
+    return (
+      <Shell title="Evaluation" description="Not available for this data source">
+        <div className="mx-auto max-w-2xl px-6 py-16">
+          <h2 className="text-lg font-semibold">No evaluation for this data yet</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{reason}</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  // Wait for the source too, so an empty state never shows the wrong explanation first.
+  if (state === 'loading' || (state === 'empty' && source === undefined)) {
     return (
       <Shell title="Evaluation" description="Loading">
         <div className="p-6"><Skeleton className="h-64 w-full" /></div>
