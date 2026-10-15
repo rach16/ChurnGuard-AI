@@ -89,6 +89,27 @@ INTERACTION_COLUMNS = [
     "customer_id", "company_name", "segment", "interaction_date", "interaction_type",
     "content", "customer_tenure_months",
 ]
+INTERVENTION_COLUMNS = [
+    "customer_id", "company_name", "segment", "play", "challenge_category",
+    "play_date", "outcome", "renewal_close_date",
+]
+
+# A save play is a Task whose subject starts "Save play:" -- a convention, so CSMs
+# bend it ("SAVE PLAY - ...", "save-play:..."). The play itself is free text, matched
+# to a fixed vocabulary by keyword; anything that matches nothing is dropped and
+# counted rather than guessed at.
+SAVE_PLAY = re.compile(r"^\s*save[\s_-]*play\b\s*[:\-\u2013]?\s*(.*)$", re.I)
+PLAYS = {
+    "Created internal champions program": ("champion",),
+    "Ran dedicated onboarding sessions": ("onboarding",),
+    "Provided API access for customization": ("api",),
+    "Held executive business review": ("executive", "exec ", "business review", "ebr"),
+    "Offered custom pricing tier": ("pricing", "discount"),
+}
+CHALLENGE = re.compile(r"challenge:\s*([^.\n]+)", re.I)
+CHALLENGE_CATEGORIES = ("Adoption Challenges", "Product Fit", "Competition",
+                        "Support Issues", "Pricing Concerns")
+
 ENGAGEMENT_COLUMNS = [
     "customer_id", "week_start", "active_users", "sessions", "feature_adoption_rate",
     "engagement_score",
@@ -179,7 +200,8 @@ class IngestReport:
 #
 # Groups: "excluded" removed a record before it became a customer, "dropped" removed
 # a child record, "inferred" filled or corrected a value, "label" is how churn was
-# decided, "limit" is a property of the source the connector cannot fix.
+# decided, "plays" is what was read from CSM save plays and how each turned out,
+# "limit" is a property of the source the connector cannot fix.
 DECISION_LABELS: dict[str, tuple[str, str]] = {
     "salesforce_sample_account_excluded": ("excluded", "Salesforce demo records excluded"),
     "no_type_or_status_treated_as_prospect": ("excluded", "Accounts with no type or status treated as prospects"),
@@ -202,11 +224,19 @@ DECISION_LABELS: dict[str, tuple[str, str]] = {
     "activity_not_on_a_customer_dropped": ("dropped", "Activities not linked to a customer dropped"),
     "activity_after_churn_date_dropped": ("dropped", "Activities after the customer left dropped"),
     "no_usage_fields_engagement_skipped": ("dropped", "Customers with no usage fields, engagement skipped"),
+    "engagement_after_churn_date_dropped": ("dropped", "Usage readings after the customer left dropped"),
     "churn_label_source:status": ("label", "Churned by status only"),
     "churn_label_source:lost_renewal": ("label", "Churned by lost renewal only"),
     "churn_label_source:status+lost_renewal": ("label", "Churned by status and lost renewal"),
     "churn_label_source:active": ("label", "Active"),
     "engagement_weeks_of_history_per_customer": ("limit", "Weeks of usage history per customer"),
+    "save_play_recorded": ("plays", "Save plays recorded"),
+    "save_play_outcome:renewed": ("plays", "Renewed after the play"),
+    "save_play_outcome:churned": ("plays", "Churned after the play"),
+    "save_play_outcome:pending": ("plays", "Renewal not decided yet"),
+    "save_play_unrecognised_dropped": ("plays", "Save plays naming no known play, dropped"),
+    "save_play_without_challenge": ("plays", "Save plays with no challenge recorded"),
+    "save_play_not_on_a_customer_dropped": ("plays", "Save plays not on a customer, dropped"),
 }
 
 
@@ -224,7 +254,8 @@ def describe_report(report: dict[str, Any]) -> dict[str, Any]:
         group, label = DECISION_LABELS.get(key, ("unlabelled", key))
         rows.append({"key": key, "group": group, "label": label,
                      "count": count, "examples": examples.get(key, [])[:3]})
-    order = {"excluded": 0, "inferred": 1, "dropped": 2, "label": 3, "limit": 4, "unlabelled": 5}
+    order = {"excluded": 0, "inferred": 1, "dropped": 2, "label": 3, "plays": 4, "limit": 5,
+             "unlabelled": 6}
     rows.sort(key=lambda r: (order[r["group"]], -r["count"], r["label"]))
     return {
         "source": "salesforce",
@@ -478,12 +509,14 @@ def transform(raw: dict[str, list[dict]], as_of: date) -> tuple[dict[str, list[d
 
     tickets = _tickets(raw.get("cases", []), by_id, report)
     interactions = _interactions(raw.get("tasks", []), by_id, report, as_of)
+    interventions = _save_plays(raw.get("tasks", []), by_id, opps_by_acct, report, as_of)
     engagement = _engagement(by_id, report, as_of)
 
     tables = {
         "customers": customers,
         "support_tickets": tickets,
         "customer_interactions": interactions,
+        "interventions": interventions,
         "engagement_snapshots": engagement,
         **{name: [] for name in EMPTY_TABLES},
     }
@@ -566,6 +599,72 @@ def _interactions(tasks: Iterable[dict], by_id: dict, report: IngestReport,
     return out
 
 
+def canonical_play(text: str) -> str | None:
+    t = f" {text.lower()} "
+    for play, keywords in PLAYS.items():
+        if any(k in t for k in keywords):
+            return play
+    return None
+
+
+def _save_plays(tasks: Iterable[dict], by_id: dict, opps_by_acct: dict,
+                report: IngestReport, as_of: date) -> list[dict]:
+    """Each CSM save play, and whether the account renewed afterwards.
+
+    The outcome is the first renewal deal closing on or after the play: won is
+    renewed, lost is churned, still open (or none yet) is pending. Failures are kept
+    alongside successes. A record of only the saves that worked is how a playbook
+    ends up recommending everything.
+    """
+    out = []
+    for t in tasks:
+        m = SAVE_PLAY.match(t.get("Subject") or "")
+        if not m:
+            continue
+        account_id = t.get("AccountId") or t.get("WhatId") or ""
+        cust = by_id.get(account_id)
+        if not cust:
+            report.note("save_play_not_on_a_customer_dropped", t.get("Subject"))
+            continue
+        # The subject names the play; the description names the challenge. Reading the
+        # play from both matched "Challenge: Pricing Concerns" to the pricing play on a
+        # subject that named no play at all.
+        play = canonical_play(m.group(1))
+        if not play:
+            report.note("save_play_unrecognised_dropped", t.get("Subject"))
+            continue
+        found = CHALLENGE.search(t.get("Description") or "")
+        challenge = next((c for c in CHALLENGE_CATEGORIES
+                          if found and c.lower() == found.group(1).strip().lower()), "")
+        if not challenge:
+            report.note("save_play_without_challenge", t.get("Subject"))
+
+        when = _d(t.get("ActivityDate")) or _d(t.get("CreatedDate"))
+        renewals = sorted(
+            (o for o in opps_by_acct.get(account_id, [])
+             if "renewal" in (o.get("Name") or "").lower() and _d(o.get("CloseDate"))
+             and when and _d(o["CloseDate"]) >= when),
+            key=lambda o: _d(o["CloseDate"]))
+        renewal = renewals[0] if renewals else None
+        if renewal and renewal.get("IsClosed") and _d(renewal["CloseDate"]) <= as_of:
+            outcome = "renewed" if renewal.get("IsWon") else "churned"
+        else:
+            outcome = "pending"
+        report.note("save_play_recorded", f"{cust['company_name']}: {play}")
+        report.note(f"save_play_outcome:{outcome}", cust["company_name"])
+        out.append({
+            "customer_id": cust["customer_id"],
+            "company_name": cust["company_name"],
+            "segment": cust["segment"],
+            "play": play,
+            "challenge_category": challenge,
+            "play_date": _iso(when),
+            "outcome": outcome,
+            "renewal_close_date": _iso(_d(renewal["CloseDate"])) if renewal else "",
+        })
+    return out
+
+
 def _engagement(by_id: dict, report: IngestReport, as_of: date) -> list[dict]:
     """
     Salesforce holds a usage *snapshot* (active users, adoption, last login), not a
@@ -584,6 +683,12 @@ def _engagement(by_id: dict, report: IngestReport, as_of: date) -> list[dict]:
             continue
         when = _d(a.get("Last_Login_Date__c")) if cust["_churn"] else as_of
         when = when or as_of
+        # A last login after the churn date is a stale or wrong field, not usage by a
+        # customer who has gone. Dropped like cases and activities after churn; dating
+        # it at the churn date instead would invent when the reading was taken.
+        if _after_churn(when, cust):
+            report.note("engagement_after_churn_date_dropped", cust["company_name"])
+            continue
         week = when - timedelta(days=when.weekday())
         utilisation = min(1.0, (users or 0) / seats) if seats else 0.0
         adoption_rate = round((adoption or 0) / 100, 3)
@@ -607,12 +712,60 @@ def _engagement(by_id: dict, report: IngestReport, as_of: date) -> list[dict]:
 # --------------------------------------------------------------------------------------
 
 
+API_VERSION = "v59.0"
+
+
+class CliSession:
+    """The two calls the connector and seeder make, sent through the Salesforce CLI.
+
+    The CLI holds the login and refreshes it; this class never sees a token. Newer
+    CLI releases redact the token in `sf org display`, which is what broke the old
+    way of borrowing it, and the redaction is right: a token copied into the
+    environment outlives the reason it was copied.
+    """
+
+    def __init__(self, alias: str):
+        self.alias = alias
+
+    def _call(self, path: str, method: str = "GET", body: Any = None) -> Any:
+        import subprocess
+
+        cmd = ["sf", "api", "request", "rest", path, "-o", self.alias, "-X", method]
+        if body is not None:
+            cmd += ["-b", "-"]
+        out = subprocess.run(cmd, input=json.dumps(body) if body is not None else None,
+                             capture_output=True, text=True)
+        if out.returncode != 0:
+            detail = (out.stdout.strip() or out.stderr.strip())[:400]
+            raise RuntimeError(f"sf {method} {path.split('?')[0]} failed: {detail}")
+        return json.loads(out.stdout) if out.stdout.strip() else None
+
+    def query_all(self, soql: str) -> dict:
+        from urllib.parse import quote
+
+        page = self._call(f"/services/data/{API_VERSION}/query?q={quote(soql)}")
+        records = list(page["records"])
+        while not page.get("done", True):
+            page = self._call(page["nextRecordsUrl"])
+            records += page["records"]
+        return {"totalSize": len(records), "records": records}
+
+    def query(self, soql: str) -> dict:
+        return self.query_all(soql)
+
+    def restful(self, path: str, method: str = "GET", json: Any = None) -> Any:
+        return self._call(f"/services/data/{API_VERSION}/{path}", method, json)
+
+
 def connect():
     """
-    Credentials come from the environment and are never logged. Either an access token
-    from `sf org display` (SF_INSTANCE_URL + SF_ACCESS_TOKEN) or username, password and
-    security token.
+    Credentials come from the environment and are never logged. In order: an access
+    token (SF_INSTANCE_URL + SF_ACCESS_TOKEN), username, password and security token,
+    or else the Salesforce CLI login for SF_ORG_ALIAS (default churnguard-dev).
     """
+    if not os.getenv("SF_ACCESS_TOKEN") and not os.getenv("SF_USERNAME"):
+        return CliSession(os.getenv("SF_ORG_ALIAS", "churnguard-dev"))
+
     from simple_salesforce import Salesforce  # optional extra: salesforce
 
     if os.getenv("SF_ACCESS_TOKEN"):
@@ -647,6 +800,7 @@ def write(tables: dict[str, list[dict]], report: IngestReport, out_dir: Path) ->
         "support_tickets": TICKET_COLUMNS,
         "customer_interactions": INTERACTION_COLUMNS,
         "engagement_snapshots": ENGAGEMENT_COLUMNS,
+        "interventions": INTERVENTION_COLUMNS,
         **EMPTY_TABLES,
     }
     for name, rows in tables.items():

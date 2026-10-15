@@ -46,12 +46,20 @@ const hasBand = (l: Likelihood | NoLikelihood | null): l is Likelihood => !!l &&
 interface EvidenceItem { text: string; source: string; doc_id: string }
 
 interface Play {
+  kind?: 'outcome';
   action: string;
   cases: number;
-  same_segment_cases: number;
-  median_adoption_gain: number;
-  median_support_reduction: number;
   confidence: 'strong' | 'moderate' | 'limited';
+  // From success write-ups (synthetic data)
+  same_segment_cases?: number;
+  median_adoption_gain?: number;
+  median_support_reduction?: number;
+  // From recorded save plays and the renewal after each (Salesforce)
+  scope?: 'this challenge' | 'any challenge';
+  renewed?: number;
+  decided?: number;
+  pending?: number;
+  save_rate?: number;
 }
 import { Rail } from './shell';
 import { SourceLabel, useSource } from './source';
@@ -365,12 +373,21 @@ export function Console() {
                             {p.confidence}
                           </Badge>
                         </div>
-                        <p className="mt-1.5 text-xs text-muted-foreground">
-                          {p.cases} comparable {p.cases === 1 ? 'case' : 'cases'}
-                          {p.same_segment_cases > 0 && `, ${p.same_segment_cases} in ${selected.segment}`}
-                          {' · '}adoption <span className="tabular">+{p.median_adoption_gain}</span> pts
-                          {' · '}support <span className="tabular">−{p.median_support_reduction}%</span>
-                        </p>
+                        {p.kind === 'outcome' ? (
+                          <p className="mt-1.5 text-xs text-muted-foreground">
+                            Renewed <span className="tabular font-medium text-foreground">{p.renewed} of {p.decided}</span>
+                            {' '}({Math.round((p.save_rate ?? 0) * 100)}%) after this play
+                            {p.scope === 'any challenge' ? ', across all challenges' : ', on this challenge'}
+                            {p.pending ? ` · ${p.pending} renewal${p.pending === 1 ? '' : 's'} not decided yet` : ''}
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-xs text-muted-foreground">
+                            {p.cases} comparable {p.cases === 1 ? 'case' : 'cases'}
+                            {(p.same_segment_cases ?? 0) > 0 && `, ${p.same_segment_cases} in ${selected.segment}`}
+                            {' · '}adoption <span className="tabular">+{p.median_adoption_gain}</span> pts
+                            {' · '}support <span className="tabular">−{p.median_support_reduction}%</span>
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

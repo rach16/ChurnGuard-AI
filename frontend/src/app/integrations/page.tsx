@@ -30,7 +30,7 @@ const PLANNED = [
   { name: 'Mixpanel', category: 'Product', supplies: 'Weekly usage history, feature adoption' },
 ];
 
-type Group = 'excluded' | 'inferred' | 'dropped' | 'label' | 'limit' | 'unlabelled';
+type Group = 'excluded' | 'inferred' | 'dropped' | 'label' | 'plays' | 'limit' | 'unlabelled';
 
 interface Decision {
   key: string;
@@ -55,6 +55,7 @@ const SECTIONS: { group: Group; title: string }[] = [
   { group: 'inferred', title: 'Fixed or filled in' },
   { group: 'dropped', title: 'Set aside' },
   { group: 'label', title: 'How churn was decided' },
+  { group: 'plays', title: 'Save plays' },
   { group: 'unlabelled', title: 'Other' },
 ];
 

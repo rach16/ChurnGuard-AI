@@ -1242,7 +1242,10 @@ async def get_customer_plays(customer_id: int):
         "risk_reason": customer["risk_reason"],
         "segment": customer["segment"],
         "plays": [p.to_dict() for p in plays],
-        "basis": "Outcomes recorded on accounts that faced the same challenge",
+        "basis": ("Renewals after save plays recorded in the CRM, failures counted"
+                  if state.playbook.mode == "outcomes"
+                  else "Outcomes recorded on accounts that faced the same challenge"),
+        "mode": state.playbook.mode,
     }
 
 

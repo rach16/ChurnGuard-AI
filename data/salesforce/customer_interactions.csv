@@ -1,8 +1,6 @@
 customer_id,company_name,segment,interaction_date,interaction_type,content,customer_tenure_months
 ACC-10026,ACME Industrial Supply Inc. [ACC-10026],Commercial,2026-09-14,Task,Positive feedback on reporting,38
 ACC-10030,meridian telecom [ACC-10030],SMB,2026-07-01,Task,Expansion discussion Logged by CSM: expansion discussion.,25
-ACC-10031,Redwood Analytics [ACC-10031],Enterprise,2025-09-13,Task,Renewal call - not renewing,9
-ACC-10031,Redwood Analytics [ACC-10031],Enterprise,2025-10-08,Task,Customer asked about cancellation terms Logged by CSM: customer asked about cancellation terms.,10
 ACC-10001,Northwind Logistics [ACC-10001],SMB,2026-09-15,Task,QBR completed,40
 ACC-10001,Northwind Logistics [ACC-10001],SMB,2026-09-08,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,40
 ACC-10002,Acme Industrial Supply [ACC-10002],Enterprise,2026-09-04,Task,Onboarding check-in Logged by CSM: onboarding check-in.,31
@@ -37,13 +35,10 @@ ACC-20004,Beacon Bank Inc [ACC-20004],Commercial,2026-07-22,Task,Usage drop flag
 ACC-20005,"Blue Aerospace, Inc [ACC-20005]",Enterprise,2026-06-12,Task,Expansion discussion,11
 ACC-20005,"Blue Aerospace, Inc [ACC-20005]",Enterprise,2026-08-05,Task,QBR completed Logged by CSM: qbr completed.,13
 ACC-20006,Prairie Health [ACC-20006],SMB,2026-07-27,Task,Onboarding check-in Logged by CSM: onboarding check-in.,33
-ACC-20007,Lakeside Analytics Inc. [ACC-20007],SMB,2025-08-21,Task,Exec sponsor left company,9
-ACC-20007,Lakeside Analytics Inc. [ACC-20007],SMB,2025-08-15,Task,Pricing pushback on renewal Logged by CSM: pricing pushback on renewal.,9
 ACC-20009,Titan Software Co,SMB,2026-08-05,Task,Exec sponsor left company Logged by CSM: exec sponsor left company.,10
 ACC-20009,Titan Software Co,SMB,2026-09-08,Task,Pricing pushback on renewal Logged by CSM: pricing pushback on renewal.,11
 ACC-20011,Cedar Health Inc,Commercial,2026-08-21,Task,Shared new feature roadmap Logged by CSM: shared new feature roadmap.,37
 ACC-20011,Cedar Health Inc,Commercial,2026-09-17,Task,Positive feedback on reporting,38
-ACC-20012,Delta Labs Inc [ACC-20012],SMB,2025-10-07,Task,Renewal call - not renewing Logged by CSM: renewal call - not renewing.,9
 ACC-20012,Delta Labs Inc [ACC-20012],SMB,2025-10-22,Task,Pricing pushback on renewal Logged by CSM: pricing pushback on renewal.,9
 ACC-20016,Coral Retail LLC,SMB,2026-09-21,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,33
 ACC-20016,Coral Retail LLC,SMB,2026-08-23,Task,QBR completed Logged by CSM: qbr completed.,32
@@ -64,7 +59,6 @@ ACC-20034,"Metro Manufacturing, Inc",Commercial,2026-01-25,Task,Renewal call - n
 ACC-20035,Granite Software Group,SMB,2026-09-15,Task,Expansion discussion,8
 ACC-20036,BEACON BANK INC [ACC-20036],SMB,2026-08-06,Task,Renewal call - not renewing Logged by CSM: renewal call - not renewing.,11
 ACC-20036,BEACON BANK INC [ACC-20036],SMB,2026-06-26,Task,Exec sponsor left company Logged by CSM: exec sponsor left company.,9
-ACC-20038,Granite Consulting Co,Commercial,2025-08-24,Task,Renewal call - not renewing Logged by CSM: renewal call - not renewing.,9
 ACC-20038,Granite Consulting Co,Commercial,2025-10-29,Task,Pricing pushback on renewal Logged by CSM: pricing pushback on renewal.,11
 ACC-20040,River Aerospace Group,SMB,2026-05-29,Task,Customer asked about cancellation terms Logged by CSM: customer asked about cancellation terms.,10
 ACC-20040,River Aerospace Group,SMB,2026-04-15,Task,Pricing pushback on renewal,9
@@ -81,8 +75,6 @@ ACC-20050,Zenith Energy Co [ACC-20050],Enterprise,2026-09-22,Task,Shared new fea
 ACC-20050,Zenith Energy Co [ACC-20050],Enterprise,2026-07-12,Task,Onboarding check-in Logged by CSM: onboarding check-in.,4
 ACC-20052,Iron Software Inc.,Commercial,2026-07-20,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,32
 ACC-20052,Iron Software Inc.,Commercial,2026-09-11,Task,Positive feedback on reporting,34
-ACC-20056,Delta Consulting Co [ACC-20056],Commercial,2024-04-19,Task,Renewal call - not renewing,10
-ACC-20056,Delta Consulting Co [ACC-20056],Commercial,2024-03-10,Task,Pricing pushback on renewal Logged by CSM: pricing pushback on renewal.,9
 ACC-20057,Echo Pharma [ACC-20057],SMB,2026-07-28,Task,Positive feedback on reporting,33
 ACC-20057,Echo Pharma [ACC-20057],SMB,2026-07-09,Task,QBR completed Logged by CSM: qbr completed.,33
 ACC-20058,Vista Pharma LLC,SMB,2026-06-22,Task,QBR completed,17
@@ -103,9 +95,6 @@ ACC-20068,Pacific Logistics [ACC-20068],SMB,2026-06-18,Task,Shared new feature r
 ACC-20070,SILVER HEALTH [ACC-20070],Commercial,2026-09-16,Task,Expansion discussion Logged by CSM: expansion discussion.,37
 ACC-20070,SILVER HEALTH [ACC-20070],Commercial,2026-07-14,Task,Shared new feature roadmap Logged by CSM: shared new feature roadmap.,35
 ACC-20071,Lakeside Manufacturing Group,Enterprise,2026-08-23,Task,Onboarding check-in Logged by CSM: onboarding check-in.,14
-ACC-20072,Echo Consulting Inc,SMB,2025-06-06,Task,Evaluating Vantage Analytics Logged by CSM: evaluating vantage analytics.,11
-ACC-20077,Frontier Labs Inc. [ACC-20077],Commercial,2024-05-10,Task,Customer asked about cancellation terms Logged by CSM: customer asked about cancellation terms.,10
-ACC-20077,Frontier Labs Inc. [ACC-20077],Commercial,2024-05-17,Task,Exec sponsor left company Logged by CSM: exec sponsor left company.,10
 ACC-20081,Coral Labs Group,Enterprise,2026-09-24,Task,Shared new feature roadmap Logged by CSM: shared new feature roadmap.,16
 ACC-20081,Coral Labs Group,Enterprise,2026-07-03,Task,QBR completed Logged by CSM: qbr completed.,14
 ACC-20083,Frontier Bank Corp,Commercial,2026-09-06,Task,Expansion discussion Logged by CSM: expansion discussion.,31
@@ -156,11 +145,9 @@ ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,2026-06-30,Task,Onboa
 ACC-20138,Westfield Consulting Inc. [ACC-20138],Commercial,2026-08-15,Task,Expansion discussion Logged by CSM: expansion discussion.,35
 ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,2026-08-23,Task,Onboarding check-in Logged by CSM: onboarding check-in.,38
 ACC-20140,Pacific Retail Inc. [ACC-20140],SMB,2026-08-04,Task,Expansion discussion Logged by CSM: expansion discussion.,38
-ACC-20141,Cedar Pharma Co [ACC-20141],SMB,2024-12-18,Task,Renewal call - not renewing,11
 ACC-20142,Juniper Systems Inc.,SMB,2026-07-28,Task,Shared new feature roadmap Logged by CSM: shared new feature roadmap.,15
 ACC-20144,Delta Foods Co,SMB,2026-07-20,Task,Onboarding check-in Logged by CSM: onboarding check-in.,10
 ACC-20144,Delta Foods Co,SMB,2026-09-30,Task,Onboarding check-in Logged by CSM: onboarding check-in.,12
-ACC-20146,Frontier Aerospace LLC,SMB,2025-09-16,Task,Customer asked about cancellation terms,10
 ACC-20151,Juniper Foods LLC,Commercial,2026-07-19,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,35
 ACC-20151,Juniper Foods LLC,Commercial,2026-06-22,Task,Onboarding check-in Logged by CSM: onboarding check-in.,34
 ACC-20153,PRAIRIE HEALTH [ACC-20153],Enterprise,2026-09-29,Task,Onboarding check-in Logged by CSM: onboarding check-in.,22
@@ -182,7 +169,6 @@ ACC-20170,"Crimson Health, Inc",Enterprise,2026-07-31,Task,Positive feedback on 
 ACC-20170,"Crimson Health, Inc",Enterprise,2026-07-11,Task,Expansion discussion Logged by CSM: expansion discussion.,26
 ACC-20173,Beacon Energy Co,Commercial,2025-11-05,Task,Exec sponsor left company,10
 ACC-20173,Beacon Energy Co,Commercial,2025-12-28,Task,Renewal call - not renewing Logged by CSM: renewal call - not renewing.,11
-ACC-20175,Zenith Energy Corp [ACC-20175],Commercial,2024-11-29,Task,Renewal call - not renewing Logged by CSM: renewal call - not renewing.,11
 ACC-20177,Frontier Pharma,Commercial,2026-08-18,Task,Requested discount at renewal Logged by CSM: requested discount at renewal.,29
 ACC-20181,Coral Foods Group,Commercial,2026-08-30,Task,Complaint about support response time Logged by CSM: complaint about support response time.,28
 ACC-20181,Coral Foods Group,Commercial,2026-07-28,Task,Requested discount at renewal Logged by CSM: requested discount at renewal.,27
@@ -208,4 +194,86 @@ ACC-20195,Harbor Aerospace Inc,Commercial,2026-10-04,Task,Complaint about suppor
 ACC-20196,Titan Realty Corp,Enterprise,2026-07-07,Task,Complaint about support response time Logged by CSM: complaint about support response time.,36
 ACC-20197,Crimson Software Corp,Enterprise,2026-09-25,Task,QBR completed Logged by CSM: qbr completed.,23
 ACC-20197,Crimson Software Corp,Enterprise,2026-07-03,Task,Shared new feature roadmap Logged by CSM: shared new feature roadmap.,21
-ACC-20198,River Labs Corp,SMB,2024-07-03,Task,Customer asked about cancellation terms Logged by CSM: customer asked about cancellation terms.,12
+ACC-30012,Ironbridge Security LLC,Commercial,2026-06-08,Task,Quarterly check-in Logged by CSM: quarterly check-in.,22
+ACC-30040,Starlight Foods Group,SMB,2025-12-24,Task,Quarterly check-in Logged by CSM: quarterly check-in.,15
+ACC-30006,Amberfield Media LLC,Commercial,2026-04-19,Task,Usage review Logged by CSM: usage review.,8
+ACC-30003,Clearpath Logistics LLC [ACC-30003],SMB,2026-01-10,Task,Renewal planning call Logged by CSM: renewal planning call.,18
+ACC-30011,Westgate Biotech Ltd,SMB,2026-01-04,Task,Expansion discussion Logged by CSM: expansion discussion.,26
+ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,2026-09-12,Task,Quarterly check-in Logged by CSM: quarterly check-in.,23
+ACC-30028,Harborpoint Systems Ltd,Commercial,2026-02-04,Task,Champion changed roles Logged by CSM: champion changed roles.,14
+ACC-30029,Starlight Freight Co,Commercial,2026-08-04,Task,Champion changed roles Logged by CSM: champion changed roles.,23
+ACC-30005,Harborpoint Foods Ltd,Enterprise,2026-09-27,Task,Quarterly check-in Logged by CSM: quarterly check-in.,32
+ACC-30034,Ironbridge Biotech LLC,SMB,2026-01-17,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,6
+ACC-30041,Pinecrest Education Co,Enterprise,2026-05-19,Task,Renewal planning call Logged by CSM: renewal planning call.,8
+ACC-30023,Pinecrest Logistics Group,SMB,2025-12-30,Task,Mentioned evaluating a competitor Logged by CSM: mentioned evaluating a competitor.,25
+ACC-30014,Foxglove Robotics Inc,Enterprise,2026-08-03,Task,Mentioned evaluating a competitor Logged by CSM: mentioned evaluating a competitor.,25
+ACC-30015,Quarrystone Education Ltd,Enterprise,2026-07-05,Task,Training session Logged by CSM: training session.,32
+ACC-30028,Harborpoint Systems Ltd,Commercial,2026-10-04,Task,Training session Logged by CSM: training session.,22
+ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,2026-03-25,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,17
+ACC-30020,Starlight Biotech Corp,Enterprise,2026-01-15,Task,Mentioned evaluating a competitor Logged by CSM: mentioned evaluating a competitor.,14
+ACC-30042,Northstar Logistics Co,SMB,2026-08-07,Task,Asked about cancellation terms Logged by CSM: asked about cancellation terms.,15
+ACC-30023,Pinecrest Logistics Group,SMB,2026-06-09,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,31
+ACC-30025,Foxglove Media Corp,SMB,2026-04-21,Task,Champion changed roles Logged by CSM: champion changed roles.,12
+ACC-30047,"CLEARPATH SOFTWARE, INC. [ACC-30047]",Enterprise,2026-06-22,Task,Asked about cancellation terms Logged by CSM: asked about cancellation terms.,20
+ACC-30040,Starlight Foods Group,SMB,2026-03-19,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,18
+ACC-30009,Copperleaf Analytics Inc,SMB,2026-09-01,Task,Training session Logged by CSM: training session.,17
+ACC-30027,Cedarview Insurance LLC,SMB,2025-12-20,Task,Renewal planning call Logged by CSM: renewal planning call.,23
+ACC-30029,Starlight Freight Co,Commercial,2026-02-06,Task,Renewal planning call Logged by CSM: renewal planning call.,17
+ACC-30013,Keystone Software Group,Commercial,2026-03-23,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,23
+ACC-30012,Ironbridge Security LLC,Commercial,2026-07-02,Task,Champion changed roles Logged by CSM: champion changed roles.,23
+ACC-30041,Pinecrest Education Co,Enterprise,2026-02-20,Task,Usage review Logged by CSM: usage review.,5
+ACC-30012,Ironbridge Security LLC,Commercial,2026-03-24,Task,Quarterly check-in Logged by CSM: quarterly check-in.,19
+ACC-30005,Harborpoint Foods Ltd,Enterprise,2026-08-29,Task,Positive feedback on reporting Logged by CSM: positive feedback on reporting.,31
+ACC-30045,Ironbridge Retail Co,SMB,2026-02-05,Task,Quarterly check-in Logged by CSM: quarterly check-in.,15
+ACC-30020,Starlight Biotech Corp,Enterprise,2026-10-03,Task,Renewal planning call Logged by CSM: renewal planning call.,23
+ACC-30040,Starlight Foods Group,SMB,2026-02-18,Task,Escalation follow-up Logged by CSM: escalation follow-up.,17
+ACC-30001,Pinecrest Software Inc [ACC-30001],Commercial,2025-12-19,Task,Save play: Ran dedicated onboarding sessions Challenge: Pricing Concerns. Logged by CSM after a risk review.,8
+ACC-30002,Clearpath Software Group [ACC-30002],SMB,2025-12-18,Task,Save play: Ran dedicated onboarding sessions Challenge: Support Issues. Logged by CSM after a risk review.,11
+ACC-30003,Clearpath Logistics LLC [ACC-30003],SMB,2025-12-25,Task,Save play: Held executive business review Challenge: Adoption Challenges. Logged by CSM after a risk review.,17
+ACC-30004,Evergreen Media Group,Commercial,2026-07-17,Task,Save play: Provided API access for customization Challenge: Competition. Logged by CSM after a risk review.,31
+ACC-30005,Harborpoint Foods Ltd,Enterprise,2026-07-19,Task,Save play: Provided API access for customization Challenge: Competition. Logged by CSM after a risk review.,30
+ACC-30006,Amberfield Media LLC,Commercial,2026-02-21,Task,save play Challenge: Pricing Concerns. Logged by CSM after a risk review.,6
+ACC-30007,Cedarview Security Group,SMB,2026-05-18,Task,Save play: Offered custom pricing tier Challenge: Adoption Challenges. Logged by CSM after a risk review.,9
+ACC-30008,Foxglove Logistics Corp,Commercial,2026-03-15,Task,Save play: Offered custom pricing tier Challenge: Adoption Challenges. Logged by CSM after a risk review.,14
+ACC-30009,Copperleaf Analytics Inc,SMB,2026-03-15,Task,Save play: Created internal champions program Challenge: Pricing Concerns. Logged by CSM after a risk review.,11
+ACC-30010,Amberfield Networks Co,SMB,2025-12-09,Task,Save play: Created internal champions program Challenge: Competition. Logged by CSM after a risk review.,17
+ACC-30011,Westgate Biotech Ltd,SMB,2026-12-17,Task,Save play: tried the thing from last quarter again Challenge: Product Fit. Logged by CSM after a risk review.,37
+ACC-30012,Ironbridge Security LLC,Commercial,2026-12-26,Task,Save play: Created internal champions program Challenge: Pricing Concerns. Logged by CSM after a risk review.,28
+ACC-30013,Keystone Software Group,Commercial,2026-07-22,Task,Save play: Ran dedicated onboarding sessions Challenge: Adoption Challenges. Logged by CSM after a risk review.,27
+ACC-30014,Foxglove Robotics Inc,Enterprise,2026-01-22,Task,Save play: Ran dedicated onboarding sessions Challenge: Product Fit. Logged by CSM after a risk review.,18
+ACC-30015,Quarrystone Education Ltd,Enterprise,2026-06-10,Task,Save play: Held executive business review Challenge: Product Fit. Logged by CSM after a risk review.,31
+ACC-30016,Meridian Systems LLC,Enterprise,2026-01-11,Task,Save play: Provided API access for customization Challenge: Support Issues. Logged by CSM after a risk review.,8
+ACC-30017,Quarrystone Health Co,Commercial,2026-06-13,Task,Save play: Held executive business review Challenge: Adoption Challenges. Logged by CSM after a risk review.,32
+ACC-30018,Sterling Capital Ltd,SMB,2026-06-08,Task,Save play: Offered custom pricing tier Challenge: Product Fit. Logged by CSM after a risk review.,21
+ACC-30019,Oakridge Systems Co,Enterprise,2026-08-08,Task,Save play: Provided API access for customization Challenge: Competition. Logged by CSM after a risk review.,31
+ACC-30020,Starlight Biotech Corp,Enterprise,2026-08-20,Task,Save play: Created internal champions program Challenge: Competition. Logged by CSM after a risk review.,21
+ACC-30021,Cedarview Foods Corp,Commercial,2025-11-03,Task,Save play: Provided API access for customization Challenge: Adoption Challenges. Logged by CSM after a risk review.,9
+ACC-30022,Oakridge Robotics Corp,Commercial,2025-09-20,Task,Save play: Offered custom pricing tier Challenge: Adoption Challenges. Logged by CSM after a risk review.,19
+ACC-30023,Pinecrest Logistics Group,SMB,2026-04-18,Task,Save play: Offered custom pricing tier Challenge: Product Fit. Logged by CSM after a risk review.,29
+ACC-30024,Quarrystone Logistics Co,SMB,2026-05-02,Task,Save play: Provided API access for customization Challenge: Product Fit. Logged by CSM after a risk review.,9
+ACC-30025,Foxglove Media Corp,SMB,2026-07-28,Task,Save play: Held executive business review Challenge: Product Fit. Logged by CSM after a risk review.,15
+ACC-30026,Clearpath Security Group,Enterprise,2026-10-20,Task,SAVE PLAY - created internal champions program Challenge: Competition. Logged by CSM after a risk review.,27
+ACC-30027,Cedarview Insurance LLC,SMB,2025-12-15,Task,Save play: Held executive business review Challenge: Pricing Concerns. Logged by CSM after a risk review.,23
+ACC-30028,Harborpoint Systems Ltd,Commercial,2026-09-29,Task,Save play: Held executive business review Challenge: Pricing Concerns. Logged by CSM after a risk review.,21
+ACC-30029,Starlight Freight Co,Commercial,2026-02-28,Task,Save play: Provided API access for customization Challenge: Product Fit. Logged by CSM after a risk review.,17
+ACC-30030,Foxglove Education Inc,SMB,2026-04-23,Task,Save play: Created internal champions program Challenge: Product Fit. Logged by CSM after a risk review.,21
+ACC-30031,Pinecrest Insurance Group,Commercial,2026-12-08,Task,Save play: Offered custom pricing tier Challenge: Support Issues. Logged by CSM after a risk review.,22
+ACC-30032,Copperleaf Labs Inc,SMB,2026-04-17,Task,Save play: Offered custom pricing tier Challenge: Competition. Logged by CSM after a risk review.,24
+ACC-30033,Sterling Health Ltd,SMB,2026-04-10,Task,Save play: Provided API access for customization Challenge: Adoption Challenges. Logged by CSM after a risk review.,15
+ACC-30034,Ironbridge Biotech LLC,SMB,2025-12-09,Task,Save play: Ran dedicated onboarding sessions Challenge: Product Fit. Logged by CSM after a risk review.,5
+ACC-30035,Copperleaf Freight LLC,SMB,2026-08-06,Task,Save play: Created internal champions program Challenge: Product Fit. Logged by CSM after a risk review.,29
+ACC-30036,Oakridge Manufacturing Corp,SMB,2025-12-21,Task,Save play: Provided API access for customization Challenge: Competition. Logged by CSM after a risk review.,13
+ACC-30037,Northstar Telecom Corp,SMB,2025-12-12,Task,Save play: Offered custom pricing tier Challenge: Pricing Concerns. Logged by CSM after a risk review.,18
+ACC-30038,Copperleaf Systems Co,Commercial,2025-11-13,Task,Save play: Offered custom pricing tier Challenge: Adoption Challenges. Logged by CSM after a risk review.,11
+ACC-30039,Granite Security Inc,Commercial,2026-11-12,Task,Save play: Ran dedicated onboarding sessions Challenge: Support Issues. Logged by CSM after a risk review.,22
+ACC-30040,Starlight Foods Group,SMB,2026-02-27,Task,Save play: Created internal champions program Challenge: Pricing Concerns. Logged by CSM after a risk review.,17
+ACC-30041,Pinecrest Education Co,Enterprise,2026-04-28,Task,Save play: Ran dedicated onboarding sessions Challenge: Competition. Logged by CSM after a risk review.,7
+ACC-30042,Northstar Logistics Co,SMB,2026-04-06,Task,Save play: Created internal champions program Challenge: Pricing Concerns. Logged by CSM after a risk review.,11
+ACC-30043,Westgate Education Corp,SMB,2026-01-14,Task,Save play: Created internal champions program Challenge: Support Issues. Logged by CSM after a risk review.,8
+ACC-30044,Quarrystone Analytics Corp,SMB,2026-03-12,Task,Save play: Held executive business review Challenge: Pricing Concerns. Logged by CSM after a risk review.,14
+ACC-30045,Ironbridge Retail Co,SMB,2026-07-13,Task,Saveplay:onboarding sessions Challenge: Support Issues. Logged by CSM after a risk review.,20
+ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,2026-11-05,Task,save-play: exec business review Challenge: Adoption Challenges. Logged by CSM after a risk review.,25
+ACC-30047,"CLEARPATH SOFTWARE, INC. [ACC-30047]",Enterprise,2026-11-13,Task,Save play: Created internal champions program Challenge: Adoption Challenges. Logged by CSM after a risk review.,25
+ACC-30048,"CLEARPATH LOGISTICS, CORP. [ACC-30048]",SMB,2025-11-08,Task,Save play: Provided API access for customization Challenge: Adoption Challenges. Logged by CSM after a risk review.,22
+ACC-30038,Copperleaf Systems Co,Commercial,2025-11-13,Task,Save play: Held executive business review Challenge: Pricing Concerns. Second attempt.,11
+ACC-30003,Clearpath Logistics LLC [ACC-30003],SMB,2025-12-25,Task,Save play: Held executive business review Challenge: Adoption Challenges. Second attempt.,17

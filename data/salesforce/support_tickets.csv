@@ -206,3 +206,35 @@ ticket_id,customer_id,company_name,segment,category,issue_type,severity,created_
 00001364,ACC-20001,Iron Consulting Inc,SMB,Question,Feedback,High,2026-06-06,,55,Customer reported: cannot log in after sso change. Happens intermittently.,,3
 00001365,ACC-20092,"Union Insurance, Inc [ACC-20092]",SMB,Other,Performance,Low,2026-06-22,2026-06-22,13,Customer reported: urgent!!! system down. Started after last release.,,3
 00001368,ACC-20059,Prairie Energy,SMB,Other,Performance,High,2026-07-03,2026-07-04,25,Customer reported: cannot log in after sso change. See previous case.,,
+00001372,ACC-30043,Westgate Education Corp,SMB,Question,Webhook not firing,Medium,2026-06-20,2026-06-22,52,Customer reported the issue through the support portal.,,4
+00001373,ACC-30045,Ironbridge Retail Co,SMB,Question,Permissions not applied to new users,Low,2026-04-01,,69,Customer reported the issue through the support portal.,,2
+00001375,ACC-30039,Granite Security Inc,Commercial,Other,Billing invoice incorrect,High,2026-06-21,,32,Customer reported the issue through the support portal.,,4
+00001376,ACC-30015,Quarrystone Education Ltd,Enterprise,Other,Need help configuring alerts,High,2026-06-20,,38,Customer reported the issue through the support portal.,,4
+00001377,ACC-30007,Cedarview Security Group,SMB,Problem,Export to CSV fails,Low,2026-07-09,,64,Customer reported the issue through the support portal.,,5
+00001378,ACC-30024,Quarrystone Logistics Co,SMB,Problem,Export to CSV fails,Low,2026-04-24,,73,Customer reported the issue through the support portal.,,1
+00001380,ACC-30015,Quarrystone Education Ltd,Enterprise,Feature Request,Webhook not firing,High,2026-05-05,,71,Customer reported the issue through the support portal.,,1
+00001382,ACC-30009,Copperleaf Analytics Inc,SMB,Feature Request,Report totals look wrong,High,2026-04-24,,59,Customer reported the issue through the support portal.,,3
+00001383,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Question,Report totals look wrong,Low,2026-06-26,,3,Customer reported the issue through the support portal.,,4
+00001384,ACC-30031,Pinecrest Insurance Group,Commercial,Other,Need help configuring alerts,Medium,2026-07-14,,28,Customer reported the issue through the support portal.,,2
+00001385,ACC-30004,Evergreen Media Group,Commercial,Problem,Export to CSV fails,Low,2026-06-02,,31,Customer reported the issue through the support portal.,,
+00001387,ACC-30004,Evergreen Media Group,Commercial,Question,Mobile app crashes on sync,Low,2026-07-22,,42,Customer reported the issue through the support portal.,,
+00001390,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Question,Dashboard loading slowly,Medium,2026-09-21,,40,Customer reported the issue through the support portal.,,5
+00001391,ACC-30031,Pinecrest Insurance Group,Commercial,Feature Request,Billing invoice incorrect,Medium,2026-04-09,,45,Customer reported the issue through the support portal.,,5
+00001392,ACC-30024,Quarrystone Logistics Co,SMB,Question,Cannot log in after SSO change,High,2026-09-17,,34,Customer reported the issue through the support portal.,,5
+00001393,ACC-30026,Clearpath Security Group,Enterprise,Other,Need help configuring alerts,Low,2026-06-20,,78,Customer reported the issue through the support portal.,,
+00001394,ACC-30042,Northstar Logistics Co,SMB,Feature Request,Cannot log in after SSO change,Medium,2026-04-22,,55,Customer reported the issue through the support portal.,,4
+00001395,ACC-30046,"PINECREST SOFTWARE, CORP. [ACC-30046]",SMB,Feature Request,Need help configuring alerts,High,2026-05-31,,84,Customer reported the issue through the support portal.,,3
+00001396,ACC-30040,Starlight Foods Group,SMB,Other,Billing invoice incorrect,Medium,2026-07-14,,34,Customer reported the issue through the support portal.,,
+00001398,ACC-30028,Harborpoint Systems Ltd,Commercial,Feature Request,Cannot log in after SSO change,Medium,2026-04-13,,48,Customer reported the issue through the support portal.,,4
+00001399,ACC-30013,Keystone Software Group,Commercial,Feature Request,Dashboard loading slowly,High,2026-06-11,,22,Customer reported the issue through the support portal.,,
+00001401,ACC-30040,Starlight Foods Group,SMB,Feature Request,Permissions not applied to new users,High,2026-09-29,,36,Customer reported the issue through the support portal.,,2
+00001403,ACC-30010,Amberfield Networks Co,SMB,Problem,Need help configuring alerts,Low,2026-04-05,,75,Customer reported the issue through the support portal.,,
+00001404,ACC-30039,Granite Security Inc,Commercial,Feature Request,Export to CSV fails,Low,2026-09-08,2026-09-09,25,Customer reported the issue through the support portal.,,4
+00001407,ACC-30011,Westgate Biotech Ltd,SMB,Question,API rate limit errors,Medium,2026-09-07,,89,Customer reported the issue through the support portal.,,4
+00001408,ACC-30032,Copperleaf Labs Inc,SMB,Problem,Cannot log in after SSO change,Medium,2026-05-04,,10,Customer reported the issue through the support portal.,,1
+00001410,ACC-30024,Quarrystone Logistics Co,SMB,Problem,Cannot log in after SSO change,High,2026-08-28,,52,Customer reported the issue through the support portal.,,2
+00001411,ACC-30031,Pinecrest Insurance Group,Commercial,Other,API rate limit errors,Medium,2026-04-27,,6,Customer reported the issue through the support portal.,,3
+00001412,ACC-30006,Amberfield Media LLC,Commercial,Problem,Report totals look wrong,Medium,2026-10-12,,29,Customer reported the issue through the support portal.,,5
+00001416,ACC-30045,Ironbridge Retail Co,SMB,Feature Request,Webhook not firing,Medium,2026-08-16,,10,Customer reported the issue through the support portal.,,4
+00001417,ACC-30010,Amberfield Networks Co,SMB,Problem,Billing invoice incorrect,High,2026-06-25,,47,Customer reported the issue through the support portal.,,2
+00001419,ACC-30006,Amberfield Media LLC,Commercial,Problem,Cannot log in after SSO change,High,2026-05-12,,67,Customer reported the issue through the support portal.,,1

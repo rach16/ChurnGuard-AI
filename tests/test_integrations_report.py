@@ -28,11 +28,15 @@ REPORT = ROOT / "data" / "salesforce" / "ingest_report.json"
 def keys_the_connector_can_record() -> set[str]:
     """Every key passed to report.note(), read from the connector's source.
 
-    Covers literal keys, both arms of a conditional, and the churn-label f-string,
-    whose suffix is one of ChurnLabel's sources. Plus the one key set directly.
+    Covers literal keys, both arms of a conditional, and f-string keys, whose
+    possible values are listed below. Plus the one key set directly.
     """
     tree = ast.parse(CONNECTOR.read_text())
-    sources = {"status", "lost_renewal", "status+lost_renewal", "active"}
+    # The values each f-string key can take, by its literal prefix.
+    variants = {
+        "churn_label_source:": {"status", "lost_renewal", "status+lost_renewal", "active"},
+        "save_play_outcome:": {"renewed", "churned", "pending"},
+    }
     keys: set[str] = set()
 
     def literal(node):
@@ -43,7 +47,8 @@ def keys_the_connector_can_record() -> set[str]:
             literal(node.orelse)
         elif isinstance(node, ast.JoinedStr):
             prefix = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
-            keys.update(prefix + s for s in sources)
+            assert prefix in variants, f"f-string decision key {prefix!r} has no known values"
+            keys.update(prefix + v for v in variants[prefix])
 
     for node in ast.walk(tree):
         if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)

@@ -132,8 +132,10 @@ def test_salesforce_evaluation_explains_why_there_is_none(api_on):
 def test_source_names_the_data_on_screen(api_on):
     api = api_on(SALESFORCE)
     source = asyncio.run(api.get_source())
+    import json
+    pulled = json.loads((ROOT / "data/salesforce/ingest_report.json").read_text())["as_of"]
     assert source == {"source": "salesforce", "label": "Salesforce", "synthetic": False,
-                      "as_of": "2026-10-04", "seeded": True}
+                      "as_of": pulled, "seeded": True}
 
     api = api_on("data")
     assert asyncio.run(api.get_source())["synthetic"] is True

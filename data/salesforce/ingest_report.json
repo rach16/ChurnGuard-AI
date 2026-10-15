@@ -1,19 +1,59 @@
 {
-  "as_of": "2026-10-04",
-  "accounts_read": 244,
-  "customers_written": 139,
-  "prospects_excluded": 92,
+  "as_of": "2026-10-15",
+  "accounts_read": 294,
+  "customers_written": 187,
+  "prospects_excluded": 94,
   "decisions": {
-    "case_not_on_a_customer_dropped": 163,
-    "churn_date_inferred_from_opportunity": 5,
-    "churn_label_source:active": 106,
-    "churn_label_source:status+lost_renewal": 33,
-    "company_name_disambiguated": 60,
-    "duplicate_account_groups": 40,
+    "activity_after_churn_date_dropped": 17,
+    "arr_from_latest_won_opportunity": 4,
+    "case_after_churn_date_dropped": 16,
+    "case_date_from_createddate_not_legacy": 5,
+    "case_not_on_a_customer_dropped": 165,
+    "churn_date_inferred_from_opportunity": 8,
+    "churn_label_source:active": 132,
+    "churn_label_source:lost_renewal": 3,
+    "churn_label_source:status+lost_renewal": 52,
+    "company_name_disambiguated": 66,
+    "csat_out_of_range_blanked": 1,
+    "duplicate_account_groups": 43,
+    "engagement_after_churn_date_dropped": 16,
     "engagement_weeks_of_history_per_customer": 1,
-    "salesforce_sample_account_excluded": 13
+    "salesforce_sample_account_excluded": 13,
+    "save_play_outcome:churned": 24,
+    "save_play_outcome:pending": 8,
+    "save_play_outcome:renewed": 16,
+    "save_play_recorded": 48,
+    "save_play_unrecognised_dropped": 2,
+    "status_stale_vs_lost_renewal": 3
   },
   "examples": {
+    "activity_after_churn_date_dropped": [
+      "Champion changed roles",
+      "Training session",
+      "Escalation follow-up",
+      "Positive feedback on reporting",
+      "Expansion discussion"
+    ],
+    "arr_from_latest_won_opportunity": [
+      "Amberfield Media LLC",
+      "Sterling Capital Ltd",
+      "Foxglove Education Inc",
+      "Northstar Logistics Co"
+    ],
+    "case_after_churn_date_dropped": [
+      "00001374",
+      "00001379",
+      "00001381",
+      "00001386",
+      "00001388"
+    ],
+    "case_date_from_createddate_not_legacy": [
+      "00001379",
+      "00001388",
+      "00001397",
+      "00001406",
+      "00001415"
+    ],
     "case_not_on_a_customer_dropped": [
       "00001001",
       "00001000",
@@ -35,12 +75,22 @@
       "Northwind Logistics [ACC-10001]",
       "Acme Industrial Supply [ACC-10002]"
     ],
+    "csat_out_of_range_blanked": [
+      "00001403"
+    ],
     "duplicate_account_groups": [
       "ACME Industrial Supply Inc. | Acme Industrial Supply",
       "Northwind Logistics | Northwind Logistics, Inc",
       "Helios Energy | Helios Energy Group",
       "Meridian Telecom | meridian telecom",
       "Redwood Analytics | Redwood Analytics"
+    ],
+    "engagement_after_churn_date_dropped": [
+      "Pinecrest Software Inc [ACC-30001]",
+      "Clearpath Software Group [ACC-30002]",
+      "Clearpath Logistics LLC [ACC-30003]",
+      "Foxglove Logistics Corp",
+      "Meridian Systems LLC"
     ],
     "salesforce_sample_account_excluded": [
       "Edge Communications",
@@ -56,6 +106,43 @@
       "GenePoint",
       "sForce",
       "Sample Account for Entitlements"
+    ],
+    "save_play_outcome:churned": [
+      "Pinecrest Software Inc [ACC-30001]",
+      "Clearpath Software Group [ACC-30002]",
+      "Clearpath Logistics LLC [ACC-30003]",
+      "Evergreen Media Group",
+      "Foxglove Logistics Corp"
+    ],
+    "save_play_outcome:pending": [
+      "Ironbridge Security LLC",
+      "Starlight Biotech Corp",
+      "Clearpath Security Group",
+      "Harborpoint Systems Ltd",
+      "Pinecrest Insurance Group"
+    ],
+    "save_play_outcome:renewed": [
+      "Harborpoint Foods Ltd",
+      "Cedarview Security Group",
+      "Copperleaf Analytics Inc",
+      "Amberfield Networks Co",
+      "Foxglove Robotics Inc"
+    ],
+    "save_play_recorded": [
+      "Pinecrest Software Inc [ACC-30001]: Ran dedicated onboarding sessions",
+      "Clearpath Software Group [ACC-30002]: Ran dedicated onboarding sessions",
+      "Clearpath Logistics LLC [ACC-30003]: Held executive business review",
+      "Evergreen Media Group: Provided API access for customization",
+      "Harborpoint Foods Ltd: Provided API access for customization"
+    ],
+    "save_play_unrecognised_dropped": [
+      "save play",
+      "Save play: tried the thing from last quarter again"
+    ],
+    "status_stale_vs_lost_renewal": [
+      "Pinecrest Software Inc",
+      "Clearpath Software Group",
+      "Clearpath Logistics LLC"
     ]
   }
 }
