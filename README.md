@@ -84,6 +84,12 @@ never produces one.
 
 ## 4. Data, control, and evidence flows
 
+![ChurnGuard integrations-first architecture: Salesforce and Mixpanel feed connectors, a durable store and a dbt warehouse, which feed scoring, the survival model, evidence search and an LLM agent, served by FastAPI to a Next.js console](docs/architecture.excalidraw.svg)
+
+*Where the project is going: every number the site shows comes from a connected integration. Solid parts are built and running; dashed parts are planned. The drawing is embedded in the SVG, so it opens for editing in [Excalidraw](https://excalidraw.com) or the VS Code Excalidraw extension.*
+
+The flows as they run today:
+
 ```
                           ┌──────────────────────────────────────┐
  DATA        CSV source ─▶│ dbt: bronze → silver → gold          │─▶ DuckDB / Athena
