@@ -94,6 +94,11 @@ class ConnectionStore:
                 row = c.execute(sql, (tenant_id, provider)).fetchone()
         return _row_to_connection(row) if row else None
 
+    def all(self, conn) -> list[Connection]:
+        """Every connection, oldest first. For operations that walk the table."""
+        rows = conn.execute(f"select {_COLUMNS} from connections order by created_at").fetchall()
+        return [_row_to_connection(r) for r in rows]
+
     def get_by_id(self, connection_id: str, conn=None) -> Optional[Connection]:
         sql = f"select {_COLUMNS} from connections where id = %s"
         if conn is not None:

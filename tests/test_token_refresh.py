@@ -262,3 +262,32 @@ def test_routes_are_503_without_app_credentials(provider, monkeypatch):
     client = make_app(State(store, provider, tokens=None))
     r = client.post("/connections/x/verify", headers=KEY)
     assert r.status_code == 503 and "SALESFORCE_CLIENT_ID" in r.json()["detail"]
+
+
+# --------------------------------------------------------------------- rewrap
+
+def test_rewrap_script_moves_every_row_to_the_current_key(provider):
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from rewrap_tokens import rewrap_all
+
+    store, sf = FakeStore(), FakeSalesforce()
+    c = connected(store, provider, sf)
+    rotated = crypto.LocalKeyProvider({"v1": provider.keys["v1"], "v2": secrets.token_bytes(32)},
+                                      current="v2")
+
+    dry = rewrap_all(store, rotated, apply=False)
+    assert dry == [{"connection_id": c.id, "org_id": ORG, "from": "v1", "to": "v2",
+                    "changed": True, "applied": False}]
+    assert store.rows[c.id].sealed.master_key_version == "v1"      # dry run wrote nothing
+
+    done = rewrap_all(store, rotated, apply=True)
+    assert done[0]["applied"] is True
+    row = store.rows[c.id]
+    assert row.sealed.master_key_version == "v2"
+    assert row.sealed.ciphertext == c.sealed.ciphertext               # token untouched
+    assert store.audit[-1]["event"] == "rewrap" and store.audit[-1]["detail"] == {"from": "v1", "to": "v2"}
+
+    # Only the new key is needed from here on, and the token still works.
+    only_new = crypto.LocalKeyProvider({"v2": rotated.keys["v2"]}, current="v2")
+    assert service(store, only_new, sf).access(c.id).instance_url == HOST
+    assert rewrap_all(store, only_new, apply=True)[0]["changed"] is False

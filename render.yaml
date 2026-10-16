@@ -131,3 +131,10 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
+      # The staging preview's origin, for the OAuth callback; and the operator
+      # key the preview's server attaches to connect / test / disconnect. The
+      # same OPERATOR_KEY is set on Vercel for the Preview environment only.
+      - key: PUBLIC_SITE_ORIGIN
+        sync: false
+      - key: OPERATOR_KEY
+        sync: false

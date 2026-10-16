@@ -1,0 +1,151 @@
+# Runbook: the Salesforce connection
+
+For whoever operates ChurnGuard. Covers the connection built in 1.9 (ADR-0012):
+what is stored where, and what to do when something expires, leaks or rotates.
+Everything here was done at least once on staging on 2026-10-16 unless marked
+*untested*.
+
+## What exists
+
+| Thing | Where | Notes |
+|---|---|---|
+| The External Client App `ChurnGuard` | Salesforce org, Setup → External Client App Manager | Scopes `api`, `refresh_token`. PKCE, refresh-token rotation and a 30-day idle limit are enforced by the org |
+| Consumer key and secret | Render → service → Environment: `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET` | Never in the repo, never in a log |
+| The connection row | Neon, branch `staging`, table `connections` | Org, host, user, status, and the refresh token **sealed** |
+| The master key | AWS KMS `alias/churnguard-staging-master`, us-west-2 | Reached as IAM user `churnguard-staging-kms`, whose only rights are GenerateDataKey, Decrypt, ReEncrypt and DescribeKey on that key |
+| The operator key | Render `OPERATOR_KEY` and Vercel `OPERATOR_KEY` (Preview, branch `staging`) | Same value in both. Gates connect, test and disconnect |
+| The audit log | Neon, table `audit_events` | Append-only. Never holds a token |
+
+Each environment gets its own row set, key, IAM user and operator key. Production
+has none of these yet; its `/connections` reports `enabled: false`.
+
+## Reading the state
+
+- **The page.** Integrations → the Connection block: Connected / Needs a fresh
+  login / Not connected, with org id, host and timestamps.
+- **The API.** `GET /connections` on the backend (public, no username).
+- **The audit log.** From a laptop with `DATABASE_URL` in `.env`:
+
+  ```bash
+  uv run python - <<'EOF'
+  import os, sys; sys.path.insert(0, "src")
+  from dotenv import load_dotenv; load_dotenv(".env")
+  from integrations.db import Database
+  db = Database(os.environ["DATABASE_URL"]).open()
+  with db.connection() as c:
+      for r in c.execute("select at, event, actor, org_id, detail from audit_events order by id desc limit 20"):
+          print(r["at"], r["event"], r["actor"], r["org_id"], r["detail"])
+  db.close()
+  EOF
+  ```
+
+- **The backend log.** Render → service → Logs. Tokens, codes and the Neon
+  password are redacted before they are written; a line that shows one is a bug.
+
+## Needs a fresh login (`needs_reauth`)
+
+**Cause.** Salesforce refused the stored refresh token: an admin revoked it, the
+org's 30-day idle limit passed, the user was deactivated, or the app's secret
+changed. The audit log has a `needs_reauth` row with the error code.
+
+**Fix.** Integrations → **Reconnect**, log in, Allow. The row is reactivated in
+place and audited as `reconnect`. Nothing else to do.
+
+**Prevent.** Any use of the connection resets the 30-day timer: **Test
+connection** on the page does, and the daily sync (1.11) will. Until 1.11
+exists, click Test connection at least monthly.
+
+## Disconnect, and when Salesforce does not confirm
+
+**Disconnect** revokes the refresh token at the org's own host, deletes the row,
+and audits `disconnect` with `revoke_status`. `200` means Salesforce killed the
+token (verified 17:46 on 2026-10-16).
+
+Any other status means the row is gone here but the token may live on at
+Salesforce until its idle limit. Revoke it by hand: Salesforce → Setup → Users →
+the connecting user → **OAuth Connected Apps** → Revoke on the ChurnGuard entry.
+Three such tokens were orphaned on 2026-10-16 by the first Disconnect code, which
+posted to `login.salesforce.com` instead of the org's host.
+
+## Rotate the consumer secret
+
+1. Salesforce → External Client App Manager → ChurnGuard → Settings → OAuth
+   Settings → **Consumer Key and Secret** → rotate (Salesforce emails a code).
+2. Render → Environment → update `SALESFORCE_CLIENT_SECRET` → Save, rebuild and
+   deploy. The old secret stops working for exchange and refresh; stored refresh
+   tokens are unaffected.
+3. Integrations → Test connection, to prove a refresh still works.
+
+*Untested as a sequence; each step has been done individually.*
+
+## Rotate the master key
+
+The refresh tokens are sealed under per-connection data keys; the master key only
+wraps those. Rotating it is a **re-wrap**, and the tokens are never read.
+
+**KMS, automatic (yearly rotation is on).** KMS keeps every backing key version
+and decrypts with whichever wrapped a given row, so nothing is required. Running
+the re-wrap anyway moves rows to the newest backing key:
+
+```bash
+uv run python scripts/rewrap_tokens.py          # dry run: reports each row's key version
+uv run python scripts/rewrap_tokens.py --apply
+```
+
+**KMS, a new key** (compromise, or moving accounts). Create the key and give the
+IAM user the same five permissions on it, set `CHURNGUARD_KMS_KEY_ID` to the new
+alias, then run the script with `--apply` while the old key is still enabled (the
+IAM user needs Decrypt/ReEncryptFrom on it until the re-wrap is done). Each row
+is audited as `rewrap` with the old and new key ARNs. Then disable the old key;
+if a row was missed it fails to open with the old ARN named, not silently.
+
+**Local key.** `CHURNGUARD_MASTER_KEY=v1:<old>,v2:<new>`, deploy, run the script
+with `--apply`, confirm every row reports `v2`, then drop `v1:` from the value.
+
+Verified by `tests/test_token_refresh.py::test_rewrap_script_moves_every_row_to_the_current_key`
+against the local provider and by a real KMS re-wrap from a laptop on 2026-10-16;
+*the script has not yet been run against the staging database*.
+
+## Rotate the operator key
+
+1. `openssl rand -hex 32`.
+2. Render → `OPERATOR_KEY` → Save only. Vercel → `OPERATOR_KEY` (Preview,
+   branch `staging`) → Save, then **redeploy** the staging preview: route
+   handlers read the value at runtime, but Vercel applies a changed variable on
+   the next deployment.
+3. Integrations → Test connection must succeed; with the old key on either side
+   it answers 403.
+
+## If a token leaked
+
+A refresh token appearing anywhere outside the sealed column is an incident.
+
+1. **Disconnect** on the page: revokes it at Salesforce (check `revoke_status`
+   is 200; if not, revoke by hand as above).
+2. Reconnect to issue a fresh one.
+3. Find the leak: the redaction filter (`src/integrations/redaction.py`) and
+   `tests/test_token_custody.py` are where the patterns live; add the shape that
+   got through.
+
+If the **master key** leaked: alone it opens nothing (the ciphertext is in the
+database), but rotate it as above and, with KMS, check CloudTrail for Decrypt
+calls on the key you did not make.
+
+If the **database** leaked: the sealed tokens cannot be opened without the master
+key. Disconnect and reconnect anyway, so the leaked ciphertexts refer to tokens
+that no longer exist.
+
+## Neon suspends after five idle minutes
+
+The free tier suspends the compute and cuts every connection. The pool closes
+idle connections at three minutes and checks each one before use, so a request
+after a quiet spell reconnects instead of failing. The first such request can
+take a second or two while the compute wakes. If `/connections` ever answers 500
+with `AdminShutdown` in the log, that guard has regressed.
+
+## Known gaps carried into 1.10
+
+- The app allows any user in the org to self-authorise, and the connection runs
+  as the owner's admin user, not a read-only integration user.
+- The operator key is a shared secret, not a login. 2.6 replaces it.
+- No scheduled use yet, so the 30-day idle limit is a real risk until 1.11.

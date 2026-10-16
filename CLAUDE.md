@@ -29,6 +29,11 @@ Things the directory tree does not tell you:
   a specific reason on LLM ones. `/health` is liveness, `/ready` is readiness.
 - **Qdrant runs in Docker** (`churn-qdrant`). `QDRANT_URL` also accepts
   `:memory:` or `local:<path>` so tests and CI need no container.
+- **The Salesforce connection lives in Postgres, not on disk.** `src/integrations/`
+  (ADR-0012): the refresh token is sealed under a per-connection data key wrapped
+  by AWS KMS; `DATABASE_URL` unset means connections report off and nothing else
+  changes. Operator routes need `OPERATOR_KEY`. The DB tests run only with
+  `DATABASE_URL`, in a throwaway schema. Runbook: `docs/RUNBOOK_SALESFORCE_CONNECTION.md`.
 
 ## Commands
 

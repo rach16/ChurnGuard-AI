@@ -146,6 +146,10 @@ choice moves the entire defensive burden onto spend limits and blast radius.
 | Browser-side origin abuse | CORS defaults to **deny**, not `*`. Note that CORS is not access control: it stops a browser, not `curl`. The rate limits are what actually bound spend | `src/backend/api.py` |
 | Backend address disclosure | Same-origin proxy; `BACKEND_ORIGIN` has no `NEXT_PUBLIC_` prefix so it never reaches the client bundle | `frontend/next.config.js` |
 | Secrets in a public repo | Every credential is `sync: false` in the blueprint and set in the host dashboard. Deploy authenticates by OIDC, so no long-lived AWS key exists in CI | `render.yaml`, `.github/workflows/` |
+| A stored Salesforce refresh token | Envelope-encrypted: AES-256-GCM under a per-connection data key, the data key wrapped by AWS KMS with an encryption context, so a database copy opens nothing and a ciphertext moved to another connection is refused by KMS itself. Single-flight refresh, rotation, `needs_reauth` on `invalid_grant`, revoke on disconnect | `src/integrations/crypto.py`, `tokens.py`; [ADR-0012](docs/adr/0012-salesforce-integration-architecture.md) |
+| Code interception or org swap during Connect | PKCE (S256) with the verifier server-side, single-use `state`, the returned host checked by a parsed suffix rule and pinned, the org pinned; a refused token is revoked before it is refused | `src/integrations/flow.py`, 29 tests in `tests/test_connect_flow.py` |
+| A token in a log | A redaction filter on every log handler, uvicorn's access line included, and an audit log that refuses a row carrying a secret | `src/integrations/redaction.py`, `audit.py` |
+| Operator actions on a public backend | Connect, test and disconnect require an operator key the site's server attaches from its own secret, on the login-gated staging preview only; where no key is set they answer 404 | `src/backend/connections_routes.py`, `frontend/src/app/ops/` |
 
 **API key auth and per-process rate limiting** are implemented and wired into the
 ECS task definition ([ADR-0010](docs/adr/0010-api-key-auth-and-per-process-rate-limiting.md)),
@@ -153,8 +157,9 @@ and deliberately left unset on the public demo.
 
 **What is not defended.** Prompt injection through corpus documents is not
 mitigated: the corpus is synthetic and trusted, and a real deployment ingesting
-customer-authored text would need that work. There is no audit log, no per-user
-authorisation, and no tenant isolation.
+customer-authored text would need that work. There is no per-user authorisation
+and no tenant isolation; the audit log covers the Salesforce connection only, and
+the operator key is a shared secret standing in for a login.
 
 ## 6. Evaluation set and failure taxonomy
 
@@ -347,7 +352,9 @@ In order, and none of it speculative — each item names the constraint it remov
 
 ```
 src/
-├── backend/api.py           FastAPI — the single entrypoint, 16 routes
+├── backend/api.py           FastAPI — the single entrypoint
+├── backend/connections_routes.py  Connect Salesforce: start, callback, verify, disconnect
+├── integrations/            connections in Postgres, KMS envelope encryption, audit, log redaction
 ├── core/
 │   ├── health_scoring.py    weighted risk model (mirrors the SQL)
 │   ├── rag_retrievers.py    retrieval strategies over Qdrant
@@ -360,15 +367,15 @@ src/
 
 warehouse/                   dbt — bronze / silver / gold, incl. point-in-time features
 infra/                       Terraform for ECS Fargate (written, validated, never applied)
-scripts/                     generation, validation, retrieval benchmark, S3 publish
+scripts/                     generation, validation, retrieval benchmark, S3 publish, key re-wrap
 frontend/                    Next.js 14 operator console (shadcn/ui, light + dark)
 metrics/                     committed evaluation baseline
-docs/adr/                    10 architecture decision records
+docs/adr/                    12 architecture decision records
 ```
 
 ## Design decisions
 
-Ten decisions are recorded in [docs/adr/](docs/adr/) — what forced each one, what
+Twelve decisions are recorded in [docs/adr/](docs/adr/) — what forced each one, what
 it cost, and what was rejected. Notably why the 94.7% claim was retracted, why a
 predicted date was replaced with a band, and why fixing a long-silent
 knowledge-graph bug would have made the system worse than deleting it.

@@ -1,7 +1,7 @@
 # Status
 
 Living record. See the maintenance rule in `CLAUDE.md`.
-Last updated 2026-10-15 · `feat/salesforce-ingest` and `staging` @ `cc5520c` (unmerged) · `main` @ `76058b1`.
+Last updated 2026-10-16 · `feat/salesforce-integration` and `staging` @ `e8ad528` (unmerged) · `main` @ `a9a2e99`.
 
 Phases re-derived against `docs/ARCHITECTURE.md` on 2026-08-31. The plan up to
 that point was a remediation backlog; it is now ordered by the critical path to a
@@ -16,6 +16,8 @@ standard (real connectors, scheduled sync, monitoring, security). It is not a cl
 of real customers, and nothing may be written as if it were (ADR-0007).
 
 **Since 2026-10-15 the live site runs on the Salesforce data** (`fc64bb3`, production `CHURNGUARD_DATA_DIR=data/salesforce`; rollback is setting it back to `data`, a restart). The synthetic set is test data only. Verified live that day: source Salesforce, 27 at risk / $3.45M of 132 active, 294 accounts read → 187 customers, no invented fields, `/ready?require_ai_stack=true` ready with the AI stack off by design.
+
+**Log in with Salesforce works on staging** (1.9, 2026-10-16, ADR-0012 Accepted). Connect, Test connection and Disconnect on the Integrations page against `churnguard-dev`; the refresh token is sealed under AWS KMS (`alias/churnguard-staging-master`, the project's first paid component at ~$1/month) and stored in Neon Postgres (free tier, branch `staging`); every action is audited. Operator actions are gated by a shared `OPERATOR_KEY` the preview's server attaches, the named stand-in until login (2.6). **Not on the live site:** production has no `DATABASE_URL`, so it reports connections off. The site's data still arrives by the laptop pull until 1.10.
 
 **Live at https://churnguard.banik.dev** (2026-09-03).
 
@@ -121,6 +123,7 @@ exists, so nothing is accruing.
 | **1.7** | Integrations page shows what the Salesforce connector did | `45df3ef` | The page listed six planned connectors and a disclaimer; it now leads with the one that exists. Every figure comes from `data/salesforce/ingest_report.json` via `GET /integrations/salesforce`: 244 accounts read, 92 prospects and 13 Salesforce demo records excluded, 139 customers, plus each decision with an example. `tests/test_integrations_report.py` reads every key the connector can record from its source and fails on any without a label. pytest 134 → 139. Verified on staging 2026-10-14. | P1 · Data quality, ingestion |
 | **1.8** | Site runs on Salesforce data, and shows nothing invented | `2feab3a`, `cc5520c` | Staging serves Salesforce data on every page. Removed on every source because they were invented: per-feature usage (eight figures made up from one adoption rate, with `hash()` offsets that changed on restart), the heuristic churn date behind "median warning" and "~N days", and a `churn_probability` that was the score divided by 100. Where Salesforce cannot support a figure the API says so: likelihood and exposure return `available: false` (1 week of usage against 104 needed, `docs/SITE_SURVEY.md` V1); the assistant and evaluation are off on non-synthetic data. "At risk" is the top 20% of the active book (the fixed line of 60 flagged no Salesforce account). Queue loads every active account; each shows "In Salesforce since". `GET /source` and a data-source label on every page. pytest 139 → 160. Verified on staging 2026-10-15. Live site not switched. | P1 · Data quality, ingestion |
 | **1.5c** | Second seeded batch; save plays and their outcomes | `b2df893` | `scripts/seed_salesforce.py` (committed, deterministic, tagged `ACC-300xx`, dry run by default) wrote 300 records to `churnguard-dev` with planted mess. The connector reads "Save play:" tasks and takes the first renewal after each as the outcome; "What has worked" reports renewals after each play, failures counted, ranked by the floor of a 90% Wilson interval. Outcomes are planted by the seed and the script states the rates. Exposed and fixed a connector gap: 16 usage readings after the churn date. Salesforce calls go through the CLI login (`sf api request rest`); no token in code. | P1 · Data quality, ingestion |
+| **1.9** | Log in with Salesforce: connections and token custody | `ef513dc`, `2db7679`, `ffd50f2`, `3d5b6e1`, `356be17`, `e8ad528` | Connect, Test connection and Disconnect on the Integrations page, proven on staging 2026-10-16 against `churnguard-dev` (org `00Dg700000J62qbEAB`). OAuth web-server flow with PKCE and a single-use `state`; the host is checked by a parsed suffix rule (the org's real host carries a `develop.` label a one-label wildcard rejected) and pinned; the org is pinned. The refresh token is envelope-encrypted: AES-256-GCM under a per-connection data key, the data key wrapped by AWS KMS with an encryption context KMS enforces (a token sealed to one connection is refused for any other, verified against the real key). Refresh is single-flight under a Postgres advisory lock, rotated tokens re-sealed in place, `invalid_grant` moves the row to `needs_reauth`. Disconnect revokes at the org's own host: the first three disconnects posted to `login.salesforce.com` and Salesforce did not confirm, leaving three orphaned tokens (runbook); `revoke_status: 200` since `e8ad528`. Audit log append-only and secret-free by construction; a log filter on every handler redacts tokens and the callback's code. Found and fixed on the way: a refused-state audit row rolled back by the pool, uvicorn's access formatter broken by the first redaction filter, Neon's five-minute suspend killing pooled connections. pytest 160 → 237. `docs/RUNBOOK_SALESFORCE_CONNECTION.md`, `scripts/rewrap_tokens.py`. | P2 · Enterprise security; P1 · Ingestion |
 
 ### Architecture
 
@@ -159,7 +162,7 @@ exists, so nothing is accruing.
 | SQL/Python scoring parity | 200/200 within 0.1 | 2026-08-30 | `tests/test_warehouse_parity.py` |
 | Dataset contracts | 28/28 pass | 2026-08-31 | `scripts/validate_dataset.py` |
 | dbt tests | **67/67 pass** | 2026-08-31 | `dbt test` |
-| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~118 (2026-10-04, 1.5a)~~ → ~~128 (2026-10-04)~~ → ~~133~~ → ~~134~~ → ~~139~~ → **160/160 pass** | 2026-10-15 | `pytest tests/` with `--extra model`, on `feat/salesforce-ingest` after merging `main` |
+| pytest | ~~45~~ → ~~65~~ → ~~75~~ → ~~80~~ → ~~85~~ → ~~94~~ → ~~107 (2026-09-04)~~ → ~~118 (2026-10-04, 1.5a)~~ → ~~128 (2026-10-04)~~ → ~~133~~ → ~~134~~ → ~~139~~ → ~~160 (2026-10-15)~~ → **237/237 pass** | 2026-10-16 | `pytest tests/` with `--extra model`, on `feat/salesforce-integration`. 9 of them need `DATABASE_URL` and run in a throwaway schema; CI skips those |
 | Salesforce org: customers / churn events | ~~150~~ → ~~139 / 33 (2026-10-04)~~ → **187 / 55** | 2026-10-15 | `data/salesforce/ingest_report.json`; 139 accounts created 2026-10-04, 48 created 2026-10-15 (`crm_created_date`) |
 | Contracts on Salesforce data | **22 pass, 6 skipped**, 0 fail | 2026-10-15 | `CHURNGUARD_DATA_DIR=data/salesforce scripts/validate_dataset.py`. Failed once that day (16 usage rows after churn) until the connector dropped them. Skipped = narrative-corpus checks |
 | dbt on Salesforce data | **83/83** | 2026-10-15 | `dbt build`, warehouse `churnguard_salesforce.duckdb`, now also built in the image |
@@ -228,7 +231,7 @@ Tracks https://github.com/pierpaolo28/Awesome-FDE-Roadmap, translated GCP→AWS
 | ├ Cloud data architecture | ✅ | 1.4, S3 + Glue + Athena |
 | ├ IaC / Terraform | ✅ written, validated, unapplied | `782c291` |
 | ├ Networking, VPC, IAM | ✅ written, validated, unapplied | `782c291` |
-| ├ Enterprise security | ✅ auth, rate limits, spend caps | 2.3, 2.7, ADR-0010 |
+| ├ Enterprise security | ✅ auth, rate limits, spend caps; OAuth + PKCE, KMS envelope encryption, audit log | 2.3, 2.7, ADR-0010; 1.9, ADR-0012 |
 | ├ DevSecOps / CI-CD | ✅ CI green on every push; deploy pipeline written | 2.4 |
 | ├ Containerised deployment, running | ✅ **live on Render**, laptop-independent | 2.9 |
 | └ Container orchestration (ECS/Fargate) | ❌ written, never applied | 2.2a — declined, see Deferred |
@@ -257,6 +260,11 @@ artifact; running it would prove orchestration and nothing else.
 
 | Item | Detail |
 |---|---|
+| **Salesforce app allows self-authorisation; connection runs as the admin user** | Deferred 2026-10-15 while the owner is the only user. Production setting is pre-authorised users plus a read-only permission set on an integration user (ADR-0012 §2). Must land before any org that is not the owner's connects. |
+| **Operator key is a shared secret, not a login** | The ADR's named stand-in until 2.6. One key on Render and Vercel (Preview, branch `staging`); the browser never holds it. Rotation is in the runbook. |
+| **Three orphaned refresh tokens at Salesforce** | The first three Disconnects (2026-10-16, 17:14–17:37) deleted the row but posted the revoke to `login.salesforce.com`, which Salesforce did not confirm. Live until the org's 30-day idle limit or a manual revoke (Setup → Users → OAuth Connected Apps). |
+| **One `OAUTH_INVALID_NONCE` from Salesforce** | 2026-10-16 17:14:36, three seconds after a disconnect whose revoke failed: Salesforce redirected the popup back with `expired authorization code` before issuing one. Nothing stored. Did not recur in four later connects. Cause unknown; watch. |
+| **No scheduled use of the connection** | The org expires a refresh token idle for 30 days. Until 1.11 schedules a sync, only a manual Test connection resets the timer. |
 | **Model figures before 2026-10-14 are not reproducible** | Found 2026-10-14. Training depended on row order (early stopping holds out 15% of rows by position) and the warehouse returned rows unordered, so every build trained a different model. Same code and data gave 0.877, 0.773, 0.712 on unseen customers; one account moved from High (1.93×) to Low (0.74×). Fixed in `68c81e1`: rows sorted before fitting, and `tests/test_survival_determinism.py` fails if order matters again. Figures re-measured that day are marked so. **Still to re-run on the fixed model:** the walk-forward backtest (top band 27.8% vs 8.7%, 1.8× understatement, 4.36× underprediction, dates 222 days late), calibration (2.26% vs 1.93%), and the distinct-probability and calibrator-floor counts. |
 | ~~No predictive model~~ **CLOSED** | Was: `risk_score` a weighted sum, `days_until_churn` an `np.interp` over it. Closed by 7.2 — a fitted discrete-time survival model now serves the likelihood band. The heuristic `days_until_churn` remains in `health_scoring.py` and is not surfaced. |
 | `days_since_last_interaction` sentinel | Uses 9999 when a customer has no prior interaction, which distorts its distribution (AUC 0.569 despite a large mean gap). 7.2 must impute or flag rather than treat it as a number. |
@@ -330,9 +338,9 @@ the Integrations page shows each source, its last sync, and what was cleaned.
 | 2 | `DEPLOYMENT_SPEC.md` Step 3 — staging — **done 2026-10-14** (`6b44b92`) | ½d | Verified end to end 2026-10-14: the Vercel preview of `staging` answered `/api/health` with `OPENAI_API_KEY is not set`, which only the staging backend can say, so the per-branch `BACKEND_ORIGIN` routes to it. Production unchanged: same Vercel deployment as 38 days earlier, backend healthy with AI up. Two things found: Vercel did **not** build `staging` on push, because the commit had already been built for `feat/salesforce-ingest` (triggered by API from the GitHub branch instead); and the preview is login-gated, so checking it needs a logged-in browser. To use it: push to `staging`, Render and Vercel both rebuild. First use, 2026-10-14: staging switched to `CHURNGUARD_DATA_DIR=data/salesforce` and failed as predicted. Scorer, playbook and evidence work on the 139 Salesforce customers; `survival_model` and `exposure` are down (`no model at models/survival_salesforce.joblib`). Staging is left on the Salesforce data so later work shows up there. See Known gaps. |
 | 3 | 1.7 Integrations page as the hub, **done 2026-10-14, see Completed** | ½d | Salesforce panel from the connector's own report. |
 | 4 | 1.8 Site runs on Salesforce data, **done 2026-10-15, see Completed** | ½–1d | Every page on Salesforce data, nothing invented. |
-| **5** | **1.9** Log in with Salesforce | 1–1.5d | OAuth popup with PKCE and `state`, production orgs only, refuses any org but `churnguard-dev`, token revoked after the pull. Staging only until the live-site decision below. |
-| **6** | **1.10** Durable storage | 1d | A free Postgres for the connection and pulled data. Render's free disk is wiped every time it sleeps. |
-| **7** | **1.11** Sync now | ½d | Re-pull from the Integrations page. |
+| 5 | 1.9 Log in with Salesforce, **done 2026-10-16, see Completed** | ~~1–1.5d~~ 3d | Built to ADR-0012 rather than the thin slice first sketched here: token custody, not a token discarded after the pull. |
+| **6** | **1.10** Sync engine | 2–3d | ADR-0012 §5–6: sync runs with watermarks and tombstones through the stored connection, raw landings and snapshots in the Postgres 1.9 added, contract-gated atomic promotion of what the site serves. Replaces the laptop pull. |
+| **7** | **1.11** Operations | 1–2d | ADR-0012 §8: scheduled sync (also the keep-alive, and what resets the org's 30-day idle limit), run metrics on the Integrations page, "last synced" on every page, alerts on `needs_reauth` and failed runs. |
 | 8 | 1.6 Product usage from Mixpanel | 2d | Closes 5.5's D2 red: the CRM holds one usage snapshot, and weekly usage lives in product analytics in a real SaaS stack. Seed ~2.5 years of weekly usage for the customer accounts (seeded, and labelled so), connector joined to Salesforce on `AccountNumber`, every pull kept in our own warehouse. Mixpanel Free verified 2026-10-04, re-verified 2026-10-14: events backdated 1, 2 and 3 years imported and returned by the export API (`cg_retention_probe`, `scripts/mixpanel_retention_probe.py`; the first run was by hand and left nothing in the repo). PostHog Free rejected for this: 1-year query retention. |
 | 9 | 4.7 Dated risk signals from CSM notes | 1d | LLM extraction over 157 task notes and 233 case descriptions (competitor mentioned, champion left, cancellation asked about) as time-varying features, not only narrative. < $0.05. Optional, and the only item that spends. |
 | 10 | 7.6 Survival model sized to the events | 1–2d | 33 churn events support ~3 features at ten events per feature. Features fixed in advance, penalised discrete-time model, grouped walk-forward validation with bootstrap intervals, compared against the CSMs' own `At Risk` flag (26 accounts). Depends on 1.6. |
@@ -343,7 +351,10 @@ the Integrations page shows each source, its last sync, and what was cleaned.
 - What a visitor sees before any connection. Proposed: the last `churnguard-dev` sync,
   labelled as seeded data (ADR-0007).
 - Whether Log in with Salesforce appears on the live site. Options: not on live, an
-  admin key, or real accounts (2.6).
+  admin key, or real accounts (2.6). **2026-10-16:** on staging it is gated by a
+  shared operator key the preview's server attaches; the live site gets it only
+  with its own Neon branch, KMS key, IAM user and operator key, and the decision is
+  still open.
 
 `DEPLOYMENT_SPEC.md` Step 1 (a real domain) is **~$19/year**, cosmetic, and
 belongs in the paid list below in spirit — it changes nothing except what the

@@ -152,6 +152,9 @@ class FakeStore:
     def get_by_id(self, connection_id, conn=None):
         return self.rows.get(connection_id)
 
+    def all(self, conn):
+        return list(self.rows.values())
+
     def new_id(self, conn):
         return secrets.token_hex(8)
 
