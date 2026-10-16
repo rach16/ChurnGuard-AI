@@ -32,7 +32,7 @@ from connectors.salesforce import FIELDS, RAW_KEYS, soql  # noqa: E402
 from integrations import crypto  # noqa: E402
 from integrations.flow import ConnectFlow  # noqa: E402
 from integrations.redaction import find_secret  # noqa: E402
-from integrations.sync import OBJECTS, SYNC_FIELDS, SyncEngine  # noqa: E402
+from integrations.sync import OBJECTS, SNAPSHOTS_KEPT, SYNC_FIELDS, RollbackRefused, SyncEngine  # noqa: E402
 from integrations.tokens import NeedsReauth, TokenService  # noqa: E402
 from tests.salesforce_fakes import (  # noqa: E402
     CODE, HOST, ORG, REFRESH, SITE, FakeSalesforce, FakeStore, FakeSyncStore,
@@ -336,6 +336,109 @@ def test_on_promote_is_called_with_the_snapshot_and_its_failure_is_recorded(prov
     assert store.audit[-1]["detail"]["promoted"] is True and store.audit[-1]["detail"]["served"] is False
 
 
+# ----------------------------------------------------------------- rollback
+
+def test_rollback_serves_the_previous_snapshot_and_audits(provider):
+    clock = Clock(NOON)
+    served: list = []
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    engine.on_promote = served.append
+    first = runs.get_run(engine.start(c.id).run.id)
+    clock.at = NOON + timedelta(hours=1)
+    sf.records["Account"][0]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    second = runs.get_run(engine.start(c.id).run.id)
+    assert runs.get_serving().snapshot_id == second.snapshot_id
+
+    pointer, ok = engine.rollback(actor="operator")
+    assert ok is True and pointer.snapshot_id == first.snapshot_id
+    assert pointer.previous_snapshot_id == second.snapshot_id and pointer.promoted_by == "operator"
+    assert served[-1].id == first.snapshot_id
+    row = store.audit[-1]
+    assert row["event"] == "rollback" and row["actor"] == "operator"
+    assert row["detail"]["from_snapshot_id"] == second.snapshot_id
+    assert row["detail"]["to_snapshot_id"] == first.snapshot_id and row["detail"]["row_counts"]["customers"] == 3
+
+    # Rolling back again goes forward to the one just left: the pair is a toggle.
+    pointer, _ = engine.rollback(actor="operator")
+    assert pointer.snapshot_id == second.snapshot_id and pointer.previous_snapshot_id == first.snapshot_id
+    # And by explicit id.
+    pointer, _ = engine.rollback(actor="operator", to_snapshot_id=first.snapshot_id)
+    assert pointer.snapshot_id == first.snapshot_id
+
+
+def test_rollback_refusals_say_why(provider):
+    engine, c, sf, store, runs = engine_for(provider)
+    with pytest.raises(RollbackRefused, match="Nothing is being served"):
+        engine.rollback()
+    run = runs.get_run(engine.start(c.id).run.id)
+    with pytest.raises(RollbackRefused, match="No earlier snapshot"):
+        engine.rollback()
+    with pytest.raises(RollbackRefused, match="already the one"):
+        engine.rollback(to_snapshot_id=run.snapshot_id)
+    with pytest.raises(RollbackRefused, match="no longer exists"):
+        engine.rollback(to_snapshot_id="nope")
+
+    sf.records["Account"][2]["Customer_Status__c"] = "Active"       # a degraded candidate
+    sf.records["Account"][2]["Churn_Date__c"] = None
+    sf.records["Account"][2]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    engine.now = Clock(NOON + timedelta(hours=1))
+    bad = runs.get_run(engine.start(c.id).run.id)
+    assert bad.status == "degraded"
+    with pytest.raises(RollbackRefused, match="failed its data contracts"):
+        engine.rollback(to_snapshot_id=bad.snapshot_id)
+    assert runs.get_serving().snapshot_id == run.snapshot_id
+    assert "rollback" not in [a["event"] for a in store.audit]
+
+
+# ---------------------------------------------------------------- retention
+
+def test_retention_keeps_ten_snapshots_plus_the_serving_pair(provider):
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    ids = []
+    for i in range(SNAPSHOTS_KEPT + 3):
+        clock.at = NOON + timedelta(hours=i)
+        sf.records["Account"][0]["SystemModstamp"] = (NOON + timedelta(hours=i)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ids.append(runs.get_run(engine.start(c.id).run.id).snapshot_id)
+    assert len(runs.snaps) == SNAPSHOTS_KEPT
+    assert set(runs.snaps) == set(ids[-SNAPSHOTS_KEPT:])
+    kept = [a for a in store.audit if a["event"] == "retention"]
+    assert kept and kept[-1]["detail"]["snapshots_deleted"] == 1 and kept[-1]["actor"] == "system"
+
+    # Roll back to the oldest kept, then run ten more: the pair survives.
+    oldest = ids[-SNAPSHOTS_KEPT]
+    engine.rollback(to_snapshot_id=oldest)
+    newest = ids[-1]
+    for i in range(SNAPSHOTS_KEPT):
+        clock.at = NOON + timedelta(days=1, hours=i)
+        sf.records["Account"][0]["SystemModstamp"] = clock.at.strftime("%Y-%m-%dT%H:%M:%SZ")
+        runs.get_run(engine.start(c.id).run.id)
+    pointer = runs.get_serving()
+    assert pointer.previous_snapshot_id in runs.snaps                 # protected, though old
+    assert oldest not in runs.snaps or oldest == pointer.previous_snapshot_id
+    assert newest not in runs.snaps or newest == pointer.previous_snapshot_id
+
+
+def test_old_tombstones_are_pruned_live_rows_never(provider):
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    engine.start(c.id)
+    clock.at = NOON + timedelta(hours=1)
+    sf.records["Account"][1]["IsDeleted"] = True
+    sf.records["Account"][1]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    engine.start(c.id)
+    assert runs.counts(None, c.id)["Account"] == {"live": 2, "tombstones": 1}
+
+    for row in runs.raw.values():                                     # a month passes
+        row["last_seen_at"] -= timedelta(days=31)
+    clock.at = NOON + timedelta(days=31)
+    engine.start(c.id)
+    counts = runs.counts(None, c.id)
+    assert counts["Account"] == {"live": 2, "tombstones": 0}
+    assert sum(v["live"] for v in counts.values()) == 9                 # 10 records, Bolt gone
+    assert store.audit[-2]["event"] == "retention" and store.audit[-2]["detail"]["tombstones_deleted"] == 1
+
+
 def test_request_limit_exceeded_is_named_not_retried(provider):
     sf = FakeSalesforce()
     sf.fail_object["Account"] = (403, "REQUEST_LIMIT_EXCEEDED")
@@ -435,6 +538,29 @@ def test_sync_and_runs_routes(provider, monkeypatch):
 
     assert client.post("/connections/nope/sync", headers=KEY).status_code == 404
     assert client.get("/connections/nope/runs").json()["runs"] == []
+
+
+def test_rollback_route(provider, monkeypatch):
+    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    client = make_app(State(store, provider, engine.tokens, runs, engine))
+
+    assert client.post(f"/connections/{c.id}/rollback").status_code == 403
+    r = client.post(f"/connections/{c.id}/rollback", headers=KEY)
+    assert r.status_code == 409 and "Nothing is being served" in r.json()["detail"]
+
+    client.post(f"/connections/{c.id}/sync", headers=KEY)
+    first = runs.last_run(c.id).snapshot_id
+    clock.at = NOON + timedelta(hours=1)
+    sf.records["Account"][0]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    client.post(f"/connections/{c.id}/sync", headers=KEY)
+    r = client.post(f"/connections/{c.id}/rollback", headers=KEY)
+    assert r.status_code == 200 and r.json()["serving"]["snapshot_id"] == first and r.json()["served"] is None
+    assert client.get("/connections").json()["serving"]["snapshot_id"] == first
+    assert client.post("/connections/nope/rollback", headers=KEY).status_code == 404
+    assert client.post(f"/connections/{c.id}/rollback", headers=KEY,
+                       json={"snapshot_id": "nope-nope"}).status_code == 409
 
 
 def test_sync_route_says_why_it_cannot(provider, monkeypatch):

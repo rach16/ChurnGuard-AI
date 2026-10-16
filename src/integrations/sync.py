@@ -53,7 +53,7 @@ from connectors.salesforce import FIELDS, RAW_KEYS, as_csv_rows, soql, transform
 from core.contracts import run_contracts
 from integrations import audit
 from integrations.connections import ConnectionStore
-from integrations.sync_store import Snapshot, SyncRun, SyncStore
+from integrations.sync_store import Serving, Snapshot, SyncRun, SyncStore
 from integrations.tokens import ConnectionGone, NeedsReauth, TokenError, TokenService
 
 logger = logging.getLogger(__name__)
@@ -64,8 +64,15 @@ SYNC_FIELDS = ("SystemModstamp", "IsDeleted")
 OVERLAP = timedelta(minutes=5)
 # A run still unfinished after this long belongs to a process that is gone.
 ABANDONED_AFTER_SECONDS = 1800
+# ADR-0012 section 7: snapshots, the last 10; raw landings, 30 days.
+SNAPSHOTS_KEPT = 10
+RAW_RETENTION_DAYS = 30
 LIMIT_INFO = re.compile(r"api-usage=(\d+)/(\d+)")
 DATA_PREFIX = re.compile(r"^/services/data/v[\d.]+/")
+
+
+class RollbackRefused(Exception):
+    """The pointer cannot move there; the message says why and is safe to show."""
 
 
 class SalesforceError(Exception):
@@ -164,9 +171,73 @@ class SyncEngine:
         return Triggered(run, False)
 
     def sweep(self) -> list[str]:
-        """At startup: runs the previous process left unfinished."""
+        """At startup: runs the previous process left unfinished, and retention."""
         with self.connections.db.connection() as conn:
-            return self._sweep(conn)
+            swept = self._sweep(conn)
+            self._retain(conn, "default")
+        return swept
+
+    # --------------------------------------------------------------- rollback
+
+    def rollback(self, *, actor: str = ACTOR, to_snapshot_id: Optional[str] = None,
+                 tenant_id: str = "default") -> tuple[Serving, Optional[bool]]:
+        """Move the serving pointer back: to ``to_snapshot_id``, or to the
+        snapshot served before this one. Only a snapshot that passed its
+        contracts can be served. Audited as ``rollback``; then the snapshot is
+        restored and the loaders reloaded like a promotion. Returns the new
+        pointer and whether serving it succeeded (None without ``on_promote``)."""
+        with self.runs.db.connection() as conn:
+            current = self.runs.get_serving(tenant_id, conn)
+            if current is None:
+                raise RollbackRefused("Nothing is being served yet; there is nothing to roll back from.")
+            target_id = to_snapshot_id or current.previous_snapshot_id
+            if not target_id:
+                raise RollbackRefused("No earlier snapshot is recorded to roll back to.")
+            if target_id == current.snapshot_id:
+                raise RollbackRefused("That snapshot is already the one being served.")
+            target = self.runs.get_snapshot(target_id, conn)
+            if target is None:
+                raise RollbackRefused("That snapshot no longer exists; retention keeps the last "
+                                      f"{SNAPSHOTS_KEPT}.")
+            if not target.contracts_passed:
+                raise RollbackRefused("That snapshot failed its data contracts and cannot be served.")
+            previous = self.runs.set_serving(conn, tenant_id=tenant_id, snapshot_id=target.id,
+                                             run_id=target.run_id, actor=actor)
+            audit.record(conn, "rollback", actor=actor, tenant_id=tenant_id,
+                         connection_id=target.connection_id,
+                         detail={"from_snapshot_id": previous, "to_snapshot_id": target.id,
+                                 "to_run_id": target.run_id, "as_of": target.as_of.isoformat(),
+                                 "row_counts": target.row_counts})
+        logger.warning(f"rollback by {actor}: serving {target.id[:8]} (run {target.run_id[:8]}), "
+                       f"was {(previous or '')[:8]}")
+        served: Optional[bool] = None
+        if self.on_promote is not None:
+            try:
+                self.on_promote(target)
+                served = True
+            except Exception as e:  # noqa: BLE001
+                served = False
+                logger.error(f"rollback to {target.id[:8]}: pointer moved but serving it failed: "
+                             f"{type(e).__name__}: {e}", exc_info=True)
+        return self.runs.get_serving(tenant_id), served
+
+    # -------------------------------------------------------------- retention
+
+    def _retain(self, conn, tenant_id: str) -> dict[str, Any]:
+        """ADR-0012 section 7. Never the serving snapshot or its predecessor."""
+        pointer = self.runs.get_serving(tenant_id, conn)
+        protect = [i for i in ((pointer.snapshot_id, pointer.previous_snapshot_id) if pointer else ()) if i]
+        snapshots = self.runs.prune_snapshots(conn, tenant_id, SNAPSHOTS_KEPT, protect)
+        tombstones = self.runs.prune_tombstones(conn, RAW_RETENTION_DAYS)
+        orphans = self.runs.prune_orphans(conn, RAW_RETENTION_DAYS)
+        summary = {"snapshots_deleted": len(snapshots), "tombstones_deleted": tombstones,
+                   "orphaned_connections_purged": orphans["connections"],
+                   "orphaned_rows_deleted": orphans["raw_records"] + orphans["watermarks"] + orphans["runs"]}
+        if any(summary.values()):
+            audit.record(conn, "retention", actor="system", tenant_id=tenant_id,
+                         detail={**summary, "snapshot_ids": snapshots})
+            logger.info(f"retention: {summary}")
+        return summary
 
     def _sweep(self, conn) -> list[str]:
         swept = self.runs.sweep_abandoned(conn, ABANDONED_AFTER_SECONDS)
@@ -211,6 +282,8 @@ class SyncEngine:
                                  api_requests=progress.api_requests, api_usage=progress.api_usage)
             if progress.api_requests:
                 self.connections.touch(conn, run.connection_id, finished)
+            if status == "succeeded":
+                self._retain(conn, run.tenant_id)
             audit.record(conn, "sync_finished", actor="system", tenant_id=run.tenant_id,
                          connection_id=run.connection_id, org_id=run.org_id,
                          detail={"run_id": run.id, "status": status, "error": error,

@@ -129,7 +129,7 @@ export function ConnectionPanel() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
-  const [working, setWorking] = useState<'verify' | 'disconnect' | 'sync' | null>(null);
+  const [working, setWorking] = useState<'verify' | 'disconnect' | 'sync' | 'rollback' | null>(null);
   const [runs, setRuns] = useState<SyncRun[]>([]);
   const popup = useRef<Window | null>(null);
   const connectionId = status?.connection?.id ?? null;
@@ -258,6 +258,27 @@ export function ConnectionPanel() {
     }
   }
 
+  // Moves the serving pointer back to the snapshot served before this one and
+  // serves it. The pair is a toggle: rolling back twice returns to the newer.
+  async function rollback(id: string) {
+    const previous = status?.serving?.previous_snapshot_id;
+    if (!previous) return;
+    if (!window.confirm('Roll back to the snapshot served before this one? Every page on this site will show it.')) return;
+    setNotice(null);
+    setVerified(null);
+    setWorking('rollback');
+    try {
+      const body = await operatorPost(`connections/${id}/rollback`);
+      if (body.served === false) setNotice('The pointer moved, but serving the snapshot failed. A restart of the backend restores it.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not roll back.');
+    } finally {
+      setWorking(null);
+      refresh();
+      loadRuns(id);
+    }
+  }
+
   async function disconnect(id: string, orgId: string) {
     if (!window.confirm(`Disconnect org ${orgId}? The token is revoked at Salesforce and deleted here.`)) return;
     setNotice(null);
@@ -341,6 +362,11 @@ export function ConnectionPanel() {
                 <Button size="sm" variant="outline" onClick={() => verify(c.id)} disabled={busy || working !== null}>
                   {working === 'verify' ? 'Checking…' : 'Test connection'}
                 </Button>
+                {status.serving?.previous_snapshot_id && (
+                  <Button size="sm" variant="outline" onClick={() => rollback(c.id)} disabled={busy || working !== null}>
+                    {working === 'rollback' ? 'Rolling back…' : 'Roll back'}
+                  </Button>
+                )}
               </>
             )}
             <Button
@@ -399,6 +425,7 @@ function RunList({ runs, serving }: { runs: SyncRun[]; serving: ConnectionStatus
       <div className="mt-2 text-[11px] text-muted-foreground">
         A run that passes every contract is promoted: every page on this site then shows it.
         A run that fails a contract is kept for diagnosis and the previous one keeps serving.
+        Roll back serves the snapshot served before this one. The last 10 snapshots are kept.
       </div>
     </div>
   );

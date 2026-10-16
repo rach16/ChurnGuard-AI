@@ -382,7 +382,8 @@ class FakeSyncStore:
             landed += 1
             key = (connection_id, sobject, body["Id"])
             conn.pending.append(lambda key=key, body=body, deleted=deleted: self.raw.__setitem__(
-                key, {"record": body, "deleted": deleted, "last_run_id": run_id}))
+                key, {"record": body, "deleted": deleted, "last_run_id": run_id,
+                      "last_seen_at": datetime.now(timezone.utc)}))
         return landed, tombstones
 
     def live_records(self, conn, connection_id, sobject) -> list[dict]:
@@ -435,3 +436,22 @@ class FakeSyncStore:
                       promoted_by=actor)
         conn.pending.append(lambda: self.serving.__setitem__(tenant_id, row))
         return previous
+
+    # retention
+    def prune_snapshots(self, conn, tenant_id, keep, protect) -> list[str]:
+        rows = sorted((s for s in self.snaps.values() if s.tenant_id == tenant_id),
+                      key=lambda s: s.created_at, reverse=True)
+        doomed = [s.id for s in rows[keep:] if s.id not in protect]
+        for sid in doomed:
+            conn.pending.append(lambda sid=sid: self.snaps.pop(sid, None))
+        return doomed
+
+    def prune_tombstones(self, conn, older_than_days) -> int:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+        doomed = [k for k, r in self.raw.items() if r["deleted"] and r["last_seen_at"] < cutoff]
+        for k in doomed:
+            conn.pending.append(lambda k=k: self.raw.pop(k, None))
+        return len(doomed)
+
+    def prune_orphans(self, conn, older_than_days) -> dict[str, int]:
+        return {"connections": 0, "raw_records": 0, "watermarks": 0, "runs": 0}

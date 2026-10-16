@@ -1,6 +1,6 @@
 # 0012 · Salesforce integration architecture: connections, token custody, sync
 
-**Status:** Accepted 2026-10-16 · **Date:** 2026-10-15 · **Phase:** 1.9, 1.10, 1.11
+**Status:** Accepted 2026-10-16; sections 1–7 implemented by 1.9 and 1.10 (2026-10-16), with three amendments marked *Amended* below · **Date:** 2026-10-15 · **Phase:** 1.9, 1.10, 1.11
 
 ## Context
 
@@ -144,7 +144,7 @@ trigger (schedule · Sync now · on wake)
          ├─ for each object: query changes since watermark ──▶ land raw (immutable, run_id)
          ├─ deletions since watermark ──▶ tombstones
          ├─ transform (existing connector rules) ──▶ candidate snapshot
-         ├─ contracts + dbt tests on candidate
+         ├─ contracts on candidate (dbt tests: at image build, see amendment)
          └─ pass: promote atomically · fail: keep last good, mark degraded
 ```
 
@@ -163,6 +163,18 @@ trigger (schedule · Sync now · on wake)
 
 The site never serves a half-finished or contract-failing sync.
 
+> *Amended 2026-10-16 (1.10.2–1.10.4, as built).* The gate is the 28 data contracts, run
+> at promotion time on the candidate (`src/core/contracts.py`, the same code the
+> script and CI run). dbt is not in the serving image (about 200 MB, memory on the
+> free instance unmeasured), so its tests gate every image build instead; recorded
+> under Deferred in STATUS. A snapshot is the canonical tables in CSV shape plus the
+> ingest report and the contract results, not a warehouse build; the DuckDB warehouse
+> in the image stays built from the committed pull, which nothing on the site reads
+> for Salesforce today. The pointer is the `serving` table, one row per tenant, which
+> also keeps the previous snapshot id; **Roll back** moves it there and the pair is a
+> toggle. Serving means writing the snapshot to `data/serving/<id>` and reloading the
+> loaders from it, repeated on every start because the disk does not persist.
+
 - Each successful run produces a complete **snapshot** of the canonical tables and
   its warehouse build. Promotion flips one pointer, `serving_snapshot_id`, in a
   single transaction.
@@ -177,7 +189,7 @@ The site never serves a half-finished or contract-failing sync.
 | Event | Effect |
 |---|---|
 | Field selection | The connector reads only the fields it uses. No contact PII is read at all today; adding any requires a recorded decision |
-| Retention | Raw landings kept 30 days; snapshots, last 10 |
+| Retention | Raw landings kept 30 days; snapshots, last 10. *As built:* tombstones older than 30 days and the rows of a disconnected connection idle for 30 days are deleted; live landings are the incremental baseline and are kept; the serving snapshot and its predecessor are never pruned. Runs after every successful sync and at start, audited as `retention` |
 | Disconnect | Token revoked and deleted immediately. Data retained for 30 days for recovery, then purged, unless the tenant requests immediate purge |
 | Tenant deletion | All rows under the tenant purged, verified by a count of zero |
 

@@ -269,6 +269,44 @@ def test_the_serving_pointer_flips_atomically_and_remembers_the_previous(db, sto
 
 
 @needs_db
+def test_retention_prunes_old_snapshots_tombstones_and_orphans(db, store):
+    runs = SyncStore(db)
+    c = store.get()
+    run = runs.last_run(c.id)
+    with db.connection() as conn:
+        for i in range(12):                                  # 12 more snapshots, oldest first
+            conn.execute("insert into snapshots (connection_id, run_id, as_of, tables, report, contracts,"
+                         " contracts_passed, row_counts, created_at) values (%s, %s, %s, '{}', '{}',"
+                         " '{\"failures\": []}', true, '{}', now() - make_interval(days => %s))",
+                         (c.id, run.id, NOW.date(), 30 - i))
+        pointer = runs.get_serving()
+        protect = [pointer.snapshot_id, pointer.previous_snapshot_id]
+        before = conn.execute("select count(*) as n from snapshots").fetchone()["n"]
+        doomed = runs.prune_snapshots(conn, "default", keep=10, protect=protect)
+        after = conn.execute("select count(*) as n from snapshots").fetchone()["n"]
+        assert before == 14 and after == 10                   # the protected pair is among the newest 10
+        assert pointer.snapshot_id not in doomed and pointer.previous_snapshot_id not in doomed
+        assert conn.execute("select count(*) as n from snapshots where id::text = any(%s)",
+                            (protect,)).fetchone()["n"] == 2
+
+        conn.execute("update raw_records set last_seen_at = now() - interval '31 days' where deleted")
+        assert runs.prune_tombstones(conn, older_than_days=30) == 1
+        assert runs.counts(conn, c.id) == {"Account": {"live": 1, "tombstones": 0}}
+
+        # Rows of a connection that no longer exists, older than the window.
+        ghost = "00000000-0000-0000-0000-000000000001"
+        runs.land(conn, ghost, "Account", run.id, [{"Id": "001Z", "Name": "Zed", "IsDeleted": False}])
+        runs.set_watermark(conn, ghost, "Account", NOW, run.id)
+        assert runs.prune_orphans(conn, older_than_days=30) == {"connections": 0, "raw_records": 0,
+                                                                "watermarks": 0, "runs": 0}   # too recent
+        conn.execute("update raw_records set last_seen_at = now() - interval '31 days' where connection_id = %s",
+                     (ghost,))
+        assert runs.prune_orphans(conn, older_than_days=30) == {"connections": 1, "raw_records": 1,
+                                                                "watermarks": 1, "runs": 0}
+        assert runs.counts(conn, ghost) == {}
+
+
+@needs_db
 def test_abandoned_runs_are_swept(db, store):
     runs = SyncStore(db)
     c = store.get()

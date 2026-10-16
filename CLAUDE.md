@@ -34,6 +34,12 @@ Things the directory tree does not tell you:
   by AWS KMS; `DATABASE_URL` unset means connections report off and nothing else
   changes. Operator routes need `OPERATOR_KEY`. The DB tests run only with
   `DATABASE_URL`, in a throwaway schema. Runbook: `docs/RUNBOOK_SALESFORCE_CONNECTION.md`.
+- **The site serves a promoted snapshot, not the data folder, when one exists.**
+  A sync lands raw records, transforms them, runs the contracts
+  (`src/core/contracts.py`) and stores a snapshot; a passing one is promoted
+  and restored to `data/serving/<id>` on promotion and on every start. The
+  loaders read `serving_dir()`, never `data_dir()` directly, for CSV-backed
+  data. `CHURNGUARD_DATA_DIR` still names the source and the warehouse.
 
 ## Commands
 

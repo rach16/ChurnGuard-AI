@@ -17,6 +17,8 @@ Five routes, three audiences:
                                                   with the run; the outcome is polled.
 - ``GET  /connections/{id}/runs``                anyone: recent runs, counts and
                                                   timings. No record data.
+- ``POST /connections/{id}/rollback``            operator: serve an earlier snapshot
+                                                  (the previous one by default).
 - ``GET  /integrations/salesforce/callback``     Salesforce's redirect, carrying the
                                                   one-time code and the state. Public by
                                                   necessity and authenticated by the
@@ -47,7 +49,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
-from integrations.sync import SyncEngine
+from integrations.sync import RollbackRefused, SyncEngine
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,11 @@ def require_operator(request: Request) -> str:
 
 class StartRequest(BaseModel):
     environment: str = Field("production", pattern="^(production|sandbox)$")
+
+
+class RollbackRequest(BaseModel):
+    """Empty means the snapshot served before the current one."""
+    snapshot_id: Optional[str] = Field(None, pattern="^[A-Za-z0-9-]{8,64}$")
 
 
 def _popup_page(site_origin: str, ok: bool, title: str, message: str, event: str) -> str:
@@ -185,6 +192,23 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         except NeedsReauth as e:
             raise HTTPException(status_code=409, detail=str(e))
         return {"run": triggered.run.public(), "joined": triggered.joined}
+
+    @router.post("/connections/{connection_id}/rollback")
+    async def rollback_serving(connection_id: str, body: Optional[RollbackRequest] = None,
+                               actor: str = Depends(require_operator)):
+        """Move the serving pointer to an earlier snapshot and serve it (1.10.4)."""
+        engine = sync_or_503()
+        store = get_state().connections
+        c = await run_in_threadpool(store.get_by_id, connection_id)
+        if c is None:
+            raise HTTPException(status_code=404, detail="This connection no longer exists.")
+        try:
+            pointer, served = await run_in_threadpool(
+                engine.rollback, actor=actor, tenant_id=c.tenant_id,
+                to_snapshot_id=body.snapshot_id if body else None)
+        except RollbackRefused as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"serving": pointer.public(), "served": served}
 
     @router.post("/connections/start")
     async def start_connection(body: StartRequest, actor: str = Depends(require_operator)):

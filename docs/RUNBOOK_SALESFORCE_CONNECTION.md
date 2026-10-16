@@ -199,17 +199,29 @@ database, it logs `serving the data folder` and the committed pull serves.
   failed: …`. The pointer is right and the disk is not; restart the service
   and the start-up restore puts it right. The audit row for the run has
   `promoted: true, served: false`.
-- **Roll back.** Not yet a button (1.10.4). Until then, from a laptop:
-  `update serving set snapshot_id = previous_snapshot_id, promoted_by = 'operator' where tenant_id = 'default'`,
-  then restart the service.
+- **Roll back.** Integrations → **Roll back** (shown once a previous snapshot
+  exists). It moves the pointer to the snapshot served before this one, audits
+  `rollback` with both ids, restores it to disk and reloads the loaders; every
+  page shows it within a second. The pair is a toggle: Roll back again returns
+  to the newer one. A snapshot that failed its contracts, or that retention has
+  removed, is refused with the reason. `POST /connections/{id}/rollback` with
+  `{"snapshot_id": "…"}` serves a specific earlier snapshot.
+- **Retention.** After every successful sync and at start: snapshots beyond the
+  newest 10 (never the serving one or its predecessor), tombstones older than
+  30 days, and every row of a disconnected connection idle for 30 days. Audited
+  as `retention` when anything was deleted. Live landings are never pruned:
+  they are the baseline the incremental read builds on.
 
 The DuckDB warehouse baked into the image is built from the committed pull,
 not from the promoted snapshot (dbt is not in the serving image; see
 Deferred in STATUS). Nothing on the site reads the Salesforce warehouse today.
 
-## Known gaps carried into 1.10
+## Known gaps carried into 1.11
 
 - The app allows any user in the org to self-authorise, and the connection runs
   as the owner's admin user, not a read-only integration user.
 - The operator key is a shared secret, not a login. 2.6 replaces it.
 - No scheduled use yet, so the 30-day idle limit is a real risk until 1.11.
+- The DuckDB warehouse in the image is built from the committed pull, not the
+  promoted snapshot (dbt is not in the serving image). Nothing on the site reads
+  the Salesforce warehouse today.

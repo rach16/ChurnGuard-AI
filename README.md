@@ -288,6 +288,10 @@ with the date it was measured shown beside it.
 
 Tracked, not hidden. The full register is in [`.claude/STATUS.md`](.claude/STATUS.md).
 
+- **The Salesforce warehouse in the image lags the site.** The site serves the last
+  promoted sync snapshot; the DuckDB warehouse is built from the committed pull at
+  image build, because dbt is not in the serving image. Nothing on the site reads
+  that warehouse today (no survival model exists for the source).
 - **Predicted churn dates are retracted.** 222 days late, structurally
   unfixable at this hazard level. A band and a lift are served instead.
 - **Absolute probability underpredicts roughly 2×.** The hazard rate rises across
@@ -353,8 +357,10 @@ In order, and none of it speculative — each item names the constraint it remov
 ```
 src/
 ├── backend/api.py           FastAPI — the single entrypoint
-├── backend/connections_routes.py  Connect Salesforce: start, callback, verify, disconnect
-├── integrations/            connections in Postgres, KMS envelope encryption, audit, log redaction
+├── backend/connections_routes.py  Connect Salesforce: start, callback, verify, disconnect, sync, rollback
+├── integrations/            connections in Postgres, KMS envelope encryption, audit, log redaction,
+│                            the sync engine (watermarks, tombstones, candidate snapshots,
+│                            contract-gated promotion, serving, retention)
 ├── core/
 │   ├── health_scoring.py    weighted risk model (mirrors the SQL)
 │   ├── rag_retrievers.py    retrieval strategies over Qdrant

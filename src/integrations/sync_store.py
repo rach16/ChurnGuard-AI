@@ -385,3 +385,47 @@ class SyncStore:
             (tenant_id, snapshot_id, run_id, previous, actor),
         )
         return previous
+
+    # -------------------------------------------------------------- retention
+
+    def prune_snapshots(self, conn, tenant_id: str, keep: int, protect: list[str]) -> list[str]:
+        """Delete every snapshot older than the newest ``keep`` for the tenant,
+        except those in ``protect`` (the serving one and its predecessor, so a
+        rollback target cannot be retired from under the pointer)."""
+        rows = conn.execute(
+            "delete from snapshots where tenant_id = %s"
+            " and id not in (select id from snapshots where tenant_id = %s"
+            "                order by created_at desc, id desc limit %s)"
+            " and not (id::text = any(%s)) returning id::text",
+            (tenant_id, tenant_id, keep, protect),
+        ).fetchall()
+        return [r["id"] for r in rows]
+
+    def prune_tombstones(self, conn, older_than_days: int) -> int:
+        """A tombstone has done its work once the record has been absent from a
+        promoted candidate; after the retention window the row itself goes."""
+        cur = conn.execute(
+            "delete from raw_records where deleted and last_seen_at < now() - make_interval(days => %s)",
+            (older_than_days,),
+        )
+        return cur.rowcount
+
+    def prune_orphans(self, conn, older_than_days: int) -> dict[str, int]:
+        """Rows belonging to a connection that no longer exists (disconnected),
+        once the recovery window has passed (ADR-0012 section 7)."""
+        gone = ("select distinct r.connection_id from raw_records r"
+                " where not exists (select 1 from connections c where c.id = r.connection_id)"
+                " and not exists (select 1 from raw_records n where n.connection_id = r.connection_id"
+                "                 and n.last_seen_at >= now() - make_interval(days => %s))")
+        ids = [r["connection_id"] for r in conn.execute(gone, (older_than_days,)).fetchall()]
+        out = {"connections": len(ids), "raw_records": 0, "watermarks": 0, "runs": 0}
+        if not ids:
+            return out
+        out["raw_records"] = conn.execute(
+            "delete from raw_records where connection_id = any(%s)", (ids,)).rowcount
+        out["watermarks"] = conn.execute(
+            "delete from sync_watermarks where connection_id = any(%s)", (ids,)).rowcount
+        out["runs"] = conn.execute(
+            "delete from sync_runs where connection_id = any(%s) and status not in ('pending', 'running')"
+            " and created_at < now() - make_interval(days => %s)", (ids, older_than_days)).rowcount
+        return out

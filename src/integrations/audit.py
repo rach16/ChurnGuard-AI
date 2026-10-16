@@ -18,7 +18,7 @@ EVENTS = frozenset({
     "connect", "reconnect", "connect_failed",
     "org_mismatch_refused", "host_refused", "state_rejected",
     "refresh", "refresh_failed", "needs_reauth",
-    "sync_started", "sync_finished", "promotion", "rollback",
+    "sync_started", "sync_finished", "promotion", "rollback", "retention",
     "disconnect", "purge", "rewrap",
 })
 
