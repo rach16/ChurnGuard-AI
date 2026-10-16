@@ -137,7 +137,7 @@ function SalesforcePanel() {
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               {report.origin?.kind === 'sync'
-                ? `The figures below are from the last sync whose ${report.origin.contracts.passed} data contracts all passed. The rest of the site still serves the last command-line pull; promoting a sync to it is the next step.`
+                ? `The figures below are from the last sync whose ${report.origin.contracts.passed} data contracts all passed, which is what every page on this site now serves.`
                 : 'The figures below are from the last pull, run from the command line. A sync through the connection lands the org\u2019s records on the server and, once its contracts pass, replaces this report.'}
             </p>
           </div>
@@ -203,7 +203,9 @@ function SalesforcePanel() {
 
         <p className="text-xs text-muted-foreground">
           {source?.source === 'salesforce'
-            ? 'Every page on this site runs on this data.'
+            ? source.served_from?.kind === 'sync'
+              ? 'Every page on this site runs on the promoted sync.'
+              : 'Every page on this site runs on this data, from the last command-line pull.'
             : 'The rest of the site still shows the synthetic test data. Switching it to this data is the next step.'}
         </p>
       </CardContent>

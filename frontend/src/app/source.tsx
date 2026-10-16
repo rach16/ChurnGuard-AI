@@ -16,6 +16,9 @@ export interface DataSource {
   synthetic: boolean;
   as_of: string | null;
   seeded: boolean;
+  served_from?:
+    | { kind: 'file'; path: string }
+    | { kind: 'sync'; snapshot_id: string; run_id: string; as_of: string; created_at: string; row_counts: Record<string, number> };
 }
 
 // One request per page load, shared by every component that asks.
@@ -46,9 +49,12 @@ function formatDate(iso: string): string {
 
 export function describeSource(s: DataSource): string {
   if (s.synthetic) return 'Synthetic test data';
-  return [s.label, s.seeded ? 'seeded test org' : null, s.as_of ? `pulled ${formatDate(s.as_of)}` : null]
-    .filter(Boolean)
-    .join(' · ');
+  const when = s.as_of
+    ? s.served_from?.kind === 'sync'
+      ? `synced ${formatDate(s.as_of)}`
+      : `pulled ${formatDate(s.as_of)}`
+    : null;
+  return [s.label, s.seeded ? 'seeded test org' : null, when].filter(Boolean).join(' · ');
 }
 
 export function SourceLabel() {

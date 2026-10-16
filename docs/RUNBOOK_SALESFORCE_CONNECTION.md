@@ -179,6 +179,34 @@ with `SystemModstamp` since that object's watermark, less five minutes, so a
 sync of an unchanged org is five calls and under a second. Deletes arrive as
 tombstones and leave the candidate at the next transform.
 
+## What the site serves (promotion)
+
+The `serving` table has one row per tenant naming the snapshot every page
+shows. A run whose contracts all pass flips it in the same transaction that
+records the run (audited as `promotion`, with the previous snapshot id). The
+API then writes the snapshot to `data/serving/<snapshot id>/` as the canonical
+CSV files and reloads the scorer, playbook and evidence from that folder.
+
+**On every start** the API restores whatever the pointer names before loading
+anything, because Render's disk does not survive a restart. The log line is
+`✓ serving snapshot <id> (run <id>, as of <date>)`. With no pointer, or no
+database, it logs `serving the data folder` and the committed pull serves.
+
+- **Which snapshot is live?** `GET /source` → `served_from`; `GET /connections`
+  → `serving`; the Integrations page: "Serving the run of <time>", and the
+  run carries a `serving` badge.
+- **A promotion that did not take.** The run says `promoted, but serving it
+  failed: …`. The pointer is right and the disk is not; restart the service
+  and the start-up restore puts it right. The audit row for the run has
+  `promoted: true, served: false`.
+- **Roll back.** Not yet a button (1.10.4). Until then, from a laptop:
+  `update serving set snapshot_id = previous_snapshot_id, promoted_by = 'operator' where tenant_id = 'default'`,
+  then restart the service.
+
+The DuckDB warehouse baked into the image is built from the committed pull,
+not from the promoted snapshot (dbt is not in the serving image; see
+Deferred in STATUS). Nothing on the site reads the Salesforce warehouse today.
+
 ## Known gaps carried into 1.10
 
 - The app allows any user in the org to self-authorise, and the connection runs

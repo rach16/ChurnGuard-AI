@@ -143,6 +143,9 @@ def test_the_first_run_is_full_and_lands_every_object(provider):
     assert all(isinstance(v, str) for row in snap.tables["customers"] for v in row.values())  # CSV shape
     assert [c["company_name"] for c in snap.tables["customers"]] == ["Acme", "Bolt", "Cord"]
     assert runs.latest_good_snapshot().id == snap.id
+    pointer = runs.get_serving()                                   # promoted (ADR-0012 §6)
+    assert pointer.snapshot_id == snap.id and pointer.run_id == run.id and pointer.previous_snapshot_id is None
+    assert pointer.promoted_by == "system"
     assert [q[0] for q in sf.queries] == ["query"] * 5           # full reads: live records only
     assert [q[1] for q in sf.queries] == list(OBJECTS) and all(q[2] is None for q in sf.queries)
     assert {k: (v["mode"], v["fetched"], v["tombstones"]) for k, v in run.objects.items()} == {
@@ -157,11 +160,15 @@ def test_the_first_run_is_full_and_lands_every_object(provider):
     assert store.rows[c.id].last_used_at == NOON
 
     events = [a["event"] for a in store.audit]
-    assert events[-3:] == ["sync_started", "refresh", "sync_finished"]
-    assert store.audit[-3]["actor"] == "operator" and store.audit[-3]["detail"]["trigger"] == "manual"
+    assert events[-4:] == ["sync_started", "refresh", "promotion", "sync_finished"]
+    assert store.audit[-4]["actor"] == "operator" and store.audit[-4]["detail"]["trigger"] == "manual"
+    promo = store.audit[-2]["detail"]
+    assert promo["snapshot_id"] == snap.id and promo["previous_snapshot_id"] is None
+    assert promo["row_counts"]["customers"] == 3
     done = store.audit[-1]["detail"]
     assert done["status"] == "succeeded" and done["objects"]["Account"]["fetched"] == 3
     assert done["snapshot_id"] == snap.id and done["contracts"]["passed"] == 22
+    assert done["promoted"] is True and done["served"] is None            # no on_promote wired
     assert find_secret(json.dumps(run.public(), default=str)) is None
 
 
@@ -200,6 +207,8 @@ def test_the_second_run_reads_only_changes_and_tombstones_deletes(provider):
     snap = runs.get_snapshot(run.snapshot_id)                        # Bolt has left the candidate
     assert [c["company_name"] for c in snap.tables["customers"]] == ["Acme", "Cord"]
     assert snap.tables["customers"][0]["arr"] == "150000" and run.contracts["passed"] == 22
+    pointer = runs.get_serving()                                      # flipped to the new one
+    assert pointer.snapshot_id == snap.id and pointer.previous_snapshot_id == runs.runs(c.id)[1].snapshot_id
     assert runs.watermarks[(c.id, "Account")] == clock.at
     assert run.public()["records_fetched"] == 2 and run.public()["tombstones"] == 1
 
@@ -284,9 +293,47 @@ def test_a_contract_failure_keeps_the_snapshot_and_degrades_the_run(provider):
     assert run.contracts["failures"] == ["churn rate is in a usable band (0.10-0.50): churn rate is 0.0%"]
     snap = runs.get_snapshot(run.snapshot_id)
     assert snap is not None and snap.contracts_passed is False      # kept for diagnosis
-    assert runs.latest_good_snapshot() is None                       # never served
+    assert runs.latest_good_snapshot() is None and runs.get_serving() is None   # never served
+    assert "promotion" not in [a["event"] for a in store.audit]
     assert all(runs.watermarks[(c.id, o)] == NOON for o in OBJECTS)  # the landing itself stood
     assert store.audit[-1]["detail"]["status"] == "degraded"
+
+
+def test_a_degraded_run_leaves_the_previous_snapshot_serving(provider):
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    first = runs.get_run(engine.start(c.id).run.id)
+    assert runs.get_serving().snapshot_id == first.snapshot_id
+
+    clock.at = NOON + timedelta(hours=1)
+    sf.records["Account"][2]["Customer_Status__c"] = "Active"       # now nobody churned
+    sf.records["Account"][2]["Churn_Date__c"] = None
+    sf.records["Account"][2]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    second = runs.get_run(engine.start(c.id).run.id)
+    assert second.status == "degraded" and second.snapshot_id != first.snapshot_id
+    assert runs.get_serving().snapshot_id == first.snapshot_id       # the last good one still serves
+    assert runs.latest_good_snapshot().id == first.snapshot_id
+
+
+def test_on_promote_is_called_with_the_snapshot_and_its_failure_is_recorded(provider):
+    served: list = []
+    engine, c, sf, store, runs = engine_for(provider)
+    engine.on_promote = served.append
+    run = runs.get_run(engine.start(c.id).run.id)
+    assert run.status == "succeeded" and [s.id for s in served] == [run.snapshot_id]
+    assert store.audit[-1]["detail"]["served"] is True
+
+    def broken(snapshot):
+        raise OSError("disk full")
+
+    engine.on_promote = broken
+    sf.records["Account"][0]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    engine.now = Clock(NOON + timedelta(hours=1))
+    again = runs.get_run(engine.start(c.id).run.id)
+    assert again.status == "succeeded"                                # the pointer did flip
+    assert again.error == "promoted, but serving it failed: OSError: disk full"
+    assert runs.get_serving().snapshot_id == again.snapshot_id
+    assert store.audit[-1]["detail"]["promoted"] is True and store.audit[-1]["detail"]["served"] is False
 
 
 def test_request_limit_exceeded_is_named_not_retried(provider):
@@ -366,7 +413,8 @@ def test_sync_and_runs_routes(provider, monkeypatch):
     client = make_app(State(store, provider, engine.tokens, runs, engine))
 
     assert client.post(f"/connections/{c.id}/sync").status_code == 403
-    assert client.get("/connections").json()["last_run"] is None
+    before = client.get("/connections").json()
+    assert before["last_run"] is None and before["serving"] is None
 
     r = client.post(f"/connections/{c.id}/sync", headers=KEY)
     assert r.status_code == 202 and r.json()["joined"] is False
@@ -381,7 +429,9 @@ def test_sync_and_runs_routes(provider, monkeypatch):
     assert run["contracts"]["passed"] == 22 and run["snapshot_id"]
     text = json.dumps(listed)
     assert "Acme" not in text and REFRESH not in text and find_secret(text) is None   # no record data
-    assert client.get("/connections").json()["last_run"]["id"] == run_id
+    status = client.get("/connections").json()
+    assert status["last_run"]["id"] == run_id
+    assert status["serving"]["snapshot_id"] == run["snapshot_id"] and status["serving"]["row_counts"]["customers"] == 3
 
     assert client.post("/connections/nope/sync", headers=KEY).status_code == 404
     assert client.get("/connections/nope/runs").json()["runs"] == []

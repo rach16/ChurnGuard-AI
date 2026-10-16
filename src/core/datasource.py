@@ -14,13 +14,37 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any, Optional
 
 DEFAULT_DATA_DIR = "data"
+
+# Set when a promoted snapshot is being served (ADR-0012 section 6): the folder
+# the loaders read, and what it holds. ``data_dir`` keeps naming the source the
+# deployment is configured for; ``serving_dir`` is where its current data is.
+_serving: Optional[tuple[str, dict[str, Any]]] = None
 
 
 def data_dir() -> str:
     return (os.getenv("CHURNGUARD_DATA_DIR") or os.getenv("DATA_FOLDER")
             or DEFAULT_DATA_DIR).rstrip("/")
+
+
+def serving_dir() -> str:
+    """The folder the CSV-backed loaders read: the restored snapshot when one is
+    being served, else the configured data folder."""
+    return _serving[0] if _serving else data_dir()
+
+
+def set_serving(folder: Optional[str], info: Optional[dict[str, Any]] = None) -> None:
+    """Point the loaders at a restored snapshot (or back at the data folder with None)."""
+    global _serving
+    _serving = (folder.rstrip("/"), dict(info or {})) if folder else None
+
+
+def serving_info() -> Optional[dict[str, Any]]:
+    """What is being served, for /source and the pages: snapshot and run ids,
+    the as-of date and when it was promoted. None when the data folder serves."""
+    return dict(_serving[1]) if _serving else None
 
 
 def _suffix() -> str:

@@ -24,10 +24,12 @@ run whose process died is swept to ``failed`` after half an hour.
 After the last object, the run builds its **candidate** (1.10.2): every live
 record goes through the connector's ``transform`` into the canonical tables and
 the ingest report, the data contracts run on the result, and the whole thing is
-stored as a snapshot. Contracts pass: the run ``succeeded``. Any fail: the run
-is ``degraded``, the snapshot is kept for diagnosis with the failing contracts
-named, and nothing downstream will serve it. A transform that raises is a
-``failed`` run like any other error.
+stored as a snapshot. Contracts pass: the run ``succeeded`` and the snapshot is
+**promoted** (1.10.3): the tenant's serving pointer flips to it in the same
+transaction, and ``on_promote`` puts it on disk and reloads the loaders. Any
+fail: the run is ``degraded``, the snapshot is kept for diagnosis with the
+failing contracts named, and the pointer stays where it was. A transform that
+raises is a ``failed`` run like any other error.
 
 Each response's ``Sforce-Limit-Info`` is read and the last one kept on the run,
 so the page can show how much of the org's daily allowance a sync costs. The
@@ -51,7 +53,7 @@ from connectors.salesforce import FIELDS, RAW_KEYS, as_csv_rows, soql, transform
 from core.contracts import run_contracts
 from integrations import audit
 from integrations.connections import ConnectionStore
-from integrations.sync_store import SyncRun, SyncStore
+from integrations.sync_store import Snapshot, SyncRun, SyncStore
 from integrations.tokens import ConnectionGone, NeedsReauth, TokenError, TokenService
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,8 @@ class _Progress:
     objects: dict[str, dict[str, Any]] = field(default_factory=dict)
     snapshot_id: Optional[str] = None
     contracts: Optional[dict[str, Any]] = None
+    promoted: bool = False
+    served: Optional[bool] = None
 
 
 def _soql_datetime(dt: datetime) -> str:
@@ -114,8 +118,12 @@ def _usage(r: httpx.Response) -> Optional[dict[str, int]]:
 class SyncEngine:
     def __init__(self, tokens: TokenService, connections: ConnectionStore, runs: SyncStore,
                  *, overlap: timedelta = OVERLAP, objects: tuple[str, ...] = OBJECTS,
-                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)):
+                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+                 on_promote: Optional[Callable[[Snapshot], None]] = None):
         self.tokens = tokens
+        # Called after the serving pointer has flipped to a snapshot, with it:
+        # the API restores the snapshot to disk and reloads its scorer from it.
+        self.on_promote = on_promote
         self.connections = connections
         self.runs = runs
         self.overlap = overlap
@@ -208,6 +216,7 @@ class SyncEngine:
                          detail={"run_id": run.id, "status": status, "error": error,
                                  "snapshot_id": progress.snapshot_id,
                                  "contracts": progress.contracts,
+                                 "promoted": progress.promoted, "served": progress.served,
                                  "objects": {k: {"mode": v["mode"], "fetched": v["fetched"],
                                                  "tombstones": v["tombstones"]}
                                              for k, v in progress.objects.items()},
@@ -273,11 +282,37 @@ class SyncEngine:
                 conn, run_id=run.id, connection_id=run.connection_id, tenant_id=run.tenant_id,
                 as_of=run.as_of, tables=csv_tables, report=report.to_dict(), contracts=contracts)
             self.runs.attach_snapshot(conn, run.id, snapshot.id, contracts)
+            if not checker.failures:
+                # Promotion, in the same transaction as the result it records
+                # (section 6): the pointer and the snapshot land together or not at all.
+                previous = self.runs.set_serving(conn, tenant_id=run.tenant_id,
+                                                 snapshot_id=snapshot.id, run_id=run.id, actor="system")
+                audit.record(conn, "promotion", actor="system", tenant_id=run.tenant_id,
+                             connection_id=run.connection_id, org_id=run.org_id,
+                             detail={"run_id": run.id, "snapshot_id": snapshot.id,
+                                     "previous_snapshot_id": previous,
+                                     "row_counts": snapshot.row_counts})
         progress.snapshot_id, progress.contracts = snapshot.id, contracts
         if checker.failures:
             names = "; ".join(f.split(":")[0] for f in checker.failures)
             logger.warning(f"sync {run.id[:8]} candidate failed {len(checker.failures)} contract(s): {names}")
             return "degraded", f"contracts failed: {names}"[:500]
-        logger.info(f"sync {run.id[:8]} candidate: {report.customers_written} customers, "
-                    f"{checker.passed} contracts passed, {len(checker.skipped)} skipped")
+
+        progress.promoted = True
+        logger.info(f"sync {run.id[:8]} promoted snapshot {snapshot.id[:8]}: "
+                    f"{report.customers_written} customers, {checker.passed} contracts passed, "
+                    f"{len(checker.skipped)} skipped"
+                    + (f", replacing {previous[:8]}" if previous else ""))
+        # Serving is a consequence of the pointer, not a condition of it: if the
+        # restore fails here the pointer still names the right snapshot and the
+        # next start restores it. The run says so rather than failing.
+        if self.on_promote is not None:
+            try:
+                self.on_promote(snapshot)
+                progress.served = True
+            except Exception as e:  # noqa: BLE001
+                progress.served = False
+                logger.error(f"sync {run.id[:8]}: promoted but not served: {type(e).__name__}: {e}",
+                             exc_info=True)
+                return "succeeded", f"promoted, but serving it failed: {type(e).__name__}: {e}"[:500]
         return "succeeded", None

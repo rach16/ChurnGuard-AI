@@ -107,6 +107,21 @@ class Snapshot:
                 "created_at": self.created_at}
 
 
+@dataclass(frozen=True)
+class Serving:
+    tenant_id: str
+    snapshot_id: str
+    run_id: Optional[str]
+    previous_snapshot_id: Optional[str]
+    promoted_at: datetime
+    promoted_by: str
+
+    def public(self) -> dict[str, Any]:
+        return {"snapshot_id": self.snapshot_id, "run_id": self.run_id,
+                "previous_snapshot_id": self.previous_snapshot_id,
+                "promoted_at": self.promoted_at, "promoted_by": self.promoted_by}
+
+
 _SNAPSHOT_COLUMNS = ("id, tenant_id, connection_id, run_id, as_of, tables, report, contracts,"
                      " contracts_passed, row_counts, created_at")
 _SNAPSHOT_HEAD = ("id, tenant_id, connection_id, run_id, as_of, null::jsonb as tables, report,"
@@ -340,3 +355,33 @@ class SyncStore:
             with self.db.connection() as c:
                 rows = c.execute(sql, (connection_id, limit)).fetchall()
         return [_row_to_snapshot(r) for r in rows]
+
+    # ---------------------------------------------------------------- serving
+
+    def get_serving(self, tenant_id: str = "default", conn=None) -> Optional[Serving]:
+        sql = ("select tenant_id, snapshot_id::text, run_id::text, previous_snapshot_id::text,"
+               " promoted_at, promoted_by from serving where tenant_id = %s")
+        if conn is not None:
+            row = conn.execute(sql, (tenant_id,)).fetchone()
+        else:
+            with self.db.connection() as c:
+                row = c.execute(sql, (tenant_id,)).fetchone()
+        return Serving(**row) if row else None
+
+    def set_serving(self, conn, *, tenant_id: str, snapshot_id: str, run_id: Optional[str],
+                    actor: str) -> Optional[str]:
+        """Point the tenant at a snapshot. Returns the snapshot id it pointed at
+        before, or None. One statement, so the flip is atomic with whatever
+        else the transaction records."""
+        before = conn.execute("select snapshot_id::text as id from serving where tenant_id = %s",
+                              (tenant_id,)).fetchone()
+        previous = before["id"] if before else None
+        conn.execute(
+            "insert into serving (tenant_id, snapshot_id, run_id, previous_snapshot_id, promoted_by)"
+            " values (%s, %s, %s, %s, %s)"
+            " on conflict (tenant_id) do update set snapshot_id = excluded.snapshot_id,"
+            " run_id = excluded.run_id, previous_snapshot_id = excluded.previous_snapshot_id,"
+            " promoted_at = now(), promoted_by = excluded.promoted_by",
+            (tenant_id, snapshot_id, run_id, previous, actor),
+        )
+        return previous

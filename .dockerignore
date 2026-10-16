@@ -30,3 +30,4 @@ docs
 metrics/*_results.csv
 metrics/evaluation_comparison.csv
 metrics/visualizations
+data/serving/

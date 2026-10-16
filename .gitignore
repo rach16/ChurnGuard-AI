@@ -81,3 +81,6 @@ models/*.joblib
 
 # Raw Salesforce pull (1.5a): a full org copy. The canonical CSVs and ingest_report.json are tracked.
 data/salesforce/raw/
+
+# Restored snapshots the API serves (ADR-0012 §6); the database holds them.
+data/serving/

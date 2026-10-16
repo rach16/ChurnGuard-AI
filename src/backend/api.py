@@ -48,13 +48,16 @@ from core.health_scoring import CustomerHealthScorer
 from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
 from core.evidence import CustomerEvidence
-from core.datasource import data_dir, is_synthetic, source_name, survival_model_path, warehouse_path
+from core.datasource import (
+    data_dir, is_synthetic, serving_dir, serving_info, set_serving, source_name, survival_model_path,
+    warehouse_path,
+)
 from connectors.salesforce import describe_report
 from core.llm import active_configuration
-from integrations import crypto as custody, db as integrations_db, redaction
+from integrations import crypto as custody, db as integrations_db, redaction, serving
 from integrations.connections import ConnectionStore
 from integrations.sync import SyncEngine
-from integrations.sync_store import SyncStore
+from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 import connections_routes
 import security
@@ -204,16 +207,17 @@ state = ServiceState()
 
 def _init_health_scorer() -> None:
     """Health scoring works from CSV alone -- no API key, no vector store."""
+    folder = serving_dir()
     try:
-        state.health_scorer = CustomerHealthScorer(data_folder=data_dir())
-        logger.info("✓ Health scorer initialized")
+        state.health_scorer = CustomerHealthScorer(data_folder=folder)
+        logger.info(f"✓ Health scorer initialized from {folder}")
     except Exception as e:
         state.unavailable("health_scorer", f"{type(e).__name__}: {e}")
 
     # Recommendations are computed from recorded outcomes, not generated, so they
     # work without an API key and belong in the degraded-mode tier.
     try:
-        state.playbook = PlaybookEngine(data_dir())
+        state.playbook = PlaybookEngine(folder)
         logger.info("✓ Playbook initialized")
     except Exception as e:
         state.unavailable("playbook", f"{type(e).__name__}: {e}")
@@ -222,7 +226,7 @@ def _init_health_scorer() -> None:
     # BM25, so it needs neither an API key nor the vector store.
     try:
         from utils.data_loader import ChurnDataLoader
-        docs = ChurnDataLoader(data_dir()).get_all_documents()
+        docs = ChurnDataLoader(folder).get_all_documents()
         state.evidence = CustomerEvidence(docs)
         logger.info("✓ Evidence index initialized")
     except Exception as e:
@@ -372,7 +376,8 @@ def _init_connections() -> None:
         # the status still reads; connect, verify, disconnect and sync answer 503.
         if os.getenv("SALESFORCE_CLIENT_ID", "").strip() and os.getenv("SALESFORCE_CLIENT_SECRET", "").strip():
             state.tokens = TokenService.from_env(state.connections, provider)
-            state.sync = SyncEngine(state.tokens, state.connections, state.sync_runs)
+            state.sync = SyncEngine(state.tokens, state.connections, state.sync_runs,
+                                    on_promote=_serve_snapshot)
             # A run the previous process left unfinished would block every
             # trigger for half an hour otherwise.
             for run_id in state.sync.sweep():
@@ -386,6 +391,47 @@ def _init_connections() -> None:
         state.unavailable("connections", f"{type(e).__name__}: {e}")
 
 
+def _serve_snapshot(snapshot: Snapshot, reload: bool = True) -> None:
+    """Put a promoted snapshot on disk and point the loaders at it (ADR-0012 §6).
+
+    Called by the sync engine after a promotion, and at startup for the snapshot
+    the pointer names, because Render's disk is wiped between runs. With
+    ``reload`` the scorer, playbook and evidence are rebuilt from it at once;
+    at startup they are built afterwards anyway.
+    """
+    folder = serving.restore(snapshot)
+    set_serving(str(folder), {
+        "kind": "sync", "snapshot_id": snapshot.id, "run_id": snapshot.run_id,
+        "as_of": snapshot.as_of.isoformat(), "row_counts": snapshot.row_counts,
+        "created_at": snapshot.created_at.isoformat(),
+    })
+    if reload:
+        _init_health_scorer()
+    logger.info(f"✓ serving snapshot {snapshot.id[:8]} (run {snapshot.run_id[:8]}, as of {snapshot.as_of})")
+
+
+def _restore_serving() -> None:
+    """On wake: whatever the serving pointer names is restored before the loaders
+    read anything. No pointer, or no database, means the data folder serves,
+    which is the laptop pull on this deployment."""
+    if state.sync_runs is None:
+        return
+    try:
+        pointer = state.sync_runs.get_serving()
+        if pointer is None:
+            logger.info("no promoted snapshot yet; serving the data folder")
+            return
+        snapshot = state.sync_runs.get_snapshot(pointer.snapshot_id)
+        if snapshot is None:
+            logger.error(f"serving pointer names snapshot {pointer.snapshot_id} which does not exist; "
+                         "serving the data folder")
+            return
+        _serve_snapshot(snapshot, reload=False)
+    except Exception as e:
+        logger.error(f"could not restore the serving snapshot: {type(e).__name__}: {e}", exc_info=True)
+        set_serving(None)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start subsystems independently so one failure cannot take down the rest."""
@@ -395,8 +441,11 @@ async def lifespan(app: FastAPI):
     # OAuth callback's code. Covers every handler that exists at this point.
     redaction.install()
 
-    _init_health_scorer()
+    # The database first, then the snapshot it points at, then the loaders that
+    # read it. A database that is down leaves the loaders on the data folder.
     _init_connections()
+    _restore_serving()
+    _init_health_scorer()
     _init_ai_stack()
 
     if state.ai_ready:
@@ -996,6 +1045,12 @@ async def get_source():
             "as_of": None, "seeded": False}
     if name == "salesforce":
         info.update(label="Salesforce", seeded=True)
+        served = serving_info()
+        if served is not None:
+            # A promoted sync is what every page shows (ADR-0012 §6).
+            info.update(as_of=served["as_of"], served_from=served)
+            return info
+        info["served_from"] = {"kind": "file", "path": str(SALESFORCE_REPORT)}
         report = ROOT / SALESFORCE_REPORT
         if report.exists():
             try:

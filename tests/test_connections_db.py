@@ -45,9 +45,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots"]
+        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving"]
         yield database
     finally:
         database.close()
@@ -244,6 +244,28 @@ def test_snapshots_round_trip_and_the_last_good_one_is_found(db, store):
     attached = runs.get_run(run.id)
     assert attached.snapshot_id == good.id and attached.contracts["passed"] == 22
     assert "tables" not in good.public()
+
+
+@needs_db
+def test_the_serving_pointer_flips_atomically_and_remembers_the_previous(db, store):
+    runs = SyncStore(db)
+    c = store.get()
+    good, bad = runs.snapshots(c.id)[0], runs.snapshots(c.id)[1]
+    assert runs.get_serving() is None
+    with db.connection() as conn:
+        assert runs.set_serving(conn, tenant_id="default", snapshot_id=bad.id, run_id=bad.run_id,
+                                actor="system") is None
+    first = runs.get_serving()
+    assert first.snapshot_id == bad.id and first.previous_snapshot_id is None and first.promoted_by == "system"
+    with db.connection() as conn:
+        assert runs.set_serving(conn, tenant_id="default", snapshot_id=good.id, run_id=good.run_id,
+                                actor="operator") == bad.id
+    second = runs.get_serving()
+    assert second.snapshot_id == good.id and second.previous_snapshot_id == bad.id
+    assert second.promoted_at >= first.promoted_at and second.promoted_by == "operator"
+    with db.connection() as conn:
+        assert conn.execute("select count(*) as n from serving").fetchone()["n"] == 1
+    assert "tables" not in second.public() and second.public()["snapshot_id"] == good.id
 
 
 @needs_db

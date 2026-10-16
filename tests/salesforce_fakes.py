@@ -21,7 +21,7 @@ import httpx
 
 from integrations.connections import Connection
 from integrations.salesforce_oauth import SalesforceOAuth
-from integrations.sync_store import Snapshot, SyncRun
+from integrations.sync_store import Serving, Snapshot, SyncRun
 
 ORG = "00Dg700000J62qbEAB"
 OTHER_ORG = "00D000000000001AAA"
@@ -303,6 +303,7 @@ class FakeSyncStore:
         self.raw: dict[tuple[str, str, str], dict] = {}        # (conn, sobject, id) -> row
         self.watermarks: dict[tuple[str, str], datetime] = {}
         self.snaps: dict[str, Snapshot] = {}
+        self.serving: dict[str, Serving] = {}
 
     def _put(self, run: SyncRun) -> SyncRun:
         self.runs_by_id[run.id] = run
@@ -421,3 +422,16 @@ class FakeSyncStore:
     def snapshots(self, connection_id, limit=10, conn=None) -> list[Snapshot]:
         rows = [s for s in self.snaps.values() if s.connection_id == connection_id]
         return sorted(rows, key=lambda s: s.created_at, reverse=True)[:limit]
+
+    # serving
+    def get_serving(self, tenant_id="default", conn=None) -> Optional[Serving]:
+        return self.serving.get(tenant_id)
+
+    def set_serving(self, conn, *, tenant_id, snapshot_id, run_id, actor) -> Optional[str]:
+        before = self.serving.get(tenant_id)
+        previous = before.snapshot_id if before else None
+        row = Serving(tenant_id=tenant_id, snapshot_id=snapshot_id, run_id=run_id,
+                      previous_snapshot_id=previous, promoted_at=datetime.now(timezone.utc),
+                      promoted_by=actor)
+        conn.pending.append(lambda: self.serving.__setitem__(tenant_id, row))
+        return previous

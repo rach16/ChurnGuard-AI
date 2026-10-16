@@ -68,6 +68,15 @@ export interface ConnectionStatus {
   pinned_org_id?: string | null;
   connection: ConnectionInfo | null;
   last_run?: SyncRun | null;
+  serving?: {
+    snapshot_id: string;
+    run_id: string | null;
+    previous_snapshot_id: string | null;
+    promoted_at: string;
+    promoted_by: string;
+    as_of: string | null;
+    row_counts: Record<string, number> | null;
+  } | null;
 }
 
 // Display order and names. The run stores objects as JSON, whose key order
@@ -344,12 +353,12 @@ export function ConnectionPanel() {
       </div>
       {verified && <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{verified}</div>}
       {notice && <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
-      {c && <RunList runs={runs} />}
+      {c && <RunList runs={runs} serving={status.serving ?? null} />}
     </div>
   );
 }
 
-function RunList({ runs }: { runs: SyncRun[] }) {
+function RunList({ runs, serving }: { runs: SyncRun[]; serving: ConnectionStatus['serving'] }) {
   if (runs.length === 0) {
     return (
       <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
@@ -361,21 +370,31 @@ function RunList({ runs }: { runs: SyncRun[] }) {
   }
   return (
     <div className="mt-3 border-t pt-3">
-      <div className="mb-1.5 text-xs font-medium">Recent syncs</div>
+      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-xs font-medium">Recent syncs</span>
+        {serving ? (
+          <span className="text-xs text-muted-foreground">
+            Serving the run of {formatWhen(serving.promoted_at)}
+            {serving.row_counts?.customers !== undefined ? ` · ${serving.row_counts.customers.toLocaleString()} customers` : ''}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">No run promoted yet; the site serves the last command-line pull.</span>
+        )}
+      </div>
       <ul className="space-y-1.5">
         {runs.map((run) => (
-          <RunRow key={run.id} run={run} />
+          <RunRow key={run.id} run={run} serving={!!serving && run.snapshot_id === serving.snapshot_id} />
         ))}
       </ul>
       <div className="mt-2 text-[11px] text-muted-foreground">
-        A run that passes every contract becomes the report above. Promoting it to what the rest
-        of the site serves follows in the next step.
+        A run that passes every contract is promoted: every page on this site then shows it.
+        A run that fails a contract is kept for diagnosis and the previous one keeps serving.
       </div>
     </div>
   );
 }
 
-function RunRow({ run }: { run: SyncRun }) {
+function RunRow({ run, serving }: { run: SyncRun; serving: boolean }) {
   const when = run.started_at ?? run.created_at;
   const objects = OBJECTS.filter(([name]) => run.objects[name])
     .map(([name, label]) => `${run.objects[name].fetched.toLocaleString()} ${label}`)
@@ -403,6 +422,9 @@ function RunRow({ run }: { run: SyncRun }) {
           <Badge variant="outline" className="text-[10px] font-normal">
             {run.mode}
           </Badge>
+        )}
+        {serving && (
+          <Badge className="text-[10px] font-normal">serving</Badge>
         )}
         {run.finished_at && (
           <span className="text-muted-foreground">

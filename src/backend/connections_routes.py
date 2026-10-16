@@ -148,14 +148,21 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         if connection is not None:
             public = connection.public()
             public.pop("username", None)      # the operator's login is not for every reader
-            runs = getattr(state, "sync_runs", None)
-            if runs is not None:
+        serving: Optional[dict] = None
+        runs = getattr(state, "sync_runs", None)
+        if runs is not None:
+            if connection is not None:
                 latest = await run_in_threadpool(runs.last_run, connection.id)
                 last_run = latest.public() if latest else None
+            pointer = await run_in_threadpool(runs.get_serving)
+            if pointer is not None:
+                head = await run_in_threadpool(runs.get_snapshot, pointer.snapshot_id, None, with_tables=False)
+                serving = {**pointer.public(), "as_of": head.as_of if head else None,
+                           "row_counts": head.row_counts if head else None}
         return {"enabled": True, "reason": None,
                 "operator_actions": operator_actions_enabled(),
                 "pinned_org_id": os.getenv("SALESFORCE_ORG_ID", "").strip() or None,
-                "connection": public, "last_run": last_run}
+                "connection": public, "last_run": last_run, "serving": serving}
 
     @router.get("/connections/{connection_id}/runs")
     async def list_runs(connection_id: str, limit: int = 10):
