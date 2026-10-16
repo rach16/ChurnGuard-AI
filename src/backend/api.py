@@ -53,6 +53,7 @@ from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction
 from integrations.connections import ConnectionStore
+import connections_routes
 import security
 from model.survival import ChurnSurvivalModel
 from core.llm import chat_model
@@ -428,6 +429,10 @@ app.add_middleware(
 # Added after CORS so it runs inside it: a rejected request still carries the CORS
 # headers a browser needs to read the 401 rather than reporting a network error.
 security.install(app)
+
+# Log in with Salesforce (1.9). The router reads `state` at request time, which
+# is why it takes a getter: the subsystem comes up in lifespan, after this line.
+app.include_router(connections_routes.build_router(lambda: state))
 
 
 def require_ai(component: str):

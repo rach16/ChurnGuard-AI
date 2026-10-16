@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { BootGate, Shell } from '../shell';
 import { useSource } from '../source';
+import { ConnectionPanel } from './connection';
 
 const PLANNED = [
   { name: 'HubSpot', category: 'CRM', supplies: 'Lifecycle stage, deal history' },
@@ -125,7 +126,8 @@ function SalesforcePanel() {
               <Badge variant="outline" className="text-[11px] font-normal">Seeded test org</Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Pulled by hand from the command line. Connecting from this page is next.
+              The figures below are from the last pull, run from the command line. Syncing
+              through the connection is the next step.
             </p>
           </div>
           <div className="text-right text-xs text-muted-foreground">
@@ -133,6 +135,8 @@ function SalesforcePanel() {
             <div className="text-sm font-medium text-foreground">{formatDate(report.as_of)}</div>
           </div>
         </div>
+
+        <ConnectionPanel />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <FunnelStep value={funnel.accounts_read} label="accounts read" />

@@ -15,7 +15,8 @@ from typing import Any, Optional
 from integrations.redaction import find_secret
 
 EVENTS = frozenset({
-    "connect", "reconnect", "org_mismatch_refused", "host_refused", "state_rejected",
+    "connect", "reconnect", "connect_failed",
+    "org_mismatch_refused", "host_refused", "state_rejected",
     "refresh", "refresh_failed", "needs_reauth",
     "sync_started", "sync_finished", "promotion", "rollback",
     "disconnect", "purge", "rewrap",

@@ -216,6 +216,20 @@ def test_the_filter_rewrites_the_record_in_place():
     assert "[REDACTED" in message
 
 
+def test_uvicorn_style_positional_args_still_format_after_redaction():
+    """uvicorn's access line: the path is one positional arg among five, and the
+    formatter reads them by position. Redaction must clean the path, not drop
+    the tuple."""
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "f", 1,
+                               '%s - "%s %s HTTP/%s" %d',
+                               ("127.0.0.1:1", "GET", f"/integrations/salesforce/callback?code={CODE}&state=s",
+                                "1.1", 400), None)
+    redaction.SecretRedactingFilter().filter(record)
+    assert len(record.args) == 5 and record.args[4] == 400
+    line = record.getMessage()
+    assert CODE not in line and "code=[REDACTED]&state=s" in line and line.endswith(" 400")
+
+
 def test_install_covers_every_handler_in_the_process():
     other = logging.getLogger("uvicorn.access.test")
     handler = logging.StreamHandler()

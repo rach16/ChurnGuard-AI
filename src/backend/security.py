@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 # rather than customer data.
 EXEMPT_PATHS = frozenset({
     "/", "/health", "/ready", "/docs", "/redoc", "/openapi.json", "/favicon.ico",
+    # Salesforce's redirect after a login. It cannot present a key; it is
+    # authenticated by the single-use state the flow issued (ADR-0012, section 1).
+    "/integrations/salesforce/callback",
 })
 
 API_KEY_HEADER = "X-API-Key"

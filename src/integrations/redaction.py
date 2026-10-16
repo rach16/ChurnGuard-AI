@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Any, Optional
 
 # (name, pattern, replacement). Order matters only in that the keyed forms keep
 # their key, which makes a redacted line still readable.
@@ -58,19 +58,47 @@ def find_secret(text: str) -> Optional[str]:
     return None
 
 
+def _clean(value: Any) -> Any:
+    if isinstance(value, str):
+        return redact(value)
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    return redact(str(value))
+
+
 class SecretRedactingFilter(logging.Filter):
-    """Rewrites a record's message in place. Attached to handlers, so it sees every
-    logger's output, not only records sent to the logger it was added to."""
+    """Rewrites a record's message and arguments in place. Attached to handlers,
+    so it sees every logger's output, not only records sent to the logger it was
+    added to.
+
+    The arguments are cleaned one by one rather than the message being rendered
+    and the arguments dropped, because uvicorn's access formatter reads
+    ``record.args`` by position (client, method, path, version, status) to build
+    its line. Collapsing them broke that formatter on the very request this
+    filter exists for, the callback, and logging printed the record raw as part
+    of its own error report. Found on the first local run.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
-            message = record.getMessage()
+            if isinstance(record.msg, str):
+                record.msg = redact(record.msg)
+            if isinstance(record.args, dict):
+                record.args = {k: _clean(v) for k, v in record.args.items()}
+            elif isinstance(record.args, tuple):
+                record.args = tuple(_clean(a) for a in record.args)
+            elif record.args is not None:
+                record.args = _clean(record.args)
+            # A value that is only a secret in context ("code=%s" with the code as
+            # the argument) survives the per-argument pass. Render the line and,
+            # only if something is still there, collapse it: formatters that read
+            # args by position lose that record, but nothing leaks.
+            rendered = record.getMessage()
+            if find_secret(rendered):
+                record.msg = redact(rendered)
+                record.args = ()
         except Exception:
-            return True
-        redacted = redact(message)
-        if redacted != message:
-            record.msg = redacted
-            record.args = ()
+            pass
         return True
 
 
