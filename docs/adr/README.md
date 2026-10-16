@@ -17,4 +17,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0009](0009-predict-a-horizon-band-not-a-date.md) | Predict a likelihood band over a horizon, not a date | Accepted |
 | [0010](0010-api-key-auth-and-per-process-rate-limiting.md) | API key auth and per-process rate limiting | Accepted |
 | [0011](0011-derive-churn-label-from-salesforce.md) | Derive the churn label from a Salesforce org, and report every guess | Accepted |
-| [0012](0012-salesforce-integration-architecture.md) | Salesforce integration architecture: connections, token custody, sync | Proposed |
+| [0012](0012-salesforce-integration-architecture.md) | Salesforce integration architecture: connections, token custody, sync | Accepted |

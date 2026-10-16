@@ -1,6 +1,6 @@
 # 0012 · Salesforce integration architecture: connections, token custody, sync
 
-**Status:** Proposed · **Date:** 2026-10-15 · **Phase:** 1.9, 1.10, 1.11
+**Status:** Accepted 2026-10-16 · **Date:** 2026-10-15 · **Phase:** 1.9, 1.10, 1.11
 
 ## Context
 
@@ -48,6 +48,8 @@ Browser                      ChurnGuard API                 Salesforce
   ever holds the one-time code, which cannot be redeemed without the client secret.
 - Production orgs authorise at `login.salesforce.com`; sandboxes at
   `test.salesforce.com`. The environment is chosen at connect time and recorded.
+  Developer Edition orgs, `churnguard-dev` included, are production-type and use
+  `login.salesforce.com`.
 
 **Alternatives considered**
 
@@ -72,6 +74,14 @@ Browser                      ChurnGuard API                 Salesforce
   rotation enabled** where the org supports it. Rotation means every refresh issues
   a new refresh token and the old one stops working, so a copied token has a short
   useful life.
+- Registered in `churnguard-dev` on 2026-10-15. The org enforces PKCE, rotation and a
+  **30-day idle refresh-token limit** itself, and the last cannot be turned off: a
+  connection unused for 30 days moves to `needs_reauth`. The daily sync (1.11) keeps
+  it alive; until then, idling staging past 30 days means reconnecting.
+- **Deferred, recorded as a gap:** the app is left at "all users can self-authorize"
+  and the integration user is not yet created, so the owner's admin login connects.
+  Pre-authorised users plus a read-only permission set are the production setting
+  and go in before any org that is not the owner's own.
 
 ## 3. Connection model
 
@@ -82,7 +92,7 @@ One row per tenant per Salesforce org.
 | `id`, `tenant_id` | Every query is scoped by tenant |
 | `provider`, `auth_method` | `salesforce`; `web_server_pkce` or `jwt_bearer` |
 | `org_id` | From the token response's identity URL. **Pinned**: a reconnect that returns a different org is refused and audited |
-| `instance_url` | **Validated** against `https://*.my.salesforce.com` and `*.salesforce.com` before first use. Every API call goes only there. Prevents a tampered response turning the sync into a request to an arbitrary host |
+| `instance_url` | **Validated** before first use: parsed as a URL (not string-matched), scheme `https`, default port, no user info, and the host ends in `.my.salesforce.com`. A suffix match, not a one-label wildcard, because real hosts carry extra labels: Developer Edition is `<name>.develop.my.salesforce.com` (`churnguard-dev` is `orgfarm-e065461ef9-dev-ed.develop.my.salesforce.com`), sandboxes `<name>.sandbox.my.salesforce.com`. My Domain is mandatory for every org, so no legacy `*.salesforce.com` instance host is accepted. **Pinned** with `org_id`: after the first connect, API calls go only to that exact host, and a changed host is accepted only on a reconnect that passes the org pin and is audited. Prevents a tampered response turning the sync into a request to an arbitrary host |
 | `environment` | `production` or `sandbox` |
 | `scopes`, `connected_by`, `connected_at` | Who granted what, when |
 | `status` | `active`, `needs_reauth`, `revoked`, `disabled` |
@@ -197,7 +207,7 @@ The site never serves a half-finished or contract-failing sync.
 | Forged callback (CSRF) | `state`, single-use, session-bound, expiring |
 | XSS on the site | No token ever reaches the browser |
 | Org swap on reconnect | `org_id` pinned |
-| SSRF through `instance_url` | Host allowlist before first use |
+| SSRF through `instance_url` | Parsed host suffix check before first use, then the exact host pinned |
 | Token in logs | Redaction filter plus a failing test |
 | Over-broad access | Read-only integration user, two scopes |
 | Stale or broken data shown | Contracts gate promotion; last good snapshot kept |
@@ -210,7 +220,7 @@ pieces live, and each stand-in is stated where it is used.
 
 | Production | This deployment | Cost |
 |---|---|---|
-| KMS-held master key (AWS KMS, envelope via `GenerateDataKey`) | **Decision for the owner:** AWS KMS (about $1 a month per key plus requests) **or** a master key in the Render secret store behind the same `KeyProvider` interface | KMS ~$1/mo, local $0 |
+| KMS-held master key (AWS KMS, envelope via `GenerateDataKey`) | **Decided 2026-10-16: AWS KMS, as in production.** Key `alias/churnguard-staging-master` (us-west-2, symmetric, single-region, yearly rotation). The app authenticates as IAM user `churnguard-staging-kms`, whose only permission is `GenerateDataKey`, `Decrypt`, `ReEncrypt*` and `DescribeKey` on that one key. The stand-in is the credential: Render is outside AWS, so a long-lived access key sits in Render's secret store where production would use a role. A leaked key can decrypt until it is disabled, but every use is logged and the key material never leaves KMS. Production gets its own key and user | ~$1/mo per key, rising with rotations |
 | Managed Postgres | Neon free tier (0.5 GB): connections, secrets, runs, watermarks, audit, raw landings, snapshots | $0 |
 | Durable snapshot storage | Postgres. Render's disk is wiped on every sleep, so a waking server restores the serving snapshot from Postgres before it answers | $0 |
 | Scheduler | Sync now, plus sync on wake, plus an external scheduler calling a signed, operator-only trigger. The same scheduler doubles as the keep-alive the backend has lacked | $0 |
@@ -230,7 +240,10 @@ rotation, `invalid_grant`, limits, pagination, deletes); property tests on
 encryption round-trips, wrong associated data and key versions; failure injection
 (token expiry mid-run, crash mid-run then resume, contract failure blocks
 promotion); security tests (state mismatch, org swap, off-allowlist
-`instance_url`, no secret in any log or response); and an end-to-end run against
+`instance_url`, no secret in any log or response); the allowlist accepts
+`churnguard-dev`'s real host and rejects look-alikes such as
+`https://my.salesforce.com.evil.com`, `https://evil.com/x.my.salesforce.com`,
+`https://x.my.salesforce.com@evil.com`, `http://` and a non-default port; and an end-to-end run against
 `churnguard-dev` on staging before anything reaches the live site.
 
 ## Consequences
@@ -239,4 +252,4 @@ promotion); security tests (state mismatch, org swap, off-allowlist
 - A Postgres dependency enters the system, with migrations and a backup story.
 - The live site's data becomes as fresh as the last promoted sync, and its
   freshness is visible on every page.
-- One owner decision is open before 1.9 starts: AWS KMS or a local master key.
+- Master key decided 2026-10-16: AWS KMS (~$1/month), the first paid component in the project, chosen over a $0 local key for the hardware boundary and per-use audit trail. Staging and production each get their own key and IAM user.
