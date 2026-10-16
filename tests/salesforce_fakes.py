@@ -21,7 +21,7 @@ import httpx
 
 from integrations.connections import Connection
 from integrations.salesforce_oauth import SalesforceOAuth
-from integrations.sync_store import SyncRun
+from integrations.sync_store import Snapshot, SyncRun
 
 ORG = "00Dg700000J62qbEAB"
 OTHER_ORG = "00D000000000001AAA"
@@ -302,6 +302,7 @@ class FakeSyncStore:
         self.runs_by_id: dict[str, SyncRun] = {}
         self.raw: dict[tuple[str, str, str], dict] = {}        # (conn, sobject, id) -> row
         self.watermarks: dict[tuple[str, str], datetime] = {}
+        self.snaps: dict[str, Snapshot] = {}
 
     def _put(self, run: SyncRun) -> SyncRun:
         self.runs_by_id[run.id] = run
@@ -395,3 +396,28 @@ class FakeSyncStore:
             bucket = out.setdefault(s, {"live": 0, "tombstones": 0})
             bucket["tombstones" if row["deleted"] else "live"] += 1
         return out
+
+    # snapshots
+    def create_snapshot(self, conn, *, run_id, connection_id, tenant_id, as_of, tables, report,
+                        contracts) -> Snapshot:
+        snap = Snapshot(id=secrets.token_hex(8), tenant_id=tenant_id, connection_id=connection_id,
+                        run_id=run_id, as_of=as_of, tables=tables, report=report,
+                        contracts=contracts, contracts_passed=not contracts.get("failures"),
+                        row_counts={n: len(r) for n, r in tables.items()},
+                        created_at=datetime.now(timezone.utc))
+        conn.pending.append(lambda: self.snaps.__setitem__(snap.id, snap))
+        return snap
+
+    def attach_snapshot(self, conn, run_id, snapshot_id, contracts) -> None:
+        conn.pending.append(lambda: self._replace(run_id, snapshot_id=snapshot_id, contracts=contracts))
+
+    def get_snapshot(self, snapshot_id, conn=None, *, with_tables=True) -> Optional[Snapshot]:
+        return self.snaps.get(snapshot_id)
+
+    def latest_good_snapshot(self, tenant_id="default", conn=None, *, with_tables=False) -> Optional[Snapshot]:
+        good = [s for s in self.snaps.values() if s.contracts_passed and s.tenant_id == tenant_id]
+        return max(good, key=lambda s: s.created_at, default=None)
+
+    def snapshots(self, connection_id, limit=10, conn=None) -> list[Snapshot]:
+        rows = [s for s in self.snaps.values() if s.connection_id == connection_id]
+        return sorted(rows, key=lambda s: s.created_at, reverse=True)[:limit]

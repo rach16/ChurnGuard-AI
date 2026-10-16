@@ -53,6 +53,8 @@ export interface SyncRun {
   api_requests: number;
   api_usage: { used: number; max: number } | null;
   error: string | null;
+  snapshot_id: string | null;
+  contracts: { passed: number; failed: number; skipped: number; failures: string[] } | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -68,20 +70,22 @@ export interface ConnectionStatus {
   last_run?: SyncRun | null;
 }
 
-const OBJECT_LABELS: Record<string, string> = {
-  Account: 'accounts',
-  Opportunity: 'deals',
-  OpportunityCompetitor: 'competitors',
-  Case: 'cases',
-  Task: 'activities',
-};
+// Display order and names. The run stores objects as JSON, whose key order
+// Postgres does not keep, so the order comes from here.
+const OBJECTS: [string, string][] = [
+  ['Account', 'accounts'],
+  ['Opportunity', 'deals'],
+  ['OpportunityCompetitor', 'competitors'],
+  ['Case', 'cases'],
+  ['Task', 'activities'],
+];
 
 const RUN_LABELS: Record<SyncRun['status'], string> = {
   pending: 'Queued',
   running: 'Running',
   succeeded: 'Succeeded',
   failed: 'Failed',
-  degraded: 'Not promoted',
+  degraded: 'Contracts failed',
 };
 
 function isUnfinished(run: SyncRun | undefined | null): boolean {
@@ -364,7 +368,8 @@ function RunList({ runs }: { runs: SyncRun[] }) {
         ))}
       </ul>
       <div className="mt-2 text-[11px] text-muted-foreground">
-        Landed records are not yet what the site serves; promotion follows in the next step.
+        A run that passes every contract becomes the report above. Promoting it to what the rest
+        of the site serves follows in the next step.
       </div>
     </div>
   );
@@ -372,9 +377,14 @@ function RunList({ runs }: { runs: SyncRun[] }) {
 
 function RunRow({ run }: { run: SyncRun }) {
   const when = run.started_at ?? run.created_at;
-  const objects = Object.entries(run.objects)
-    .map(([name, o]) => `${o.fetched.toLocaleString()} ${OBJECT_LABELS[name] ?? name}`)
+  const objects = OBJECTS.filter(([name]) => run.objects[name])
+    .map(([name, label]) => `${run.objects[name].fetched.toLocaleString()} ${label}`)
     .join(' · ');
+  const contracts = run.contracts
+    ? run.contracts.failed > 0
+      ? `${run.contracts.failed} of ${run.contracts.passed + run.contracts.failed} contracts failed`
+      : `${run.contracts.passed} contracts passed${run.contracts.skipped ? `, ${run.contracts.skipped} skipped (no narrative corpus)` : ''}`
+    : null;
   const tone =
     run.status === 'succeeded'
       ? 'text-emerald-700 dark:text-emerald-400'
@@ -399,13 +409,23 @@ function RunRow({ run }: { run: SyncRun }) {
             {run.records_fetched.toLocaleString()} records
             {run.tombstones > 0 ? `, ${run.tombstones.toLocaleString()} deleted` : ''} ·{' '}
             {run.api_requests} API call{run.api_requests === 1 ? '' : 's'}
-            {run.api_usage ? ` (${run.api_usage.used.toLocaleString()} of ${run.api_usage.max.toLocaleString()} used today)` : ''}
+            {run.api_usage ? ` (org's counter: ${run.api_usage.used.toLocaleString()} of ${run.api_usage.max.toLocaleString()} today)` : ''}
             {run.duration_seconds !== null ? ` · ${run.duration_seconds}s` : ''}
           </span>
         )}
       </div>
       {objects && <div className="text-muted-foreground">{objects}</div>}
-      {run.error && <div className="text-amber-700 dark:text-amber-400">{run.error}</div>}
+      {contracts && (
+        <div className={run.contracts && run.contracts.failed > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}>
+          {contracts}
+          {run.contracts?.failures.map((f) => (
+            <div key={f} className="ml-3">{f}</div>
+          ))}
+        </div>
+      )}
+      {run.error && !run.error.startsWith('contracts failed') && (
+        <div className="text-amber-700 dark:text-amber-400">{run.error}</div>
+      )}
     </li>
   );
 }

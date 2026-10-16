@@ -143,6 +143,42 @@ after a quiet spell reconnects instead of failing. The first such request can
 take a second or two while the compute wakes. If `/connections` ever answers 500
 with `AdminShutdown` in the log, that guard has regressed.
 
+## Sync runs (1.10)
+
+**Sync now** on the Integrations page starts a run through the stored
+connection; the run list under the connection block shows each run's outcome.
+From a laptop with `DATABASE_URL` in `.env`, the same from the database:
+
+```bash
+uv run python - <<'PY'
+import os, sys; sys.path.insert(0, "src")
+from dotenv import load_dotenv; load_dotenv(".env")
+from integrations.db import Database
+db = Database(os.environ["DATABASE_URL"]).open()
+with db.connection() as c:
+    for r in c.execute("select status, trigger, api_requests, error, contracts, started_at from sync_runs order by created_at desc limit 5"):
+        print(r)
+    for r in c.execute("select sobject, count(*) filter (where not deleted) live, count(*) filter (where deleted) tombstones from raw_records group by 1"):
+        print(r)
+db.close()
+PY
+```
+
+| Run says | Meaning | What to do |
+|---|---|---|
+| **Succeeded** | Every object landed and every data contract passed; the snapshot is the newest good one and the Integrations report reads from it | Nothing |
+| **Contracts failed** (`degraded`) | The org's data landed but the candidate broke a contract, named on the run. The snapshot is kept for diagnosis and nothing serves it; the previous good one still does | Fix the data in Salesforce (the failing contract names the rule and the count) and Sync now again |
+| **Failed** with `<Object>: INVALID_FIELD …` | A field the connector reads was renamed or removed in the org. Objects before it landed and kept their watermarks | Restore the field, or change the connector's field list, then Sync now: the run resumes from where it stopped |
+| **Failed** with `REQUEST_LIMIT_EXCEEDED` | The org's daily API allowance is spent | Wait for the window to roll; a sync costs about 5 calls |
+| **Failed** with `abandoned` | The process stopped mid-run (deploy, restart). Swept by the next trigger or startup | Sync now again |
+| **Failed** with `Salesforce refused the stored token` | The connection is `needs_reauth` | Reconnect, then Sync now |
+| Button says **Syncing…** for more than a minute | A run is unfinished; a second click joins it | Wait; after 30 minutes it is swept as abandoned |
+
+A first run reads every object in full. Every later run asks only for records
+with `SystemModstamp` since that object's watermark, less five minutes, so a
+sync of an unchanged org is five calls and under a second. Deletes arrive as
+tombstones and leave the candidate at the next transform.
+
 ## Known gaps carried into 1.10
 
 - The app allows any user in the org to self-authorise, and the connection runs

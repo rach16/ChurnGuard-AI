@@ -1007,14 +1007,25 @@ async def get_source():
 
 @app.get("/integrations/salesforce")
 async def get_salesforce_integration():
-    """What the last Salesforce pull brought in, and what the connector decided.
+    """What the last Salesforce sync or pull brought in, and what the connector decided.
 
-    Read from the report the connector writes on every pull, so every number on
+    Read from the report the connector writes on every run, so every number on
     the Integrations page traces to a run rather than to copy. It describes the
     Salesforce source whatever CHURNGUARD_DATA_DIR the rest of the API is serving:
     the page reports the integration, not the data the site happens to show.
     """
     import json
+
+    # A sync through the stored connection (1.10) is the newer source of this
+    # report: the last snapshot whose contracts all passed. Where there is no
+    # database, or no passing snapshot yet, the laptop pull's file still serves.
+    if state.sync_runs is not None:
+        snapshot = await run_in_threadpool(state.sync_runs.latest_good_snapshot)
+        if snapshot is not None:
+            described = describe_report(snapshot.report)
+            described["origin"] = {"kind": "sync", "snapshot_id": snapshot.id, "run_id": snapshot.run_id,
+                                   "created_at": snapshot.created_at, "contracts": snapshot.contracts}
+            return described
 
     path = ROOT / SALESFORCE_REPORT
     if not path.exists():
@@ -1028,7 +1039,9 @@ async def get_salesforce_integration():
     except (OSError, ValueError) as e:
         logger.error(f"Error reading {path}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read {path.name}: {type(e).__name__}")
-    return describe_report(report)
+    described = describe_report(report)
+    described["origin"] = {"kind": "file", "path": str(SALESFORCE_REPORT)}
+    return described
 
 
 @app.get("/evaluation-results")

@@ -59,18 +59,41 @@ def rec(sobject: str, sf_id: str, **fields) -> dict:
 
 
 def org_data() -> dict[str, list[dict]]:
+    """A small org that satisfies every data contract: three customers, one of
+    them churned (rate 33%), usage that separates the label, children dated
+    inside each contract. Tests that want a contract to fail bend one field."""
     return {
-        "Account": [rec("Account", "001A", Name="Acme", ARR__c=120000),
-                    rec("Account", "001B", Name="Bolt", ARR__c=40000),
-                    rec("Account", "001C", Name="Cord", ARR__c=9000)],
-        "Opportunity": [rec("Opportunity", "006A", AccountId="001A", Name="Acme Renewal"),
-                        rec("Opportunity", "006B", AccountId="001B", Name="Bolt Renewal")],
+        "Account": [
+            rec("Account", "001A", Name="Acme", AccountNumber="A-1", Type="Customer",
+                Customer_Status__c="Active", ARR__c=120000, Seats__c=10, Active_Users__c=8,
+                Feature_Adoption__c=70, Contract_Start_Date__c="2025-01-01", Industry="Software",
+                Region__c="West", CreatedDate="2024-12-20T00:00:00.000+0000"),
+            rec("Account", "001B", Name="Bolt", AccountNumber="B-1", Type="Customer",
+                Customer_Status__c="Active", ARR__c=40000, Seats__c=10, Active_Users__c=9,
+                Feature_Adoption__c=60, Contract_Start_Date__c="2025-03-01", Industry="Retail",
+                Region__c="East", CreatedDate="2025-02-20T00:00:00.000+0000"),
+            rec("Account", "001C", Name="Cord", AccountNumber="C-1", Type="Customer",
+                Customer_Status__c="Churned", Churn_Date__c="2026-09-01", Churn_Category__c="Pricing Concerns",
+                Churn_Reason__c="Too expensive", ARR__c=9000, Seats__c=10, Active_Users__c=1,
+                Feature_Adoption__c=10, Last_Login_Date__c="2026-08-20",
+                Contract_Start_Date__c="2025-06-01", Industry="Media", Region__c="North",
+                CreatedDate="2025-05-20T00:00:00.000+0000"),
+        ],
+        "Opportunity": [rec("Opportunity", "006A", AccountId="001A", Name="Acme Renewal",
+                            StageName="Negotiation", IsClosed=False, IsWon=False, CloseDate="2026-12-31"),
+                        rec("Opportunity", "006B", AccountId="001B", Name="Bolt Renewal",
+                            StageName="Negotiation", IsClosed=False, IsWon=False, CloseDate="2026-12-31")],
         "OpportunityCompetitor": [rec("OpportunityCompetitor", "00kA", OpportunityId="006B",
                                       CompetitorName="Vantage")],
-        "Case": [rec("Case", "500A", AccountId="001A", CaseNumber="1001"),
-                 rec("Case", "500B", AccountId="001C", CaseNumber="1002")],
-        "Task": [rec("Task", "00TA", AccountId="001A", Subject="Save play: executive review"),
-                 rec("Task", "00TB", AccountId="001B", Subject="Call")],
+        "Case": [rec("Case", "500A", AccountId="001A", CaseNumber="1001", Subject="Login fails",
+                     Priority="High", Type="Bug", CreatedDate="2026-10-01T09:00:00.000+0000"),
+                 rec("Case", "500B", AccountId="001C", CaseNumber="1002", Subject="Invoice query",
+                     Priority="Low", Type="Billing", CreatedDate="2026-08-01T09:00:00.000+0000")],
+        "Task": [rec("Task", "00TA", AccountId="001A", Subject="Save play: executive review",
+                     Description="Challenge: Pricing Concerns", ActivityDate="2026-10-02",
+                     CreatedDate="2026-10-02T09:00:00.000+0000"),
+                 rec("Task", "00TB", AccountId="001B", Subject="Call", ActivityDate="2026-10-03",
+                     CreatedDate="2026-10-03T09:00:00.000+0000")],
     }
 
 
@@ -110,6 +133,16 @@ def test_the_first_run_is_full_and_lands_every_object(provider):
     run = runs.get_run(t.run.id)
 
     assert run.status == "succeeded" and run.error is None and run.public()["mode"] == "full"
+    assert run.contracts == {"passed": 22, "failed": 0, "skipped": 6, "failures": []}
+    snap = runs.get_snapshot(run.snapshot_id)
+    assert snap.contracts_passed and snap.run_id == run.id and snap.as_of == NOON.date()
+    assert snap.row_counts == {"customers": 3, "support_tickets": 2, "customer_interactions": 2,
+                               "engagement_snapshots": 3, "interventions": 1,
+                               "success_stories": 0, "churn_analyses": 0}
+    assert snap.report["customers_written"] == 3 and snap.report["accounts_read"] == 3
+    assert all(isinstance(v, str) for row in snap.tables["customers"] for v in row.values())  # CSV shape
+    assert [c["company_name"] for c in snap.tables["customers"]] == ["Acme", "Bolt", "Cord"]
+    assert runs.latest_good_snapshot().id == snap.id
     assert [q[0] for q in sf.queries] == ["query"] * 5           # full reads: live records only
     assert [q[1] for q in sf.queries] == list(OBJECTS) and all(q[2] is None for q in sf.queries)
     assert {k: (v["mode"], v["fetched"], v["tombstones"]) for k, v in run.objects.items()} == {
@@ -128,6 +161,7 @@ def test_the_first_run_is_full_and_lands_every_object(provider):
     assert store.audit[-3]["actor"] == "operator" and store.audit[-3]["detail"]["trigger"] == "manual"
     done = store.audit[-1]["detail"]
     assert done["status"] == "succeeded" and done["objects"]["Account"]["fetched"] == 3
+    assert done["snapshot_id"] == snap.id and done["contracts"]["passed"] == 22
     assert find_secret(json.dumps(run.public(), default=str)) is None
 
 
@@ -148,8 +182,8 @@ def test_the_second_run_reads_only_changes_and_tombstones_deletes(provider):
     clock.at = NOON + timedelta(hours=1)
     sf.records["Account"][0]["ARR__c"] = 150000                       # Acme changed
     sf.records["Account"][0]["SystemModstamp"] = "2026-10-16T12:30:00Z"
-    sf.records["Account"][2]["IsDeleted"] = True                      # Cord deleted
-    sf.records["Account"][2]["SystemModstamp"] = "2026-10-16T12:40:00Z"
+    sf.records["Account"][1]["IsDeleted"] = True                      # Bolt deleted
+    sf.records["Account"][1]["SystemModstamp"] = "2026-10-16T12:40:00Z"
     sf.queries.clear()
 
     run = runs.get_run(engine.start(c.id).run.id)
@@ -162,7 +196,10 @@ def test_the_second_run_reads_only_changes_and_tombstones_deletes(provider):
     assert all(run.objects[o]["fetched"] == 0 for o in OBJECTS if o != "Account")
     assert runs.counts(None, c.id)["Account"] == {"live": 2, "tombstones": 1}
     live = {r["Id"]: r for r in runs.live_records(None, c.id, "Account")}
-    assert set(live) == {"001A", "001B"} and live["001A"]["ARR__c"] == 150000
+    assert set(live) == {"001A", "001C"} and live["001A"]["ARR__c"] == 150000
+    snap = runs.get_snapshot(run.snapshot_id)                        # Bolt has left the candidate
+    assert [c["company_name"] for c in snap.tables["customers"]] == ["Acme", "Cord"]
+    assert snap.tables["customers"][0]["arr"] == "150000" and run.contracts["passed"] == 22
     assert runs.watermarks[(c.id, "Account")] == clock.at
     assert run.public()["records_fetched"] == 2 and run.public()["tombstones"] == 1
 
@@ -231,6 +268,25 @@ def test_a_failed_page_leaves_nothing_half_landed(provider):
     assert run.status == "failed" and run.error == "Account: UNKNOWN_EXCEPTION: boom"
     assert runs.raw == {} and runs.watermarks == {}
     assert run.api_requests == 2                      # both requests counted, nothing kept
+
+
+def test_a_contract_failure_keeps_the_snapshot_and_degrades_the_run(provider):
+    sf = FakeSalesforce()
+    sf.records = org_data()
+    sf.records["Account"][2]["Customer_Status__c"] = "Active"       # nobody churned: rate 0%
+    sf.records["Account"][2]["Churn_Date__c"] = None
+    engine, c, sf, store, runs = engine_for(provider, sf)
+    run = runs.get_run(engine.start(c.id).run.id)
+
+    assert run.status == "degraded"
+    assert run.error == "contracts failed: churn rate is in a usable band (0.10-0.50)"
+    assert run.contracts["failed"] == 1 and run.contracts["passed"] == 21
+    assert run.contracts["failures"] == ["churn rate is in a usable band (0.10-0.50): churn rate is 0.0%"]
+    snap = runs.get_snapshot(run.snapshot_id)
+    assert snap is not None and snap.contracts_passed is False      # kept for diagnosis
+    assert runs.latest_good_snapshot() is None                       # never served
+    assert all(runs.watermarks[(c.id, o)] == NOON for o in OBJECTS)  # the landing itself stood
+    assert store.audit[-1]["detail"]["status"] == "degraded"
 
 
 def test_request_limit_exceeded_is_named_not_retried(provider):
@@ -322,8 +378,9 @@ def test_sync_and_runs_routes(provider, monkeypatch):
     (run,) = listed["runs"]
     assert run["status"] == "succeeded" and run["records_fetched"] == 10 and run["api_requests"] == 5
     assert run["mode"] == "full" and run["duration_seconds"] == 0.0 and run["objects"]["Case"]["fetched"] == 2
+    assert run["contracts"]["passed"] == 22 and run["snapshot_id"]
     text = json.dumps(listed)
-    assert "Acme" not in text and REFRESH not in text and find_secret(text) is None
+    assert "Acme" not in text and REFRESH not in text and find_secret(text) is None   # no record data
     assert client.get("/connections").json()["last_run"]["id"] == run_id
 
     assert client.post("/connections/nope/sync", headers=KEY).status_code == 404

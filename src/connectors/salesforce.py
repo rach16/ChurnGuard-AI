@@ -807,19 +807,37 @@ def fetch(sf) -> dict[str, list[dict]]:
     return {key: q(soql(sobject)) for sobject, key in RAW_KEYS.items()}
 
 
+COLUMNS: dict[str, list[str]] = {
+    "customers": CUSTOMER_COLUMNS,
+    "support_tickets": TICKET_COLUMNS,
+    "customer_interactions": INTERACTION_COLUMNS,
+    "engagement_snapshots": ENGAGEMENT_COLUMNS,
+    "interventions": INTERVENTION_COLUMNS,
+    **EMPTY_TABLES,
+}
+
+
+def as_csv_rows(tables: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """The tables exactly as ``write`` would put them in the CSV files: the
+    canonical columns in order, every value a string, missing is ``""``.
+
+    The data contracts and everything downstream read the CSV shape. A snapshot
+    kept in the database goes through this first, so a contract that holds for
+    the files holds for the snapshot, and a restored snapshot is byte-for-byte
+    the file the laptop pull would have written.
+    """
+    return {
+        name: [{col: "" if row.get(col) is None else str(row.get(col)) for col in COLUMNS[name]}
+               for row in tables.get(name, [])]
+        for name in COLUMNS
+    }
+
+
 def write(tables: dict[str, list[dict]], report: IngestReport, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    columns = {
-        "customers": CUSTOMER_COLUMNS,
-        "support_tickets": TICKET_COLUMNS,
-        "customer_interactions": INTERACTION_COLUMNS,
-        "engagement_snapshots": ENGAGEMENT_COLUMNS,
-        "interventions": INTERVENTION_COLUMNS,
-        **EMPTY_TABLES,
-    }
     for name, rows in tables.items():
         with open(out_dir / f"{name}.csv", "w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=columns[name], extrasaction="ignore")
+            w = csv.DictWriter(fh, fieldnames=COLUMNS[name], extrasaction="ignore")
             w.writeheader()
             w.writerows(rows)
     (out_dir / "ingest_report.json").write_text(json.dumps(report.to_dict(), indent=2))

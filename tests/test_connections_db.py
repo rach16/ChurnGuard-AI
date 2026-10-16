@@ -45,9 +45,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections", "0002_sync"]
+        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections", "0002_sync"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots"]
         yield database
     finally:
         database.close()
@@ -215,6 +215,35 @@ def test_sync_rows_land_upsert_tombstone_and_watermark(db, store):
     done = runs.get_run(run.id)
     assert done.status == "succeeded" and done.api_requests == 2 and done.objects["Account"]["fetched"] == 2
     assert runs.last_run(c.id).id == run.id and done.public()["mode"] == "full"
+
+
+@needs_db
+def test_snapshots_round_trip_and_the_last_good_one_is_found(db, store):
+    runs = SyncStore(db)
+    c = store.get()
+    run = runs.last_run(c.id)
+    tables = {"customers": [{"customer_id": "A-1", "company_name": "Acme", "arr": "120000"}],
+              "support_tickets": []}
+    with db.connection() as conn:
+        bad = runs.create_snapshot(conn, run_id=run.id, connection_id=c.id, tenant_id="default",
+                                   as_of=NOW.date(), tables=tables, report={"customers_written": 1},
+                                   contracts={"passed": 21, "failed": 1, "skipped": 6,
+                                              "failures": ["churn rate is in a usable band: 0.0%"]})
+    with db.connection() as conn:                       # a later run: its own transaction, later created_at
+        good = runs.create_snapshot(conn, run_id=run.id, connection_id=c.id, tenant_id="default",
+                                    as_of=NOW.date(), tables=tables, report={"customers_written": 1},
+                                    contracts={"passed": 22, "failed": 0, "skipped": 6, "failures": []})
+        runs.attach_snapshot(conn, run.id, good.id, good.contracts)
+    assert bad.contracts_passed is False and good.contracts_passed is True
+    assert good.row_counts == {"customers": 1, "support_tickets": 0} and good.tables == {}   # head only
+    assert runs.latest_good_snapshot().id == good.id
+    full = runs.get_snapshot(good.id)
+    assert full.tables == tables and full.report == {"customers_written": 1}
+    assert runs.get_snapshot(good.id, with_tables=False).tables == {}
+    assert [s.id for s in runs.snapshots(c.id)] == [good.id, bad.id]
+    attached = runs.get_run(run.id)
+    assert attached.snapshot_id == good.id and attached.contracts["passed"] == 22
+    assert "tables" not in good.public()
 
 
 @needs_db

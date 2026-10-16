@@ -90,7 +90,7 @@ def test_the_endpoint_serves_the_report_file(tmp_path, monkeypatch):
     import asyncio
     served = asyncio.run(api.get_salesforce_integration())
 
-    assert served["as_of"] == report["as_of"]
+    assert served["as_of"] == report["as_of"] and served["origin"]["kind"] == "file"
     assert served["funnel"]["customers_written"] == report["customers_written"]
     assert {r["key"]: r["count"] for r in served["decisions"]} == report["decisions"]
     assert not [r for r in served["decisions"] if r["group"] == "unlabelled"]
@@ -105,3 +105,34 @@ def test_no_pull_yet_is_a_404_that_says_what_to_run(tmp_path, monkeypatch):
         asyncio.run(api.get_salesforce_integration())
     assert e.value.status_code == 404
     assert "src.connectors.salesforce" in e.value.detail
+
+
+def test_the_endpoint_prefers_the_last_good_snapshot(tmp_path, monkeypatch):
+    """With a database, the report comes from the newest snapshot whose contracts
+    passed, not from the laptop's file; with none that passed, the file serves."""
+    import asyncio
+    from datetime import date
+
+    import api
+    from tests.salesforce_fakes import FakeStore, FakeSyncStore
+
+    monkeypatch.setattr(api, "ROOT", tmp_path)                  # no file at all
+    runs = FakeSyncStore(FakeStore())
+    monkeypatch.setattr(api.state, "sync_runs", runs)
+
+    with pytest.raises(HTTPException):
+        asyncio.run(api.get_salesforce_integration())             # no snapshot, no file: 404
+
+    report = json.loads(REPORT.read_text())
+    with runs.db.connection() as conn:
+        bad = runs.create_snapshot(conn, run_id="r1", connection_id="c1", tenant_id="default",
+                                   as_of=date(2026, 10, 16), tables={}, report={**report, "accounts_read": 1},
+                                   contracts={"passed": 21, "failed": 1, "skipped": 6, "failures": ["x: y"]})
+        good = runs.create_snapshot(conn, run_id="r2", connection_id="c1", tenant_id="default",
+                                    as_of=date(2026, 10, 16), tables={}, report=report,
+                                    contracts={"passed": 22, "failed": 0, "skipped": 6, "failures": []})
+    served = asyncio.run(api.get_salesforce_integration())
+    assert served["origin"]["kind"] == "sync" and served["origin"]["snapshot_id"] == good.id
+    assert served["origin"]["run_id"] == "r2" and served["origin"]["contracts"]["passed"] == 22
+    assert served["funnel"]["accounts_read"] == report["accounts_read"]     # not the failing one
+    assert bad.id != good.id

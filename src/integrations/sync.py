@@ -21,6 +21,14 @@ The run row is the lock. The partial unique index in migration 0002 allows one
 unfinished run per connection; a second trigger finds that run and joins it. A
 run whose process died is swept to ``failed`` after half an hour.
 
+After the last object, the run builds its **candidate** (1.10.2): every live
+record goes through the connector's ``transform`` into the canonical tables and
+the ingest report, the data contracts run on the result, and the whole thing is
+stored as a snapshot. Contracts pass: the run ``succeeded``. Any fail: the run
+is ``degraded``, the snapshot is kept for diagnosis with the failing contracts
+named, and nothing downstream will serve it. A transform that raises is a
+``failed`` run like any other error.
+
 Each response's ``Sforce-Limit-Info`` is read and the last one kept on the run,
 so the page can show how much of the org's daily allowance a sync costs. The
 deferral below 20% and the back-off on ``REQUEST_LIMIT_EXCEEDED`` belong to the
@@ -39,7 +47,8 @@ from urllib.parse import quote
 
 import httpx
 
-from connectors.salesforce import FIELDS, soql
+from connectors.salesforce import FIELDS, RAW_KEYS, as_csv_rows, soql, transform
+from core.contracts import run_contracts
 from integrations import audit
 from integrations.connections import ConnectionStore
 from integrations.sync_store import SyncRun, SyncStore
@@ -89,6 +98,8 @@ class _Progress:
     api_requests: int = 0
     api_usage: Optional[dict[str, int]] = None
     objects: dict[str, dict[str, Any]] = field(default_factory=dict)
+    snapshot_id: Optional[str] = None
+    contracts: Optional[dict[str, Any]] = None
 
 
 def _soql_datetime(dt: datetime) -> str:
@@ -177,6 +188,7 @@ class SyncEngine:
         try:
             for sobject in self.objects:
                 self._sync_object(run, sobject, progress)
+            status, error = self._build_candidate(run, progress)
         except SalesforceError as e:
             status, error = "failed", f"{sobject}: {e}"
         except TokenError as e:
@@ -194,6 +206,8 @@ class SyncEngine:
             audit.record(conn, "sync_finished", actor="system", tenant_id=run.tenant_id,
                          connection_id=run.connection_id, org_id=run.org_id,
                          detail={"run_id": run.id, "status": status, "error": error,
+                                 "snapshot_id": progress.snapshot_id,
+                                 "contracts": progress.contracts,
                                  "objects": {k: {"mode": v["mode"], "fetched": v["fetched"],
                                                  "tombstones": v["tombstones"]}
                                              for k, v in progress.objects.items()},
@@ -243,3 +257,27 @@ class SyncEngine:
                                     progress.api_requests, progress.api_usage)
         logger.info(f"sync {run.id[:8]} {sobject}: {mode}, {fetched} records, "
                     f"{tombstones} deleted, {requests} request(s)")
+
+    def _build_candidate(self, run: SyncRun, progress: _Progress) -> tuple[str, Optional[str]]:
+        """Transform the landed records, run the contracts, store the snapshot.
+        Returns the run's status and error."""
+        with self.runs.db.connection() as conn:
+            raw = {key: self.runs.live_records(conn, run.connection_id, sobject)
+                   for sobject, key in RAW_KEYS.items()}
+        tables, report = transform(raw, run.as_of)
+        csv_tables = as_csv_rows(tables)
+        checker = run_contracts(csv_tables, log=lambda line: None)
+        contracts = checker.summary()
+        with self.runs.db.connection() as conn:
+            snapshot = self.runs.create_snapshot(
+                conn, run_id=run.id, connection_id=run.connection_id, tenant_id=run.tenant_id,
+                as_of=run.as_of, tables=csv_tables, report=report.to_dict(), contracts=contracts)
+            self.runs.attach_snapshot(conn, run.id, snapshot.id, contracts)
+        progress.snapshot_id, progress.contracts = snapshot.id, contracts
+        if checker.failures:
+            names = "; ".join(f.split(":")[0] for f in checker.failures)
+            logger.warning(f"sync {run.id[:8]} candidate failed {len(checker.failures)} contract(s): {names}")
+            return "degraded", f"contracts failed: {names}"[:500]
+        logger.info(f"sync {run.id[:8]} candidate: {report.customers_written} customers, "
+                    f"{checker.passed} contracts passed, {len(checker.skipped)} skipped")
+        return "succeeded", None

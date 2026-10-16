@@ -43,6 +43,9 @@ interface Decision {
 
 interface Report {
   as_of: string;
+  origin?:
+    | { kind: 'file'; path: string }
+    | { kind: 'sync'; snapshot_id: string; run_id: string; created_at: string; contracts: { passed: number; skipped: number } };
   funnel: {
     accounts_read: number;
     prospects_excluded: number;
@@ -65,6 +68,13 @@ function formatDate(iso: string): string {
   return Number.isNaN(d.getTime())
     ? iso
     : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function FunnelStep({ value, label, last }: { value: number; label: string; last?: boolean }) {
@@ -126,14 +136,16 @@ function SalesforcePanel() {
               <Badge variant="outline" className="text-[11px] font-normal">Seeded test org</Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              The figures below are from the last pull, run from the command line. A sync
-              through the connection lands the org&rsquo;s records on the server; promoting
-              a landed run to what this page shows is the next step.
+              {report.origin?.kind === 'sync'
+                ? `The figures below are from the last sync whose ${report.origin.contracts.passed} data contracts all passed. The rest of the site still serves the last command-line pull; promoting a sync to it is the next step.`
+                : 'The figures below are from the last pull, run from the command line. A sync through the connection lands the org\u2019s records on the server and, once its contracts pass, replaces this report.'}
             </p>
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            Last pulled
-            <div className="text-sm font-medium text-foreground">{formatDate(report.as_of)}</div>
+            {report.origin?.kind === 'sync' ? 'Last sync' : 'Last pulled'}
+            <div className="text-sm font-medium text-foreground">
+              {report.origin?.kind === 'sync' ? formatWhen(report.origin.created_at) : formatDate(report.as_of)}
+            </div>
           </div>
         </div>
 

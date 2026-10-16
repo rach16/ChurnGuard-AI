@@ -26,7 +26,8 @@ from integrations.db import Database
 
 # Everything an endpoint may show about a run. No column here can hold a token.
 _RUN_COLUMNS = ("id, tenant_id, connection_id, org_id, trigger, status, as_of, objects,"
-                " api_requests, api_usage, error, created_at, started_at, finished_at")
+                " api_requests, api_usage, error, snapshot_id, contracts, created_at, started_at,"
+                " finished_at")
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,8 @@ class SyncRun:
     created_at: datetime
     started_at: Optional[datetime]
     finished_at: Optional[datetime]
+    snapshot_id: Optional[str] = None
+    contracts: Optional[dict[str, Any]] = None
 
     @property
     def unfinished(self) -> bool:
@@ -63,7 +66,8 @@ class SyncRun:
             "records_fetched": sum(o.get("fetched", 0) for o in self.objects.values()),
             "tombstones": sum(o.get("tombstones", 0) for o in self.objects.values()),
             "api_requests": self.api_requests, "api_usage": self.api_usage,
-            "error": self.error, "created_at": self.created_at,
+            "error": self.error, "snapshot_id": self.snapshot_id, "contracts": self.contracts,
+            "created_at": self.created_at,
             "started_at": self.started_at, "finished_at": self.finished_at,
             "duration_seconds": duration,
         }
@@ -76,6 +80,45 @@ def _row_to_run(r: dict[str, Any]) -> SyncRun:
         objects=dict(r["objects"] or {}), api_requests=r["api_requests"],
         api_usage=r["api_usage"], error=r["error"], created_at=r["created_at"],
         started_at=r["started_at"], finished_at=r["finished_at"],
+        snapshot_id=str(r["snapshot_id"]) if r.get("snapshot_id") else None,
+        contracts=r.get("contracts"),
+    )
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    id: str
+    tenant_id: str
+    connection_id: str
+    run_id: str
+    as_of: date
+    tables: dict[str, list[dict[str, Any]]]
+    report: dict[str, Any]
+    contracts: dict[str, Any]
+    contracts_passed: bool
+    row_counts: dict[str, int]
+    created_at: datetime
+
+    def public(self) -> dict[str, Any]:
+        """Everything but the tables."""
+        return {"id": self.id, "connection_id": self.connection_id, "run_id": self.run_id,
+                "as_of": self.as_of, "contracts": self.contracts,
+                "contracts_passed": self.contracts_passed, "row_counts": self.row_counts,
+                "created_at": self.created_at}
+
+
+_SNAPSHOT_COLUMNS = ("id, tenant_id, connection_id, run_id, as_of, tables, report, contracts,"
+                     " contracts_passed, row_counts, created_at")
+_SNAPSHOT_HEAD = ("id, tenant_id, connection_id, run_id, as_of, null::jsonb as tables, report,"
+                  " contracts, contracts_passed, row_counts, created_at")
+
+
+def _row_to_snapshot(r: dict[str, Any]) -> Snapshot:
+    return Snapshot(
+        id=str(r["id"]), tenant_id=r["tenant_id"], connection_id=str(r["connection_id"]),
+        run_id=str(r["run_id"]), as_of=r["as_of"], tables=r["tables"] or {}, report=r["report"],
+        contracts=r["contracts"], contracts_passed=r["contracts_passed"],
+        row_counts=r["row_counts"], created_at=r["created_at"],
     )
 
 
@@ -239,3 +282,61 @@ class SyncStore:
             (connection_id,),
         ).fetchall()
         return {r["sobject"]: {"live": r["live"], "tombstones": r["tombstones"]} for r in rows}
+
+    # -------------------------------------------------------------- snapshots
+
+    def create_snapshot(self, conn, *, run_id: str, connection_id: str, tenant_id: str,
+                        as_of: date, tables: dict[str, list[dict]], report: dict[str, Any],
+                        contracts: dict[str, Any]) -> Snapshot:
+        from psycopg.types.json import Jsonb
+
+        passed = not contracts.get("failures")
+        counts = {name: len(rows) for name, rows in tables.items()}
+        row = conn.execute(
+            f"insert into snapshots (tenant_id, connection_id, run_id, as_of, tables, report,"
+            f" contracts, contracts_passed, row_counts) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            f" returning {_SNAPSHOT_HEAD}",
+            (tenant_id, connection_id, run_id, as_of, Jsonb(tables), Jsonb(report),
+             Jsonb(contracts), passed, Jsonb(counts)),
+        ).fetchone()
+        return _row_to_snapshot(row)
+
+    def attach_snapshot(self, conn, run_id: str, snapshot_id: str, contracts: dict[str, Any]) -> None:
+        from psycopg.types.json import Jsonb
+
+        conn.execute("update sync_runs set snapshot_id = %s, contracts = %s where id = %s",
+                     (snapshot_id, Jsonb(contracts), run_id))
+
+    def get_snapshot(self, snapshot_id: str, conn=None, *, with_tables: bool = True) -> Optional[Snapshot]:
+        cols = _SNAPSHOT_COLUMNS if with_tables else _SNAPSHOT_HEAD
+        sql = f"select {cols} from snapshots where id = %s"
+        if conn is not None:
+            row = conn.execute(sql, (snapshot_id,)).fetchone()
+        else:
+            with self.db.connection() as c:
+                row = c.execute(sql, (snapshot_id,)).fetchone()
+        return _row_to_snapshot(row) if row else None
+
+    def latest_good_snapshot(self, tenant_id: str = "default", conn=None, *,
+                             with_tables: bool = False) -> Optional[Snapshot]:
+        """The newest snapshot whose contracts all passed: the last good sync."""
+        cols = _SNAPSHOT_COLUMNS if with_tables else _SNAPSHOT_HEAD
+        sql = (f"select {cols} from snapshots where tenant_id = %s and contracts_passed"
+               " order by created_at desc limit 1")
+        if conn is not None:
+            row = conn.execute(sql, (tenant_id,)).fetchone()
+        else:
+            with self.db.connection() as c:
+                row = c.execute(sql, (tenant_id,)).fetchone()
+        return _row_to_snapshot(row) if row else None
+
+    def snapshots(self, connection_id: str, limit: int = 10, conn=None) -> list[Snapshot]:
+        """Newest first, without their tables."""
+        sql = (f"select {_SNAPSHOT_HEAD} from snapshots where connection_id = %s"
+               " order by created_at desc limit %s")
+        if conn is not None:
+            rows = conn.execute(sql, (connection_id, limit)).fetchall()
+        else:
+            with self.db.connection() as c:
+                rows = c.execute(sql, (connection_id, limit)).fetchall()
+        return [_row_to_snapshot(r) for r in rows]
