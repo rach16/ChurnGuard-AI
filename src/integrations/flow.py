@@ -197,10 +197,20 @@ class ConnectFlow:
     # --------------------------------------------------------------- helpers
 
     def _revoke(self, host: str, token: TokenResponse) -> None:
-        """Never leave a credential alive for a connection we refused."""
+        """Never leave a credential alive for a connection we refused.
+
+        Posted to the org's own host when that host passed validation, else to the
+        login host: a token is never sent to an instance_url that was refused.
+        """
+        try:
+            base = validate_instance_url(token.instance_url)
+        except HostRefused:
+            base = host
         for value in (token.refresh_token, token.access_token):
             if value:
-                self.oauth.revoke(host, value)
+                status = self.oauth.revoke(base, value)
+                if status != 200:
+                    logger.warning(f"revoke after refusal answered {status}")
 
     def _audit(self, event: str, *, org_id: Optional[str] = None,
                detail: Optional[dict] = None) -> None:

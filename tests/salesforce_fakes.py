@@ -42,6 +42,7 @@ class FakeSalesforce:
         self.exchanges: list[dict] = []
         self.refreshes: list[dict] = []
         self.revoked: list[str] = []
+        self.revoke_hosts: list[str] = []
         self.api_calls: list[str] = []
         self.issued_access: list[str] = []
         self.refresh_instance = instance
@@ -77,6 +78,7 @@ class FakeSalesforce:
             return httpx.Response(200, json={"username": "r.banik16@example.com", "display_name": "R"})
         if path == "/services/oauth2/revoke":
             self.revoked.append(parse_qs(request.content.decode())["token"][0])
+            self.revoke_hosts.append(request.url.host)
             return httpx.Response(200)
         if path.startswith("/services/data/"):
             self.api_calls.append(path + ("?" + request.url.query.decode() if request.url.query else ""))

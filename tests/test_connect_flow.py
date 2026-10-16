@@ -184,6 +184,7 @@ def test_another_org_is_refused_and_its_token_revoked(provider):
     assert e.value.event == "org_mismatch_refused" and OTHER_ORG in e.value.reason
     assert store.rows == {}
     assert REFRESH in sf.revoked and ACCESS in sf.revoked
+    assert set(sf.revoke_hosts) == {HOST.removeprefix("https://")}
     (row,) = [r for r in store.audit if r["event"] == "org_mismatch_refused"]
     assert row["detail"] == {"expected_org_id": ORG, "returned_org_id": OTHER_ORG}
 
@@ -195,6 +196,7 @@ def test_a_foreign_host_is_refused_and_its_token_revoked(provider):
         flow.complete(CODE, callback_params(flow.start()))
     assert e.value.event == "host_refused" and store.rows == {}
     assert REFRESH in sf.revoked
+    assert set(sf.revoke_hosts) == {"login.salesforce.com"}   # never the refused host
     assert [r["event"] for r in store.audit] == ["host_refused"]
 
 

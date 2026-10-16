@@ -184,9 +184,10 @@ def test_disconnect_revokes_deletes_and_audits(provider):
     svc.access(c.id)
 
     out = svc.disconnect(c.id)
-    assert out == {"ok": True, "org_id": ORG, "revoked_at_salesforce": True}
+    assert out == {"ok": True, "org_id": ORG, "revoked_at_salesforce": True, "revoke_status": 200}
     assert store.rows == {}
     assert sf.revoked[-1].startswith("5AepROT")          # the current (rotated) token
+    assert sf.revoke_hosts[-1] == HOST.removeprefix("https://")   # the org's own host
     row = store.audit[-1]
     assert row["event"] == "disconnect" and row["actor"] == "operator" and row["org_id"] == ORG
     assert row["detail"]["revoked_at_salesforce"] is True and REFRESH not in str(row)
@@ -202,7 +203,7 @@ def test_disconnect_still_deletes_a_token_it_cannot_open(provider):
     c = connected(store, provider, sf)
     other_key = crypto.LocalKeyProvider({"v1": secrets.token_bytes(32)}, current="v1")
     out = service(store, other_key, sf).disconnect(c.id)
-    assert out["revoked_at_salesforce"] is False and store.rows == {}
+    assert out["revoked_at_salesforce"] is False and out["revoke_status"] is None and store.rows == {}
     assert store.audit[-1]["detail"]["revoked_at_salesforce"] is False
 
 

@@ -208,11 +208,20 @@ class SalesforceOAuth:
         body = r.json()
         return Identity(body.get("username"), body.get("display_name"))
 
-    def revoke(self, host: str, token: str) -> bool:
-        """Best effort: True if Salesforce accepted it. A refresh token's revocation
-        takes its access tokens with it."""
+    def revoke(self, base: str, token: str) -> Optional[int]:
+        """Best effort. Returns Salesforce's status code (200 means revoked), or None
+        when it could not be reached. A refresh token's revocation takes its access
+        tokens with it.
+
+        ``base`` is the org's own My Domain origin (``https://x.my.salesforce.com``),
+        which is where Salesforce documents the revoke endpoint; a bare login host is
+        accepted for the case where the org's host is not trusted. The first two
+        disconnects on staging posted to login.salesforce.com and Salesforce did not
+        confirm either, which is why the status code is now returned and audited.
+        """
+        origin = base if base.startswith("https://") else f"https://{base}"
         try:
-            r = self.http.post(f"https://{host}/services/oauth2/revoke", data={"token": token})
+            r = self.http.post(f"{origin}/services/oauth2/revoke", data={"token": token})
         except httpx.HTTPError:
-            return False
-        return r.status_code == 200
+            return None
+        return r.status_code

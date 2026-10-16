@@ -238,19 +238,22 @@ class TokenService:
             c: Optional[Connection] = self.store.get_by_id(connection_id, conn)
             if c is None:
                 raise ConnectionGone("This connection no longer exists.")
-            revoked = False
+            status: Optional[int] = None
             try:
                 refresh_token = crypto.unseal(self.provider, c.id, c.sealed)
-                revoked = self.oauth.revoke(c.login_host, refresh_token)
+                status = self.oauth.revoke(c.instance_url, refresh_token)
                 del refresh_token
             except crypto.CustodyError as e:
                 # Cannot open it, so cannot revoke it by value. Still deleted: a
                 # token nobody can open is as good as dead, and the audit says so.
                 logger.warning(f"disconnect {c.id}: token could not be opened ({type(e).__name__})")
+            revoked = status == 200
             self.store.delete(conn, c.id)
             audit.record(conn, "disconnect", actor=actor, tenant_id=c.tenant_id,
                          connection_id=c.id, org_id=c.org_id,
-                         detail={"revoked_at_salesforce": revoked, "instance_url": c.instance_url})
+                         detail={"revoked_at_salesforce": revoked, "revoke_status": status,
+                                 "instance_url": c.instance_url})
         self.invalidate(connection_id)
-        logger.info(f"✓ Salesforce disconnected: org {c.org_id} (revoked={revoked})")
-        return {"ok": True, "org_id": c.org_id, "revoked_at_salesforce": revoked}
+        logger.info(f"✓ Salesforce disconnected: org {c.org_id} (revoke status {status})")
+        return {"ok": True, "org_id": c.org_id, "revoked_at_salesforce": revoked,
+                "revoke_status": status}
