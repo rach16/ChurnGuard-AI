@@ -153,6 +153,16 @@ export function ConnectionPanel() {
     return () => clearInterval(timer);
   }, [connectionId, runs, loadRuns]);
 
+  // A run that just finished may have been promoted: the serving line comes
+  // from the connection status, so refetch that too. Seen on staging 2026-10-16:
+  // the badge stayed on the old run until a reload.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    const running = isUnfinished(runs[0]);
+    if (wasRunning.current && !running) refresh();
+    wasRunning.current = running;
+  }, [runs, refresh]);
+
   // The popup reports back once; a popup closed by hand reports nothing, so a
   // poll on `closed` refetches in that case too.
   useEffect(() => {
