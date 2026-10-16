@@ -191,18 +191,31 @@ class TokenService:
 
     # ---------------------------------------------------------------- calling
 
-    def get(self, connection_id: str, path: str) -> Any:
-        """GET a REST path on the connected org, refreshing once on a 401."""
+    def request(self, connection_id: str, path: str) -> httpx.Response:
+        """GET a REST path on the connected org, refreshing once on a 401.
+
+        Returns the response whatever its status, for callers that read headers
+        (``Sforce-Limit-Info``) or Salesforce's own error body. Does not touch
+        ``last_used_at``; a caller making many requests records one use.
+        """
         access = self.access(connection_id)
         r = self._get(access, path)
         if r.status_code == 401:
             access = self.access(connection_id, force_refresh=True)
             r = self._get(access, path)
+        return r
+
+    def get(self, connection_id: str, path: str) -> Any:
+        """``request`` for a single call: JSON on 200, else an error naming the status."""
+        r = self.request(connection_id, path)
         if r.status_code != 200:
             raise RefreshFailed(f"Salesforce answered {r.status_code} for {path.split('?')[0]}.")
+        self.touch(connection_id)
+        return r.json()
+
+    def touch(self, connection_id: str) -> None:
         with self.store.db.connection() as conn:
             self.store.touch(conn, connection_id, datetime.now(timezone.utc))
-        return r.json()
 
     def _get(self, access: Access, path: str) -> httpx.Response:
         url = f"{access.instance_url}/services/data/{API_VERSION}/{path.lstrip('/')}"

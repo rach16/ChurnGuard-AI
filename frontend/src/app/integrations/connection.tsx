@@ -14,6 +14,10 @@
  * an org is connected, active or needing a fresh login. A connected org gets
  * Test connection (refresh and ask the org who it is) and Disconnect (revoke at
  * Salesforce, delete here). Both go through /ops/* like Connect does.
+ *
+ * Sync now (1.10) starts a run on the server and polls the run list until it
+ * finishes. A run row is counts and timings only; the records themselves never
+ * come to the browser.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,12 +41,51 @@ export interface ConnectionInfo {
   created_at: string;
 }
 
+export interface SyncRun {
+  id: string;
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'degraded';
+  trigger: 'manual' | 'schedule' | 'wake';
+  mode: 'full' | 'incremental' | null;
+  as_of: string;
+  objects: Record<string, { mode: string; fetched: number; tombstones: number; requests: number }>;
+  records_fetched: number;
+  tombstones: number;
+  api_requests: number;
+  api_usage: { used: number; max: number } | null;
+  error: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_seconds: number | null;
+}
+
 export interface ConnectionStatus {
   enabled: boolean;
   reason: string | null;
   operator_actions: boolean;
   pinned_org_id?: string | null;
   connection: ConnectionInfo | null;
+  last_run?: SyncRun | null;
+}
+
+const OBJECT_LABELS: Record<string, string> = {
+  Account: 'accounts',
+  Opportunity: 'deals',
+  OpportunityCompetitor: 'competitors',
+  Case: 'cases',
+  Task: 'activities',
+};
+
+const RUN_LABELS: Record<SyncRun['status'], string> = {
+  pending: 'Queued',
+  running: 'Running',
+  succeeded: 'Succeeded',
+  failed: 'Failed',
+  degraded: 'Not promoted',
+};
+
+function isUnfinished(run: SyncRun | undefined | null): boolean {
+  return !!run && (run.status === 'pending' || run.status === 'running');
 }
 
 const MESSAGE_TYPE = 'churnguard:salesforce-connect';
@@ -73,8 +116,29 @@ export function ConnectionPanel() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
-  const [working, setWorking] = useState<'verify' | 'disconnect' | null>(null);
+  const [working, setWorking] = useState<'verify' | 'disconnect' | 'sync' | null>(null);
+  const [runs, setRuns] = useState<SyncRun[]>([]);
   const popup = useRef<Window | null>(null);
+  const connectionId = status?.connection?.id ?? null;
+
+  const loadRuns = useCallback((id: string) => {
+    return fetch(`/api/connections/${id}/runs?limit=5`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { runs: [] }))
+      .then((body) => setRuns(body.runs ?? []))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (connectionId) loadRuns(connectionId);
+    else setRuns([]);
+  }, [connectionId, loadRuns]);
+
+  // While a run is going, ask again every two seconds; stop when it is not.
+  useEffect(() => {
+    if (!connectionId || !isUnfinished(runs[0])) return;
+    const timer = setInterval(() => loadRuns(connectionId), 2000);
+    return () => clearInterval(timer);
+  }, [connectionId, runs, loadRuns]);
 
   // The popup reports back once; a popup closed by hand reports nothing, so a
   // poll on `closed` refetches in that case too.
@@ -153,6 +217,24 @@ export function ConnectionPanel() {
     }
   }
 
+  // Starts a run on the server (or joins the one running) and lets the poll
+  // above follow it. The response is the run row as created, so the list is
+  // refetched rather than trusted.
+  async function sync(id: string) {
+    setNotice(null);
+    setVerified(null);
+    setWorking('sync');
+    try {
+      const body = await operatorPost(`connections/${id}/sync`);
+      if (body.joined) setNotice('A sync is already running; showing it.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not start the sync.');
+    } finally {
+      setWorking(null);
+      loadRuns(id);
+    }
+  }
+
   async function disconnect(id: string, orgId: string) {
     if (!window.confirm(`Disconnect org ${orgId}? The token is revoked at Salesforce and deleted here.`)) return;
     setNotice(null);
@@ -225,9 +307,18 @@ export function ConnectionPanel() {
         {canAct ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {c && c.status === 'active' && (
-              <Button size="sm" variant="outline" onClick={() => verify(c.id)} disabled={busy || working !== null}>
-                {working === 'verify' ? 'Checking…' : 'Test connection'}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => sync(c.id)}
+                  disabled={busy || working !== null || isUnfinished(runs[0])}
+                >
+                  {working === 'sync' || isUnfinished(runs[0]) ? 'Syncing…' : 'Sync now'}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => verify(c.id)} disabled={busy || working !== null}>
+                  {working === 'verify' ? 'Checking…' : 'Test connection'}
+                </Button>
+              </>
             )}
             <Button
               size="sm"
@@ -249,6 +340,72 @@ export function ConnectionPanel() {
       </div>
       {verified && <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{verified}</div>}
       {notice && <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
+      {c && <RunList runs={runs} />}
     </div>
+  );
+}
+
+function RunList({ runs }: { runs: SyncRun[] }) {
+  if (runs.length === 0) {
+    return (
+      <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
+        No sync has run through this connection yet. Sync now reads the org and lands every record
+        here; the figures on this page still come from the last command-line pull until a landed run is
+        promoted.
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="mb-1.5 text-xs font-medium">Recent syncs</div>
+      <ul className="space-y-1.5">
+        {runs.map((run) => (
+          <RunRow key={run.id} run={run} />
+        ))}
+      </ul>
+      <div className="mt-2 text-[11px] text-muted-foreground">
+        Landed records are not yet what the site serves; promotion follows in the next step.
+      </div>
+    </div>
+  );
+}
+
+function RunRow({ run }: { run: SyncRun }) {
+  const when = run.started_at ?? run.created_at;
+  const objects = Object.entries(run.objects)
+    .map(([name, o]) => `${o.fetched.toLocaleString()} ${OBJECT_LABELS[name] ?? name}`)
+    .join(' · ');
+  const tone =
+    run.status === 'succeeded'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : run.status === 'failed' || run.status === 'degraded'
+        ? 'text-amber-700 dark:text-amber-400'
+        : 'text-muted-foreground';
+  return (
+    <li className="text-xs">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span className={`font-medium ${tone}`}>
+          {RUN_LABELS[run.status]}
+          {isUnfinished(run) ? '…' : ''}
+        </span>
+        <span className="text-muted-foreground">{formatWhen(when)}</span>
+        {run.mode && (
+          <Badge variant="outline" className="text-[10px] font-normal">
+            {run.mode}
+          </Badge>
+        )}
+        {run.finished_at && (
+          <span className="text-muted-foreground">
+            {run.records_fetched.toLocaleString()} records
+            {run.tombstones > 0 ? `, ${run.tombstones.toLocaleString()} deleted` : ''} ·{' '}
+            {run.api_requests} API call{run.api_requests === 1 ? '' : 's'}
+            {run.api_usage ? ` (${run.api_usage.used.toLocaleString()} of ${run.api_usage.max.toLocaleString()} used today)` : ''}
+            {run.duration_seconds !== null ? ` · ${run.duration_seconds}s` : ''}
+          </span>
+        )}
+      </div>
+      {objects && <div className="text-muted-foreground">{objects}</div>}
+      {run.error && <div className="text-amber-700 dark:text-amber-400">{run.error}</div>}
+    </li>
   );
 }

@@ -26,6 +26,7 @@ load_dotenv(ROOT / ".env")
 from integrations import audit, crypto  # noqa: E402
 from integrations.connections import ConnectionStore  # noqa: E402
 from integrations.db import Database, redacted_url  # noqa: E402
+from integrations.sync_store import SyncStore  # noqa: E402
 
 URL = os.getenv("DATABASE_URL")
 needs_db = pytest.mark.skipif(not URL, reason="DATABASE_URL not set; needs a Postgres")
@@ -44,9 +45,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections"]
+        assert database.migrate() == ["0001_connections", "0002_sync"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync"]
         yield database
     finally:
         database.close()
@@ -165,6 +166,69 @@ def test_audit_rows_are_written_and_read_back_newest_first(db, store):
     assert rows[1]["detail"]["host"] == HOST
     with db.connection() as conn, pytest.raises(ValueError):
         audit.record(conn, "connect", actor="operator", detail={"t": "5Aep" + "x" * 40})
+
+
+@needs_db
+def test_sync_rows_land_upsert_tombstone_and_watermark(db, store):
+    """The 0002 tables against the real engine: a run row, a page landed twice
+    without duplicating, a delete seen as a tombstone, the watermark, and the
+    one-unfinished-run index that makes the row the lock."""
+    import psycopg
+
+    runs = SyncStore(db)
+    c = store.get()
+    with db.connection() as conn:
+        run = runs.create_run(conn, connection_id=c.id, tenant_id="default", org_id=ORG,
+                              trigger="manual", as_of=NOW.date())
+        assert run.status == "pending" and runs.unfinished_run(conn, c.id).id == run.id
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            with conn.transaction():
+                runs.create_run(conn, connection_id=c.id, tenant_id="default", org_id=ORG,
+                                trigger="manual", as_of=NOW.date())
+        runs.start_run(conn, run.id, NOW)
+
+    page = [{"attributes": {"type": "Account"}, "Id": "001A", "Name": "Acme",
+             "SystemModstamp": "2026-10-16T10:00:00.000+0000", "IsDeleted": False},
+            {"attributes": {"type": "Account"}, "Id": "001B", "Name": "Bolt",
+             "SystemModstamp": "2026-10-16T10:00:00.000+0000", "IsDeleted": False}]
+    with db.connection() as conn:
+        assert runs.land(conn, c.id, "Account", run.id, page) == (2, 0)
+        assert runs.land(conn, c.id, "Account", run.id, page) == (2, 0)      # same Ids: upsert
+        runs.set_watermark(conn, c.id, "Account", NOW, run.id)
+        runs.record_object(conn, run.id, "Account", {"mode": "full", "fetched": 2, "tombstones": 0},
+                           1, {"used": 1, "max": 15000})
+    with db.connection() as conn:
+        assert runs.counts(conn, c.id) == {"Account": {"live": 2, "tombstones": 0}}
+        assert runs.get_watermark(conn, c.id, "Account") == NOW
+        assert runs.get_watermark(conn, c.id, "Case") is None
+        assert [r["Name"] for r in runs.live_records(conn, c.id, "Account")] == ["Acme", "Bolt"]
+        assert "attributes" not in runs.live_records(conn, c.id, "Account")[0]
+
+    gone = [{**page[1], "IsDeleted": True, "SystemModstamp": "2026-10-16T11:00:00.000+0000"}]
+    with db.connection() as conn:
+        assert runs.land(conn, c.id, "Account", run.id, gone) == (1, 1)
+        runs.finish_run(conn, run.id, "succeeded", NOW, api_requests=2, api_usage={"used": 2, "max": 15000})
+    with db.connection() as conn:
+        assert runs.counts(conn, c.id) == {"Account": {"live": 1, "tombstones": 1}}
+        assert [r["Name"] for r in runs.live_records(conn, c.id, "Account")] == ["Acme"]
+        assert runs.unfinished_run(conn, c.id) is None
+    done = runs.get_run(run.id)
+    assert done.status == "succeeded" and done.api_requests == 2 and done.objects["Account"]["fetched"] == 2
+    assert runs.last_run(c.id).id == run.id and done.public()["mode"] == "full"
+
+
+@needs_db
+def test_abandoned_runs_are_swept(db, store):
+    runs = SyncStore(db)
+    c = store.get()
+    with db.connection() as conn:
+        stuck = runs.create_run(conn, connection_id=c.id, tenant_id="default", org_id=ORG,
+                                trigger="manual", as_of=NOW.date())
+        conn.execute("update sync_runs set started_at = now() - interval '1 hour', status = 'running'"
+                     " where id = %s", (stuck.id,))
+        assert runs.sweep_abandoned(conn, older_than_seconds=1800) == [stuck.id]
+        assert runs.sweep_abandoned(conn, older_than_seconds=1800) == []
+    assert runs.get_run(stuck.id).status == "failed" and "abandoned" in runs.get_run(stuck.id).error
 
 
 @needs_db

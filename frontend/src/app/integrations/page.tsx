@@ -126,8 +126,9 @@ function SalesforcePanel() {
               <Badge variant="outline" className="text-[11px] font-normal">Seeded test org</Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              The figures below are from the last pull, run from the command line. Syncing
-              through the connection is the next step.
+              The figures below are from the last pull, run from the command line. A sync
+              through the connection lands the org&rsquo;s records on the server; promoting
+              a landed run to what this page shows is the next step.
             </p>
           </div>
           <div className="text-right text-xs text-muted-foreground">

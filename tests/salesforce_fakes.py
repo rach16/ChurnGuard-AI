@@ -10,15 +10,18 @@ has to be this honest or the test cannot see the bug.
 
 from __future__ import annotations
 
+import re
 import secrets
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from typing import Callable, Optional
 from urllib.parse import parse_qs
 
 import httpx
 
 from integrations.connections import Connection
 from integrations.salesforce_oauth import SalesforceOAuth
+from integrations.sync_store import SyncRun
 
 ORG = "00Dg700000J62qbEAB"
 OTHER_ORG = "00D000000000001AAA"
@@ -46,6 +49,18 @@ class FakeSalesforce:
         self.api_calls: list[str] = []
         self.issued_access: list[str] = []
         self.refresh_instance = instance
+        # The org's data, for the sync engine: sobject -> records, each with Id,
+        # SystemModstamp (ISO, Z) and IsDeleted. query() hides deleted ones,
+        # queryAll() returns them, and both filter on SystemModstamp when the
+        # SOQL has a WHERE clause.
+        self.records: dict[str, list[dict]] = {}
+        self.page_size = 2000
+        self.missing_fields: dict[str, set[str]] = {}       # sobject -> fields that 400
+        self.fail_object: dict[str, tuple[int, str]] = {}   # sobject -> (status, errorCode)
+        self.queries: list[tuple[str, str, str | None]] = []   # (endpoint, sobject, since)
+        self.api_used = 0
+        self.api_max = 15000
+        self._cursors: dict[str, list[dict]] = {}
 
     def _token_body(self, access: str, refresh: str | None) -> dict:
         body = {"access_token": access, "instance_url": self.instance,
@@ -88,12 +103,57 @@ class FakeSalesforce:
                 return httpx.Response(401, json=[{"errorCode": "INVALID_SESSION_ID"}])
             if not any(bearer == f"Bearer {t}" for t in self.issued_access):
                 return httpx.Response(401, json=[{"errorCode": "INVALID_SESSION_ID"}])
+            self.api_used += 1
+            headers = {"Sforce-Limit-Info": f"api-usage={self.api_used}/{self.api_max}"}
             if path.endswith("/limits"):
-                return httpx.Response(200, json={"DailyApiRequests": {"Max": 15000, "Remaining": 14990}})
-            if path.endswith("/query"):
-                return httpx.Response(200, json={"records": [{"Name": "ChurnGuard Dev", "OrganizationType": "Developer Edition"}]})
+                return httpx.Response(200, headers=headers,
+                                      json={"DailyApiRequests": {"Max": 15000, "Remaining": 14990}})
+            if path.endswith("/query") or path.endswith("/queryAll"):
+                q = parse_qs(request.url.query.decode())["q"][0]
+                if "FROM Organization" in q:
+                    return httpx.Response(200, headers=headers, json={"records": [
+                        {"Name": "ChurnGuard Dev", "OrganizationType": "Developer Edition"}]})
+                return self._soql(path.rsplit("/", 1)[1], q, headers)
+            if "/query/" in path:                          # a nextRecordsUrl
+                key, offset = path.rsplit("/", 1)[1].rsplit("-", 1)
+                return self._page(self._cursors[key], int(offset), headers)
             return httpx.Response(404)
         return httpx.Response(404)
+
+    def _soql(self, endpoint: str, q: str, headers: dict) -> httpx.Response:
+        m = re.fullmatch(r"SELECT (.+?) FROM (\w+)(?: WHERE SystemModstamp >= (\S+))?", q.strip())
+        assert m, f"fake cannot parse SOQL: {q}"
+        fields = [f.strip() for f in m.group(1).split(",")]
+        sobject, since = m.group(2), m.group(3)
+        self.queries.append((endpoint, sobject, since))
+        if sobject in self.fail_object:
+            status, code = self.fail_object[sobject]
+            return httpx.Response(status, headers=headers,
+                                  json=[{"errorCode": code, "message": f"fake refused {sobject}"}])
+        missing = [f for f in fields if f in self.missing_fields.get(sobject, ())]
+        if missing:
+            return httpx.Response(400, headers=headers, json=[{
+                "errorCode": "INVALID_FIELD",
+                "message": f"No such column '{missing[0]}' on entity '{sobject}'"}])
+        rows = self.records.get(sobject, [])
+        if endpoint == "query":
+            rows = [r for r in rows if not r.get("IsDeleted")]
+        if since:
+            floor = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            rows = [r for r in rows
+                    if datetime.fromisoformat(r["SystemModstamp"].replace("Z", "+00:00")) >= floor]
+        projected = [{"attributes": {"type": sobject}, **{f: r.get(f) for f in fields}} for r in rows]
+        return self._page(projected, 0, headers)
+
+    def _page(self, rows: list[dict], offset: int, headers: dict) -> httpx.Response:
+        chunk = rows[offset:offset + self.page_size]
+        done = offset + self.page_size >= len(rows)
+        body: dict = {"totalSize": len(rows), "done": done, "records": chunk}
+        if not done:
+            key = secrets.token_hex(4)
+            self._cursors[key] = rows
+            body["nextRecordsUrl"] = f"/services/data/v59.0/query/{key}-{offset + self.page_size}"
+        return httpx.Response(200, headers=headers, json=body)
 
     def oauth(self) -> SalesforceOAuth:
         return SalesforceOAuth("client-id", "client-secret-value",
@@ -101,11 +161,16 @@ class FakeSalesforce:
 
 
 class FakeConn:
-    """Only audit inserts reach execute(); everything else goes through the store."""
+    """Only audit inserts reach execute(); everything else goes through the store.
+
+    ``pending`` holds writes a store queued in this transaction; FakeDb applies
+    them on a clean exit and drops them on an exception, like Postgres does.
+    """
 
     def __init__(self, store):
         self.store = store
         self.committed = len(store.audit)
+        self.pending: list[Callable[[], None]] = []
 
     def execute(self, sql, params=None):
         if sql.lstrip().lower().startswith("insert into audit_events"):
@@ -120,6 +185,9 @@ class FakeConn:
 
     def commit(self):
         self.committed = len(self.store.audit)
+        for fn in self.pending:
+            fn()
+        self.pending.clear()
 
 
 class FakeDb:
@@ -133,7 +201,9 @@ class FakeDb:
             yield conn
         except BaseException:
             del self.store.audit[conn.committed:]
+            conn.pending.clear()
             raise
+        conn.commit()
 
 
 class FakeStore:
@@ -220,3 +290,108 @@ class FakeStore:
 
     def purge_states(self, conn, older_than_seconds=3600):
         return 0
+
+
+class FakeSyncStore:
+    """In memory, same method names as SyncStore. Shares the connection store's
+    FakeDb so audit rows and sync writes commit or roll back together, which is
+    what lets a test see that a failed object left no half-landed page."""
+
+    def __init__(self, connections: FakeStore):
+        self.db = connections.db
+        self.runs_by_id: dict[str, SyncRun] = {}
+        self.raw: dict[tuple[str, str, str], dict] = {}        # (conn, sobject, id) -> row
+        self.watermarks: dict[tuple[str, str], datetime] = {}
+
+    def _put(self, run: SyncRun) -> SyncRun:
+        self.runs_by_id[run.id] = run
+        return run
+
+    def _replace(self, run_id: str, **changes) -> None:
+        from dataclasses import replace
+        self.runs_by_id[run_id] = replace(self.runs_by_id[run_id], **changes)
+
+    # runs
+    def create_run(self, conn, *, connection_id, tenant_id, org_id, trigger, as_of: date) -> SyncRun:
+        run = SyncRun(id=secrets.token_hex(8), tenant_id=tenant_id, connection_id=connection_id,
+                      org_id=org_id, trigger=trigger, status="pending", as_of=as_of, objects={},
+                      api_requests=0, api_usage=None, error=None,
+                      created_at=datetime.now(timezone.utc), started_at=None, finished_at=None)
+        conn.pending.append(lambda: self._put(run))
+        return run
+
+    def get_run(self, run_id, conn=None) -> Optional[SyncRun]:
+        return self.runs_by_id.get(run_id)
+
+    def unfinished_run(self, conn, connection_id) -> Optional[SyncRun]:
+        return next((r for r in self.runs(connection_id) if r.unfinished), None)
+
+    def runs(self, connection_id, limit=10, conn=None) -> list[SyncRun]:
+        rows = [r for r in self.runs_by_id.values() if r.connection_id == connection_id]
+        return sorted(rows, key=lambda r: r.created_at, reverse=True)[:limit]
+
+    def last_run(self, connection_id, conn=None) -> Optional[SyncRun]:
+        found = self.runs(connection_id, limit=1)
+        return found[0] if found else None
+
+    def start_run(self, conn, run_id, started_at) -> None:
+        conn.pending.append(lambda: self._replace(run_id, status="running", started_at=started_at))
+
+    def record_object(self, conn, run_id, sobject, summary, api_requests, api_usage) -> None:
+        def apply():
+            objects = {**self.runs_by_id[run_id].objects, sobject: summary}
+            self._replace(run_id, objects=objects, api_requests=api_requests, api_usage=api_usage)
+        conn.pending.append(apply)
+
+    def finish_run(self, conn, run_id, status, finished_at, error=None, api_requests=None,
+                   api_usage=None) -> None:
+        def apply():
+            run = self.runs_by_id[run_id]
+            self._replace(run_id, status=status, finished_at=finished_at, error=error,
+                          api_requests=run.api_requests if api_requests is None else api_requests,
+                          api_usage=run.api_usage if api_usage is None else api_usage)
+        conn.pending.append(apply)
+
+    def sweep_abandoned(self, conn, older_than_seconds) -> list[str]:
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=older_than_seconds)
+        swept = [r.id for r in self.runs_by_id.values()
+                 if r.unfinished and (r.started_at or r.created_at) < cutoff]
+        # Applied at once, not at commit: the engine reads unfinished_run() in the
+        # same transaction and Postgres would show it the update.
+        for run_id in swept:
+            self._replace(run_id, status="failed", finished_at=datetime.now(timezone.utc),
+                          error="abandoned: the process stopped before the run finished")
+        return swept
+
+    # watermarks
+    def get_watermark(self, conn, connection_id, sobject) -> Optional[datetime]:
+        return self.watermarks.get((connection_id, sobject))
+
+    def set_watermark(self, conn, connection_id, sobject, watermark, run_id) -> None:
+        conn.pending.append(lambda: self.watermarks.__setitem__((connection_id, sobject), watermark))
+
+    # raw records
+    def land(self, conn, connection_id, sobject, run_id, records) -> tuple[int, int]:
+        landed = tombstones = 0
+        for rec in records:
+            body = {k: v for k, v in rec.items() if k != "attributes"}
+            deleted = bool(body.get("IsDeleted"))
+            tombstones += deleted
+            landed += 1
+            key = (connection_id, sobject, body["Id"])
+            conn.pending.append(lambda key=key, body=body, deleted=deleted: self.raw.__setitem__(
+                key, {"record": body, "deleted": deleted, "last_run_id": run_id}))
+        return landed, tombstones
+
+    def live_records(self, conn, connection_id, sobject) -> list[dict]:
+        return [row["record"] for (c, s, _), row in sorted(self.raw.items())
+                if c == connection_id and s == sobject and not row["deleted"]]
+
+    def counts(self, conn, connection_id) -> dict[str, dict[str, int]]:
+        out: dict[str, dict[str, int]] = {}
+        for (c, s, _), row in self.raw.items():
+            if c != connection_id:
+                continue
+            bucket = out.setdefault(s, {"live": 0, "tombstones": 0})
+            bucket["tombstones" if row["deleted"] else "live"] += 1
+        return out

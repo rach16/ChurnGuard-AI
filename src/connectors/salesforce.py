@@ -43,33 +43,48 @@ from typing import Any, Iterable
 # name them differently, which is what FIELD_MAP below is for.
 # --------------------------------------------------------------------------------------
 
-ACCOUNT_SOQL = """
-SELECT Id, AccountNumber, Name, Industry, Type, AnnualRevenue, NumberOfEmployees,
-       ARR__c, Seats__c, Segment__c, Region__c, Customer_Status__c,
-       Contract_Start_Date__c, Contract_End_Date__c, Churn_Date__c, Churn_Category__c,
-       Churn_Reason__c, Competitor__c, Active_Users__c, Feature_Adoption__c,
-       Last_Login_Date__c, NPS_Score__c, CreatedDate
-FROM Account
-"""
+#
+# One field list per object, shared by the laptop pull below and the sync engine
+# (src/integrations/sync.py), so the two cannot drift. Nothing here is contact
+# PII (ADR-0012 section 7); adding a field is a recorded decision.
 
-OPPORTUNITY_SOQL = """
-SELECT Id, AccountId, Name, StageName, IsClosed, IsWon, Amount, CloseDate, Type,
-       Description, Loss_Reason__c
-FROM Opportunity
-"""
+FIELDS: dict[str, tuple[str, ...]] = {
+    "Account": (
+        "Id", "AccountNumber", "Name", "Industry", "Type", "AnnualRevenue", "NumberOfEmployees",
+        "ARR__c", "Seats__c", "Segment__c", "Region__c", "Customer_Status__c",
+        "Contract_Start_Date__c", "Contract_End_Date__c", "Churn_Date__c", "Churn_Category__c",
+        "Churn_Reason__c", "Competitor__c", "Active_Users__c", "Feature_Adoption__c",
+        "Last_Login_Date__c", "NPS_Score__c", "CreatedDate",
+    ),
+    "Opportunity": (
+        "Id", "AccountId", "Name", "StageName", "IsClosed", "IsWon", "Amount", "CloseDate", "Type",
+        "Description", "Loss_Reason__c",
+    ),
+    "OpportunityCompetitor": ("Id", "OpportunityId", "CompetitorName"),
+    "Case": (
+        "Id", "CaseNumber", "AccountId", "Subject", "Description", "Status", "IsClosed", "Priority",
+        "Type", "Reason", "CreatedDate", "Legacy_Created_Date__c", "Resolution_Hours__c", "CSAT__c",
+    ),
+    "Task": ("Id", "WhatId", "AccountId", "Subject", "Description", "ActivityDate", "TaskSubtype",
+             "CreatedDate"),
+}
 
-COMPETITOR_SOQL = "SELECT OpportunityId, CompetitorName FROM OpportunityCompetitor"
+# Which object fills which key of the raw dict transform() reads.
+RAW_KEYS: dict[str, str] = {
+    "Account": "accounts", "Opportunity": "opportunities",
+    "OpportunityCompetitor": "competitors", "Case": "cases", "Task": "tasks",
+}
 
-CASE_SOQL = """
-SELECT Id, CaseNumber, AccountId, Subject, Description, Status, IsClosed, Priority,
-       Type, Reason, CreatedDate, Legacy_Created_Date__c, Resolution_Hours__c, CSAT__c
-FROM Case
-"""
 
-TASK_SOQL = """
-SELECT Id, WhatId, AccountId, Subject, Description, ActivityDate, TaskSubtype, CreatedDate
-FROM Task
-"""
+def soql(sobject: str, extra: tuple[str, ...] = ()) -> str:
+    return f"SELECT {', '.join(FIELDS[sobject] + extra)} FROM {sobject}"
+
+
+ACCOUNT_SOQL = soql("Account")
+OPPORTUNITY_SOQL = soql("Opportunity")
+COMPETITOR_SOQL = soql("OpportunityCompetitor")
+CASE_SOQL = soql("Case")
+TASK_SOQL = soql("Task")
 
 # --------------------------------------------------------------------------------------
 # Canonical schema. Column order matches data/*.csv exactly.
@@ -789,13 +804,7 @@ def fetch(sf) -> dict[str, list[dict]]:
         rows = sf.query_all(" ".join(soql.split()))["records"]
         return [{k: v for k, v in r.items() if k != "attributes"} for r in rows]
 
-    return {
-        "accounts": q(ACCOUNT_SOQL),
-        "opportunities": q(OPPORTUNITY_SOQL),
-        "competitors": q(COMPETITOR_SOQL),
-        "cases": q(CASE_SOQL),
-        "tasks": q(TASK_SOQL),
-    }
+    return {key: q(soql(sobject)) for sobject, key in RAW_KEYS.items()}
 
 
 def write(tables: dict[str, list[dict]], report: IngestReport, out_dir: Path) -> None:

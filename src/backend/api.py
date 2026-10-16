@@ -53,6 +53,8 @@ from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction
 from integrations.connections import ConnectionStore
+from integrations.sync import SyncEngine
+from integrations.sync_store import SyncStore
 from integrations.tokens import TokenService
 import connections_routes
 import security
@@ -97,6 +99,10 @@ class ServiceState:
         self.key_provider: Optional[custody.KeyProvider] = None
         self.connections: Optional[ConnectionStore] = None
         self.tokens: Optional[TokenService] = None
+        # Sync (1.10): run rows and raw landings read wherever the database is;
+        # the engine that starts runs needs the app's credentials too.
+        self.sync_runs: Optional[SyncStore] = None
+        self.sync: Optional[SyncEngine] = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -189,6 +195,7 @@ class ServiceState:
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
             "connections": self.connections is not None,
+            "sync": self.sync is not None,
         }
 
 
@@ -360,10 +367,16 @@ def _init_connections() -> None:
         state.database = database
         state.key_provider = provider
         state.connections = ConnectionStore(database)
+        state.sync_runs = SyncStore(database)
         # Using a connection needs the app's own credentials too. Without them
-        # the status still reads; connect, verify and disconnect answer 503.
+        # the status still reads; connect, verify, disconnect and sync answer 503.
         if os.getenv("SALESFORCE_CLIENT_ID", "").strip() and os.getenv("SALESFORCE_CLIENT_SECRET", "").strip():
             state.tokens = TokenService.from_env(state.connections, provider)
+            state.sync = SyncEngine(state.tokens, state.connections, state.sync_runs)
+            # A run the previous process left unfinished would block every
+            # trigger for half an hour otherwise.
+            for run_id in state.sync.sweep():
+                logger.warning(f"sync run {run_id} left unfinished by the previous process; marked failed")
         else:
             logger.warning("SALESFORCE_CLIENT_ID/SECRET not set: connections are read-only here")
         logger.info(

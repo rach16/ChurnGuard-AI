@@ -12,6 +12,11 @@ Five routes, three audiences:
                                                   it is. Proves the token, resets the
                                                   org's 30-day idle timer.
 - ``POST /connections/{id}/disconnect``          operator: revoke, delete, audit.
+- ``POST /connections/{id}/sync``                operator: start a sync run (1.10), or
+                                                  join the one running. Answers 202
+                                                  with the run; the outcome is polled.
+- ``GET  /connections/{id}/runs``                anyone: recent runs, counts and
+                                                  timings. No record data.
 - ``GET  /integrations/salesforce/callback``     Salesforce's redirect, carrying the
                                                   one-time code and the state. Public by
                                                   necessity and authenticated by the
@@ -42,6 +47,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
+from integrations.sync import SyncEngine
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
 logger = logging.getLogger(__name__)
@@ -115,6 +121,14 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             raise HTTPException(status_code=503, detail=f"Connections are unavailable: {reason}")
         return tokens
 
+    def sync_or_503() -> SyncEngine:
+        state = get_state()
+        engine = getattr(state, "sync", None)
+        if engine is None:
+            tokens_or_503()           # names the missing piece
+            raise HTTPException(status_code=503, detail="Sync is unavailable: engine not initialised")
+        return engine
+
     def site_origin() -> str:
         return os.getenv("PUBLIC_SITE_ORIGIN", "").rstrip("/")
 
@@ -130,13 +144,40 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
                     "operator_actions": False, "connection": None}
         connection = await run_in_threadpool(store.get)
         public: Optional[dict] = None
+        last_run: Optional[dict] = None
         if connection is not None:
             public = connection.public()
             public.pop("username", None)      # the operator's login is not for every reader
+            runs = getattr(state, "sync_runs", None)
+            if runs is not None:
+                latest = await run_in_threadpool(runs.last_run, connection.id)
+                last_run = latest.public() if latest else None
         return {"enabled": True, "reason": None,
                 "operator_actions": operator_actions_enabled(),
                 "pinned_org_id": os.getenv("SALESFORCE_ORG_ID", "").strip() or None,
-                "connection": public}
+                "connection": public, "last_run": last_run}
+
+    @router.get("/connections/{connection_id}/runs")
+    async def list_runs(connection_id: str, limit: int = 10):
+        """Recent sync runs, newest first. Counts and timings only; no record data."""
+        runs = getattr(get_state(), "sync_runs", None)
+        if runs is None:
+            return {"enabled": False, "runs": []}
+        rows = await run_in_threadpool(runs.runs, connection_id, max(1, min(limit, 50)))
+        return {"enabled": True, "runs": [r.public() for r in rows]}
+
+    @router.post("/connections/{connection_id}/sync", status_code=202)
+    async def sync_connection(connection_id: str, actor: str = Depends(require_operator)):
+        """Start a sync run in the background, or join the one already running.
+        The caller polls the runs list for the outcome."""
+        engine = sync_or_503()
+        try:
+            triggered = await run_in_threadpool(engine.start, connection_id, actor=actor, trigger="manual")
+        except ConnectionGone as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except NeedsReauth as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"run": triggered.run.public(), "joined": triggered.joined}
 
     @router.post("/connections/start")
     async def start_connection(body: StartRequest, actor: str = Depends(require_operator)):
