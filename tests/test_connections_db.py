@@ -28,7 +28,7 @@ from integrations.connections import ConnectionStore  # noqa: E402
 from integrations.db import Database, redacted_url  # noqa: E402
 
 URL = os.getenv("DATABASE_URL")
-pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set; needs a Postgres")
+needs_db = pytest.mark.skipif(not URL, reason="DATABASE_URL not set; needs a Postgres")
 
 NOW = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
 ORG = "00Dg700000J62qbEAB"
@@ -77,6 +77,17 @@ def test_url_redaction_hides_the_password():
     assert "***" in redacted_url("postgresql://u:p@h/db") and ":p@" not in redacted_url("postgresql://u:p@h/db")
 
 
+def test_pool_closes_idle_connections_before_neon_does_and_checks_on_checkout():
+    """Neon suspends after five idle minutes and kills connections; the pool must
+    not hand one of those out. No database needed to assert the configuration."""
+    from psycopg_pool import ConnectionPool
+
+    db = Database("postgresql://u:p@localhost/x")
+    assert db.pool.max_idle < 300
+    assert db.pool._check is ConnectionPool.check_connection
+
+
+@needs_db
 def test_a_token_survives_the_round_trip_through_postgres(db, store, provider):
     with db.connection() as conn:
         created = _connect(store, conn, provider, token="5Aep" + "r" * 40)
@@ -86,6 +97,7 @@ def test_a_token_survives_the_round_trip_through_postgres(db, store, provider):
     assert "sealed" not in fetched.public() and "token_ciphertext" not in fetched.public()
 
 
+@needs_db
 def test_reconnecting_the_same_org_replaces_the_token_in_place(db, store, provider):
     with db.connection() as conn:
         first = store.get(conn=conn)
@@ -100,6 +112,7 @@ def test_reconnecting_the_same_org_replaces_the_token_in_place(db, store, provid
         assert conn.execute("select count(*) as n from connections").fetchone()["n"] == 1
 
 
+@needs_db
 def test_status_lock_and_touch(db, store):
     with db.connection() as conn:
         c = store.get(conn=conn)
@@ -110,6 +123,7 @@ def test_status_lock_and_touch(db, store):
     assert (c.status, c.status_reason, c.last_used_at) == ("needs_reauth", "invalid_grant on refresh", NOW)
 
 
+@needs_db
 def test_rewrap_changes_only_the_wrapped_key(db, store, provider):
     rotated = crypto.LocalKeyProvider({"v1": provider.keys["v1"], "v2": secrets.token_bytes(32)},
                                       current="v2")
@@ -122,6 +136,7 @@ def test_rewrap_changes_only_the_wrapped_key(db, store, provider):
     assert crypto.unseal(rotated, after.id, after.sealed) == crypto.unseal(provider, before.id, before.sealed)
 
 
+@needs_db
 def test_oauth_state_is_single_use_and_expires(db, store):
     with db.connection() as conn:
         store.create_state(conn, state="s1", code_verifier="v" * 43, login_host="login.salesforce.com",
@@ -138,6 +153,7 @@ def test_oauth_state_is_single_use_and_expires(db, store):
         assert store.purge_states(conn, older_than_seconds=0) >= 1
 
 
+@needs_db
 def test_audit_rows_are_written_and_read_back_newest_first(db, store):
     c = store.get()
     with db.connection() as conn:
@@ -151,6 +167,7 @@ def test_audit_rows_are_written_and_read_back_newest_first(db, store):
         audit.record(conn, "connect", actor="operator", detail={"t": "5Aep" + "x" * 40})
 
 
+@needs_db
 def test_delete_removes_the_connection(db, store):
     c = store.get()
     with db.connection() as conn:

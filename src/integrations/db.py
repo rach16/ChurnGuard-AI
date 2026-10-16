@@ -29,6 +29,9 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 # Any fixed number; it only has to be the same in every process that migrates.
 MIGRATION_LOCK_ID = 7_264_001
 
+# Under Neon's five-minute auto-suspend, with margin.
+IDLE_CLOSE_SECONDS = 180.0
+
 
 def database_url() -> Optional[str]:
     url = os.getenv("DATABASE_URL", "").strip()
@@ -65,8 +68,19 @@ class Database:
             kwargs["options"] = f"-c search_path={schema}"
         self.url = url
         self.schema = schema
+        # Neon's free tier suspends the compute after five idle minutes and
+        # terminates every open connection as it goes ("terminating connection
+        # due to administrator command"). The first request after a quiet spell
+        # then got a dead connection from the pool and answered 500; the next
+        # one reconnected. Seen on staging 2026-10-16, ten minutes after the
+        # first real connect. Two guards: idle connections are closed by the
+        # pool before Neon can kill them, and every connection is checked
+        # before it is handed out, so a kill the pool did not see is absorbed
+        # by a reconnect rather than surfaced to the caller.
         self.pool = ConnectionPool(url, min_size=min_size, max_size=max_size,
-                                   kwargs=kwargs, open=False)
+                                   kwargs=kwargs, open=False,
+                                   max_idle=IDLE_CLOSE_SECONDS,
+                                   check=ConnectionPool.check_connection)
 
     def open(self) -> "Database":
         self.pool.open()
