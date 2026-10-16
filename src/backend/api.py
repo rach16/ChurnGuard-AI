@@ -51,6 +51,8 @@ from core.evidence import CustomerEvidence
 from core.datasource import data_dir, is_synthetic, source_name, survival_model_path, warehouse_path
 from connectors.salesforce import describe_report
 from core.llm import active_configuration
+from integrations import crypto as custody, db as integrations_db, redaction
+from integrations.connections import ConnectionStore
 import security
 from model.survival import ChurnSurvivalModel
 from core.llm import chat_model
@@ -87,6 +89,11 @@ class ServiceState:
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
         self.exposure: Optional[ExposureModel] = None
+        # Log in with Salesforce (1.9, ADR-0012): the database that holds the
+        # connection and the provider of the master key that seals its token.
+        self.database: Optional[integrations_db.Database] = None
+        self.key_provider: Optional[custody.KeyProvider] = None
+        self.connections: Optional[ConnectionStore] = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -178,6 +185,7 @@ class ServiceState:
             "retrieval_join": self.retrieval_problem() is None,
             "churn_agent": self.churn_agent is not None,
             "multi_agent_system": self.multi_agent_system is not None,
+            "connections": self.connections is not None,
         }
 
 
@@ -325,12 +333,48 @@ def _init_ai_stack() -> None:
             state.unavailable(name, f"{type(e).__name__}: {e}")
 
 
+def _init_connections() -> None:
+    """Postgres and the master key behind Log in with Salesforce (1.9, ADR-0012).
+
+    Both are proven at startup rather than on the first click: migrations run, and
+    the key provider is asked to describe its key. A deployment without
+    DATABASE_URL is not broken, it is one where connecting from the site is not
+    enabled, and it says so under not_applicable.
+    """
+    if not integrations_db.configured():
+        state.switched_off(
+            "connections",
+            "DATABASE_URL is not set: connecting Salesforce from the site is not enabled here")
+        return
+    try:
+        database = integrations_db.Database(integrations_db.database_url()).open()
+        applied = database.migrate()
+        provider = custody.provider_from_env()
+        if provider is None:
+            raise RuntimeError(
+                "no master key: set CHURNGUARD_KMS_KEY_ID (KMS) or CHURNGUARD_MASTER_KEY (local)")
+        key = provider.check()
+        state.database = database
+        state.key_provider = provider
+        state.connections = ConnectionStore(database)
+        logger.info(
+            f"✓ connections: {integrations_db.redacted_url(database.url)}, "
+            f"{len(applied)} migration(s) applied, master key via {key}")
+    except Exception as e:
+        state.unavailable("connections", f"{type(e).__name__}: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start subsystems independently so one failure cannot take down the rest."""
     logger.info("🚀 Starting Customer Churn API...")
 
+    # Before anything else logs: uvicorn's access line would otherwise print the
+    # OAuth callback's code. Covers every handler that exists at this point.
+    redaction.install()
+
     _init_health_scorer()
+    _init_connections()
     _init_ai_stack()
 
     if state.ai_ready:
@@ -345,6 +389,8 @@ async def lifespan(app: FastAPI):
 
     yield
     logger.info("Shutting down")
+    if state.database is not None:
+        state.database.close()
 
 
 # Initialize FastAPI app

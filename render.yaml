@@ -109,3 +109,25 @@ services:
         value: "200"
       # Deliberately absent on staging: OPENAI_API_KEY. Everything except the AI
       # question box works without it, and staging should not be able to spend.
+
+      # Log in with Salesforce (1.9, ADR-0012). All set by hand in the dashboard.
+      # Staging only until the live-site decision; production has none of these,
+      # so it reports `connections` as off rather than failing.
+      - key: SALESFORCE_CLIENT_ID
+        sync: false
+      - key: SALESFORCE_CLIENT_SECRET
+        sync: false
+      # Neon, branch `staging`, direct connection. Production would use its own
+      # branch and, for a customer, RDS.
+      - key: DATABASE_URL
+        sync: false
+      # AWS KMS key alias/churnguard-staging-master in us-west-2, reached as an IAM
+      # user limited to GenerateDataKey, Decrypt, ReEncrypt* and DescribeKey on it.
+      - key: CHURNGUARD_KMS_KEY_ID
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

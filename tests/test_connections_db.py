@@ -1,0 +1,158 @@
+"""
+The connection store against a real Postgres (ADR-0012, section 3).
+
+Runs only when DATABASE_URL is set (locally, from .env), and then in a throwaway
+schema on that database: the real migrations are applied there and the schema is
+dropped at the end, so the tests prove the SQL against the engine that runs it and
+leave the staging tables untouched. CI has no database and skips this file; that
+is the standing rule that CI needs no container, not a gap in coverage.
+"""
+
+from __future__ import annotations
+
+import os
+import secrets
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+load_dotenv(ROOT / ".env")
+
+from integrations import audit, crypto  # noqa: E402
+from integrations.connections import ConnectionStore  # noqa: E402
+from integrations.db import Database, redacted_url  # noqa: E402
+
+URL = os.getenv("DATABASE_URL")
+pytestmark = pytest.mark.skipif(not URL, reason="DATABASE_URL not set; needs a Postgres")
+
+NOW = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
+ORG = "00Dg700000J62qbEAB"
+HOST = "https://orgfarm-e065461ef9-dev-ed.develop.my.salesforce.com"
+
+
+@pytest.fixture(scope="module")
+def db():
+    schema = f"cg_test_{secrets.token_hex(4)}"
+    import psycopg
+
+    with psycopg.connect(URL, autocommit=True) as admin:
+        admin.execute(f"create schema {schema}")
+    database = Database(URL, schema=schema).open()
+    try:
+        assert database.migrate() == ["0001_connections"]
+        assert database.migrate() == []                     # idempotent
+        assert database.applied_migrations() == ["0001_connections"]
+        yield database
+    finally:
+        database.close()
+        with psycopg.connect(URL, autocommit=True) as admin:
+            admin.execute(f"drop schema {schema} cascade")
+
+
+@pytest.fixture
+def store(db):
+    return ConnectionStore(db)
+
+
+@pytest.fixture(scope="module")
+def provider():
+    """One key for the module: the rows these tests share were sealed by it."""
+    return crypto.LocalKeyProvider({"v1": secrets.token_bytes(32)}, current="v1")
+
+
+def _connect(store, conn, provider, org=ORG, token="5Aep" + "t" * 40):
+    cid = store.new_id(conn)
+    return store.upsert(conn, id=cid, tenant_id="default", org_id=org, instance_url=HOST,
+                        login_host="login.salesforce.com", user_id="005xx000001",
+                        username="r.banik16@example.com", scopes="api refresh_token",
+                        sealed=crypto.seal(provider, cid, token), token_issued_at=NOW)
+
+
+def test_url_redaction_hides_the_password():
+    assert "***" in redacted_url("postgresql://u:p@h/db") and ":p@" not in redacted_url("postgresql://u:p@h/db")
+
+
+def test_a_token_survives_the_round_trip_through_postgres(db, store, provider):
+    with db.connection() as conn:
+        created = _connect(store, conn, provider, token="5Aep" + "r" * 40)
+    fetched = store.get()
+    assert fetched is not None and fetched.id == created.id and fetched.status == "active"
+    assert crypto.unseal(provider, fetched.id, fetched.sealed) == "5Aep" + "r" * 40
+    assert "sealed" not in fetched.public() and "token_ciphertext" not in fetched.public()
+
+
+def test_reconnecting_the_same_org_replaces_the_token_in_place(db, store, provider):
+    with db.connection() as conn:
+        first = store.get(conn=conn)
+        again = store.upsert(conn, id=first.id, tenant_id="default", org_id=ORG, instance_url=HOST,
+                             login_host="login.salesforce.com", user_id="005xx000002",
+                             username="other@example.com", scopes="api refresh_token",
+                             sealed=crypto.seal(provider, first.id, "5Aep" + "n" * 40),
+                             token_issued_at=NOW)
+    assert again.id == first.id and again.user_id == "005xx000002"
+    assert crypto.unseal(provider, again.id, again.sealed) == "5Aep" + "n" * 40
+    with db.connection() as conn:
+        assert conn.execute("select count(*) as n from connections").fetchone()["n"] == 1
+
+
+def test_status_lock_and_touch(db, store):
+    with db.connection() as conn:
+        c = store.get(conn=conn)
+        assert store.try_lock(conn, c.id) is True
+        store.set_status(conn, c.id, "needs_reauth", "invalid_grant on refresh")
+        store.touch(conn, c.id, NOW)
+    c = store.get()
+    assert (c.status, c.status_reason, c.last_used_at) == ("needs_reauth", "invalid_grant on refresh", NOW)
+
+
+def test_rewrap_changes_only_the_wrapped_key(db, store, provider):
+    rotated = crypto.LocalKeyProvider({"v1": provider.keys["v1"], "v2": secrets.token_bytes(32)},
+                                      current="v2")
+    before = store.get()
+    with db.connection() as conn:
+        store.rewrap_token(conn, before.id, crypto.rewrap(rotated, before.id, before.sealed))
+    after = store.get()
+    assert after.sealed.master_key_version == "v2"
+    assert after.sealed.ciphertext == before.sealed.ciphertext
+    assert crypto.unseal(rotated, after.id, after.sealed) == crypto.unseal(provider, before.id, before.sealed)
+
+
+def test_oauth_state_is_single_use_and_expires(db, store):
+    with db.connection() as conn:
+        store.create_state(conn, state="s1", code_verifier="v" * 43, login_host="login.salesforce.com",
+                           redirect_uri="https://staging.example/api/auth/salesforce",
+                           expected_org_id=ORG)
+        store.create_state(conn, state="s2", code_verifier="v" * 43, login_host="login.salesforce.com",
+                           redirect_uri="https://staging.example/api/auth/salesforce", ttl_seconds=-1)
+    with db.connection() as conn:
+        first = store.consume_state(conn, "s1")
+        assert first and first["code_verifier"] == "v" * 43 and first["expected_org_id"] == ORG
+        assert store.consume_state(conn, "s1") is None       # second presentation refused
+        assert store.consume_state(conn, "s2") is None       # already expired
+        assert store.consume_state(conn, "never-issued") is None
+        assert store.purge_states(conn, older_than_seconds=0) >= 1
+
+
+def test_audit_rows_are_written_and_read_back_newest_first(db, store):
+    c = store.get()
+    with db.connection() as conn:
+        audit.record(conn, "connect", actor="operator", connection_id=c.id, org_id=ORG,
+                     detail={"host": HOST, "scopes": "api refresh_token"})
+        audit.record(conn, "disconnect", actor="operator", connection_id=c.id, org_id=ORG)
+        rows = audit.recent(conn)
+    assert [r["event"] for r in rows[:2]] == ["disconnect", "connect"]
+    assert rows[1]["detail"]["host"] == HOST
+    with db.connection() as conn, pytest.raises(ValueError):
+        audit.record(conn, "connect", actor="operator", detail={"t": "5Aep" + "x" * 40})
+
+
+def test_delete_removes_the_connection(db, store):
+    c = store.get()
+    with db.connection() as conn:
+        store.delete(conn, c.id)
+    assert store.get() is None

@@ -42,6 +42,14 @@ dependencies = [
     "numpy>=2.2.2",
     "pandas>=2.0.0",
     "networkx>=3.0",             # core/knowledge_graph.py
+
+    # Salesforce connections (1.9, ADR-0012). Runtime, because the API process
+    # holds the connection: Postgres for the connection, OAuth state and audit
+    # rows; KMS to wrap the data keys; AES-GCM for the envelope. Without
+    # DATABASE_URL the API still serves and reports connections as off.
+    "psycopg[binary,pool]>=3.2",
+    "boto3>=1.35",
+    "cryptography>=42",
 ]
 
 
