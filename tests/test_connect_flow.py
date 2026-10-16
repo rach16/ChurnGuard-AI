@@ -17,36 +17,28 @@ from __future__ import annotations
 import logging
 import secrets
 import sys
-from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
-import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src" / "backend"))
 
 from integrations import crypto, redaction  # noqa: E402
-from integrations.connections import Connection  # noqa: E402
 from integrations.flow import ConnectFlow, FlowRefused  # noqa: E402
 from integrations.salesforce_oauth import (  # noqa: E402
-    HostRefused, SalesforceOAuth, parse_identity_url, pkce_pair, validate_instance_url,
+    HostRefused, parse_identity_url, pkce_pair, validate_instance_url,
+)
+from tests.salesforce_fakes import (  # noqa: E402
+    ACCESS, CODE, HOST, ORG, OTHER_ORG, REFRESH, SITE, USER, FakeSalesforce, FakeStore,
 )
 import connections_routes  # noqa: E402
-
-ORG = "00Dg700000J62qbEAB"
-OTHER_ORG = "00D000000000001AAA"
-USER = "005g700000AbCdEfGH"
-HOST = "https://orgfarm-e065461ef9-dev-ed.develop.my.salesforce.com"
-SITE = "https://staging.example.test"
-REFRESH = "5Aep861" + "r" * 60
-ACCESS = f"{ORG}!AQEAQ" + "a" * 50
-CODE = "aPrxGt" + "c" * 40
 
 
 # ------------------------------------------------------------------ pure rules
@@ -88,132 +80,6 @@ def test_pkce_challenge_is_s256_of_the_verifier():
     assert 43 <= len(verifier) <= 128
     expected = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=")
     assert challenge == expected.decode()
-
-
-# --------------------------------------------------------------- fake Salesforce
-
-class FakeSalesforce:
-    """The three endpoints the flow calls. Records what it was asked so a test can
-    assert that a refused token was revoked, and that the exchange carried the
-    verifier and the secret."""
-
-    def __init__(self, org=ORG, instance=HOST, refresh=REFRESH, fail=None):
-        self.org, self.instance, self.refresh, self.fail = org, instance, refresh, fail
-        self.exchanges: list[dict] = []
-        self.revoked: list[str] = []
-
-    def handler(self, request: httpx.Request) -> httpx.Response:
-        path = request.url.path
-        if path == "/services/oauth2/token":
-            form = {k: v[0] for k, v in parse_qs(request.content.decode()).items()}
-            self.exchanges.append(form)
-            if self.fail:
-                return httpx.Response(400, json={"error": self.fail, "error_description": "nope"})
-            body = {"access_token": ACCESS, "instance_url": self.instance,
-                    "id": f"https://login.salesforce.com/id/{self.org}/{USER}",
-                    "scope": "api refresh_token", "issued_at": "1760616000000", "token_type": "Bearer"}
-            if self.refresh:
-                body["refresh_token"] = self.refresh
-            return httpx.Response(200, json=body)
-        if path == f"/id/{self.org}/{USER}":
-            assert request.headers["authorization"] == f"Bearer {ACCESS}"
-            return httpx.Response(200, json={"username": "r.banik16@example.com", "display_name": "R"})
-        if path == "/services/oauth2/revoke":
-            self.revoked.append(parse_qs(request.content.decode())["token"][0])
-            return httpx.Response(200)
-        return httpx.Response(404)
-
-    def oauth(self) -> SalesforceOAuth:
-        return SalesforceOAuth("client-id", "client-secret-value",
-                              http=httpx.Client(transport=httpx.MockTransport(self.handler)))
-
-
-# ------------------------------------------------------------------ fake store
-
-class FakeConn:
-    """A connection whose execute() only ever sees audit inserts, which it records."""
-
-    def __init__(self, store):
-        self.store = store
-        self.committed = len(store.audit)
-
-    def execute(self, sql, params=None):
-        if sql.lstrip().lower().startswith("insert into audit_events"):
-            self.store.audit.append({"event": params[0], "actor": params[1], "tenant_id": params[2],
-                                     "connection_id": params[3], "org_id": params[4],
-                                     "detail": params[5].obj})
-            return self
-        raise AssertionError(f"unexpected SQL in fake: {sql[:60]}")
-
-    def fetchone(self):
-        return {"id": len(self.store.audit)}
-
-    def commit(self):
-        self.committed = len(self.store.audit)
-
-
-class FakeDb:
-    """Like the pool's context manager: an exception inside the block rolls back
-    whatever was not committed. The audit row for a refused state was lost exactly
-    this way once, so the fake has to be this honest."""
-
-    def __init__(self, store):
-        self.store = store
-
-    @contextmanager
-    def connection(self):
-        conn = FakeConn(self.store)
-        try:
-            yield conn
-        except BaseException:
-            del self.store.audit[conn.committed:]
-            raise
-
-
-class FakeStore:
-    """In memory, same method names as ConnectionStore, for the flow's sake."""
-
-    def __init__(self):
-        self.db = FakeDb(self)
-        self.rows: dict[str, Connection] = {}
-        self.states: dict[str, dict] = {}
-        self.audit: list[dict] = []
-
-    def get(self, tenant_id="default", provider="salesforce", conn=None):
-        return next(iter(self.rows.values()), None)
-
-    def new_id(self, conn):
-        return secrets.token_hex(8)
-
-    def upsert(self, conn, *, id, tenant_id, org_id, instance_url, login_host, user_id, username,
-               scopes, sealed, token_issued_at, auth_method="web_server_pkce"):
-        existing = next((r for r in self.rows.values() if r.org_id == org_id), None)
-        row_id = existing.id if existing else id
-        now = datetime.now(timezone.utc)
-        self.rows[row_id] = Connection(
-            id=row_id, tenant_id=tenant_id, provider="salesforce", auth_method=auth_method,
-            org_id=org_id, instance_url=instance_url, login_host=login_host, user_id=user_id,
-            username=username, scopes=scopes, status="active", status_reason=None, sealed=sealed,
-            token_issued_at=token_issued_at, last_refreshed_at=None, last_used_at=None,
-            created_at=existing.created_at if existing else now, updated_at=now)
-        return self.rows[row_id]
-
-    def create_state(self, conn, *, state, code_verifier, login_host, redirect_uri,
-                     tenant_id="default", expected_org_id=None, ttl_seconds=600):
-        self.states[state] = {"state": state, "code_verifier": code_verifier, "login_host": login_host,
-                              "redirect_uri": redirect_uri, "tenant_id": tenant_id,
-                              "expected_org_id": expected_org_id, "consumed": False,
-                              "expires_at": datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)}
-
-    def consume_state(self, conn, state):
-        row = self.states.get(state)
-        if not row or row["consumed"] or row["expires_at"] <= datetime.now(timezone.utc):
-            return None
-        row["consumed"] = True
-        return dict(row)
-
-    def purge_states(self, conn, older_than_seconds=3600):
-        return 0
 
 
 @pytest.fixture

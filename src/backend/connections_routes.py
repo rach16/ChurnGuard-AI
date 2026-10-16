@@ -1,13 +1,17 @@
 """
 HTTP for Log in with Salesforce (1.9, ADR-0012 section 1).
 
-Three routes, three audiences:
+Five routes, three audiences:
 
 - ``GET  /connections``                          anyone: is a connection present, which
                                                   org, which host, what state. Never the
                                                   operator's username or a token.
 - ``POST /connections/start``                    operator: begin the flow, get the URL
                                                   for the popup.
+- ``POST /connections/{id}/verify``              operator: refresh and ask the org who
+                                                  it is. Proves the token, resets the
+                                                  org's 30-day idle timer.
+- ``POST /connections/{id}/disconnect``          operator: revoke, delete, audit.
 - ``GET  /integrations/salesforce/callback``     Salesforce's redirect, carrying the
                                                   one-time code and the state. Public by
                                                   necessity and authenticated by the
@@ -38,6 +42,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
+from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +105,16 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             raise HTTPException(status_code=503, detail=f"Connections are not configured: {', '.join(missing)} not set")
         return ConnectFlow.from_env(store, provider)
 
+    def tokens_or_503() -> TokenService:
+        state = get_state()
+        tokens = getattr(state, "tokens", None)
+        if tokens is None:
+            store = getattr(state, "connections", None)
+            reason = ((getattr(state, "errors", {}) or {}).get("connections") if store is None
+                      else "SALESFORCE_CLIENT_ID / SALESFORCE_CLIENT_SECRET not set")
+            raise HTTPException(status_code=503, detail=f"Connections are unavailable: {reason}")
+        return tokens
+
     def site_origin() -> str:
         return os.getenv("PUBLIC_SITE_ORIGIN", "").rstrip("/")
 
@@ -130,6 +145,28 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         # The state is not returned: the browser needs only the URL, and the
         # callback is matched on the state Salesforce carries back.
         return {"authorize_url": started.authorize_url}
+
+    @router.post("/connections/{connection_id}/verify")
+    async def verify_connection(connection_id: str, actor: str = Depends(require_operator)):
+        """Refresh the token and ask the org who it is. Proves the stored token works."""
+        tokens = tokens_or_503()
+        try:
+            return await run_in_threadpool(tokens.verify, connection_id)
+        except ConnectionGone as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except NeedsReauth as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except RefreshFailed as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @router.post("/connections/{connection_id}/disconnect")
+    async def disconnect_connection(connection_id: str, actor: str = Depends(require_operator)):
+        """Revoke at Salesforce, delete the stored token, audit."""
+        tokens = tokens_or_503()
+        try:
+            return await run_in_threadpool(tokens.disconnect, connection_id, actor)
+        except ConnectionGone as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     @router.get(CALLBACK_PATH.removeprefix("/api"), response_class=HTMLResponse)
     async def salesforce_callback(code: str = "", state: str = "", error: str = "",

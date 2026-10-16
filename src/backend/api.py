@@ -53,6 +53,7 @@ from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction
 from integrations.connections import ConnectionStore
+from integrations.tokens import TokenService
 import connections_routes
 import security
 from model.survival import ChurnSurvivalModel
@@ -95,6 +96,7 @@ class ServiceState:
         self.database: Optional[integrations_db.Database] = None
         self.key_provider: Optional[custody.KeyProvider] = None
         self.connections: Optional[ConnectionStore] = None
+        self.tokens: Optional[TokenService] = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -358,6 +360,12 @@ def _init_connections() -> None:
         state.database = database
         state.key_provider = provider
         state.connections = ConnectionStore(database)
+        # Using a connection needs the app's own credentials too. Without them
+        # the status still reads; connect, verify and disconnect answer 503.
+        if os.getenv("SALESFORCE_CLIENT_ID", "").strip() and os.getenv("SALESFORCE_CLIENT_SECRET", "").strip():
+            state.tokens = TokenService.from_env(state.connections, provider)
+        else:
+            logger.warning("SALESFORCE_CLIENT_ID/SECRET not set: connections are read-only here")
         logger.info(
             f"✓ connections: {integrations_db.redacted_url(database.url)}, "
             f"{len(applied)} migration(s) applied, master key via {key}")

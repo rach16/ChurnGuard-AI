@@ -182,6 +182,23 @@ class ConnectionStore:
     def delete(self, conn, connection_id: str) -> None:
         conn.execute("delete from connections where id = %s", (connection_id,))
 
+    def mark_refreshed(self, conn, connection_id: str, refreshed_at: datetime) -> None:
+        """A refresh that rotated nothing: the token stays, the timestamp moves."""
+        conn.execute(
+            "update connections set last_refreshed_at = %s, last_used_at = %s, status = 'active',"
+            " status_reason = null, updated_at = now() where id = %s",
+            (refreshed_at, refreshed_at, connection_id),
+        )
+
+    def lock(self, conn, connection_id: str) -> None:
+        """Block until this transaction holds the connection's advisory lock.
+
+        The refresh path takes it, re-reads the row, and only then decides whether
+        a refresh is still needed: a worker that waited here finds the winner's
+        new token in the row and uses that instead of asking Salesforce again.
+        """
+        conn.execute("select pg_advisory_xact_lock(hashtext(%s))", (connection_id,))
+
     def try_lock(self, conn, connection_id: str) -> bool:
         """A transaction-scoped advisory lock on one connection, for single-flight refresh.
 

@@ -11,7 +11,9 @@
  *
  * Three states to be honest about: connecting from the page is off on this
  * deployment (production today); it is on and nothing is connected; it is on and
- * an org is connected, active or needing a fresh login.
+ * an org is connected, active or needing a fresh login. A connected org gets
+ * Test connection (refresh and ask the org who it is) and Disconnect (revoke at
+ * Salesforce, delete here). Both go through /ops/* like Connect does.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -70,6 +72,8 @@ export function ConnectionPanel() {
   const { status, refresh } = useConnection();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [verified, setVerified] = useState<string | null>(null);
+  const [working, setWorking] = useState<'verify' | 'disconnect' | null>(null);
   const popup = useRef<Window | null>(null);
 
   // The popup reports back once; a popup closed by hand reports nothing, so a
@@ -117,6 +121,51 @@ export function ConnectionPanel() {
       win?.close();
       setBusy(false);
       setNotice(e instanceof Error ? e.message : 'Could not start the Salesforce sign-in.');
+    }
+  }
+
+  async function operatorPost(path: string): Promise<Record<string, unknown>> {
+    const r = await fetch(`/ops/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(String(body.detail || body.error || `HTTP ${r.status}`));
+    return body;
+  }
+
+  // Refreshes the token and asks the org who it is. Also what resets the org's
+  // 30-day idle limit on the refresh token, so it is worth a click now and then.
+  async function verify(id: string) {
+    setNotice(null);
+    setVerified(null);
+    setWorking('verify');
+    try {
+      const body = await operatorPost(`connections/${id}/verify`);
+      const api = body.api_requests as { max: number | null; remaining: number | null } | undefined;
+      setVerified(
+        `Works: ${body.org_name ?? 'org'} (${body.org_type ?? 'unknown edition'}), ` +
+          `${api?.remaining?.toLocaleString() ?? '?'} of ${api?.max?.toLocaleString() ?? '?'} API calls left today` +
+          (body.token_rotated ? ', token rotated' : ''),
+      );
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'The connection could not be verified.');
+    } finally {
+      setWorking(null);
+      refresh();
+    }
+  }
+
+  async function disconnect(id: string, orgId: string) {
+    if (!window.confirm(`Disconnect org ${orgId}? The token is revoked at Salesforce and deleted here.`)) return;
+    setNotice(null);
+    setVerified(null);
+    setWorking('disconnect');
+    try {
+      const body = await operatorPost(`connections/${id}/disconnect`);
+      if (!body.revoked_at_salesforce) setNotice('Disconnected here. Salesforce did not confirm the revocation; the token is deleted regardless.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not disconnect.');
+    } finally {
+      setWorking(null);
+      refresh();
     }
   }
 
@@ -174,13 +223,31 @@ export function ConnectionPanel() {
         </div>
 
         {canAct ? (
-          <Button size="sm" variant={c && c.status === 'active' ? 'outline' : 'default'} onClick={connect} disabled={busy}>
-            {busy ? 'Waiting for Salesforce…' : c ? 'Reconnect' : 'Connect Salesforce'}
-          </Button>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {c && c.status === 'active' && (
+              <Button size="sm" variant="outline" onClick={() => verify(c.id)} disabled={busy || working !== null}>
+                {working === 'verify' ? 'Checking…' : 'Test connection'}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={c && c.status === 'active' ? 'outline' : 'default'}
+              onClick={connect}
+              disabled={busy || working !== null}
+            >
+              {busy ? 'Waiting for Salesforce…' : c ? 'Reconnect' : 'Connect Salesforce'}
+            </Button>
+            {c && (
+              <Button size="sm" variant="ghost" onClick={() => disconnect(c.id, c.org_id)} disabled={busy || working !== null}>
+                {working === 'disconnect' ? 'Disconnecting…' : 'Disconnect'}
+              </Button>
+            )}
+          </div>
         ) : (
           <span className="text-xs text-muted-foreground">Operator actions are off here.</span>
         )}
       </div>
+      {verified && <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{verified}</div>}
       {notice && <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
     </div>
   );
