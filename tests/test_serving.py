@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src" / "backend"))
 
-from connectors.salesforce import COLUMNS, as_csv_rows, transform  # noqa: E402
+from connectors.salesforce import COLUMNS, as_csv_rows  # noqa: E402
 from core import datasource  # noqa: E402
 from integrations import serving  # noqa: E402
 from integrations.sync_store import Snapshot  # noqa: E402
@@ -49,16 +49,16 @@ def load_dir(folder: Path) -> dict[str, list[dict]]:
 
 
 def snapshot_of_the_laptop_pull(snapshot_id: str = "a" * 32) -> Snapshot:
-    """The committed Salesforce pull, re-run through transform() from its raw
-    dump, as the sync engine would store it."""
-    raw_path = sorted((SALESFORCE_DIR / "raw").glob("raw_*.json"))[-1]
-    as_of = date.fromisoformat(raw_path.stem.removeprefix("raw_"))
-    tables, report = transform(json.loads(raw_path.read_text()), as_of)
-    csv_tables = as_csv_rows(tables)
+    """The committed Salesforce pull as the sync engine would store it: the
+    canonical tables in CSV shape and the ingest report. Built from the
+    committed files, not the raw dump, because the dump is gitignored and CI
+    has none (the first version failed there, 2026-10-16)."""
+    tables = as_csv_rows(load_dir(SALESFORCE_DIR))
+    report = json.loads((SALESFORCE_DIR / "ingest_report.json").read_text())
     return Snapshot(id=snapshot_id, tenant_id="default", connection_id="c" * 32, run_id="r" * 32,
-                    as_of=as_of, tables=csv_tables, report=report.to_dict(),
+                    as_of=date.fromisoformat(report["as_of"]), tables=tables, report=report,
                     contracts={"passed": 22, "failed": 0, "skipped": 6, "failures": []},
-                    contracts_passed=True, row_counts={n: len(r) for n, r in csv_tables.items()},
+                    contracts_passed=True, row_counts={n: len(r) for n, r in tables.items()},
                     created_at=datetime(2026, 10, 16, 20, 28, tzinfo=timezone.utc))
 
 
