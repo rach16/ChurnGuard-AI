@@ -255,6 +255,13 @@ than asserted in prose. The last three are not, and say so.
 all. Also worth knowing: GitHub Actions `schedule:` is best-effort. Asked for
 every 30 minutes, it once fired once in 4.5 hours.
 
+**A daily sync** (`.github/workflows/sync.yml`) asks the staging backend to run
+every Salesforce connection whose last success is older than a day, and fails
+loudly, with the same email, when a connection needs a login or a run failed or
+broke a contract. It defers under 20% of the org's daily API allowance and backs
+off after `REQUEST_LIMIT_EXCEEDED`. The backend repeats the check on every start,
+because the free tier sleeps and a timer inside the process cannot fire on time.
+
 **What is not injected.** There is no systematic chaos testing: no network
 partition, no latency injection, no dependency-failure matrix. The faults above
 are the ones that actually occurred and were then pinned.
