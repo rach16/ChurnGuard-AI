@@ -65,7 +65,7 @@ required for every account (SMS is not offered: it costs money and is the
 weaker factor), Cognito's default password policy, account recovery by verified
 email only, refresh tokens valid 8 hours, ID and access tokens 1 hour, one
 **confidential** app client (it has a secret, held only by the backend) with the
-authorization-code grant and scopes `openid email`.
+authorization-code grant and scope `openid` alone (Cognito drops custom attributes from the ID token when `email` or `phone` is also requested; found on staging 2026-10-17).
 
 ## 2. Sessions: the backend is the only OAuth client
 

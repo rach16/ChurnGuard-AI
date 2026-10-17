@@ -58,6 +58,7 @@ class FakeCognito:
         self.issue_refresh = True
         self.jwks_fetches = 0
         self.token_forms: list[dict[str, str]] = []
+        self.refresh_scope: dict[str, str] = {}
 
     # ------------------------------------------------------------ client
 
@@ -72,19 +73,25 @@ class FakeCognito:
         q = {k: v[0] for k, v in parse_qs(urlsplit(authorize_url).query).items()}
         code = "code-" + secrets.token_hex(8)
         self.codes[code] = {"nonce": q["nonce"], "challenge": q["code_challenge"],
-                            "redirect_uri": q["redirect_uri"]}
+                            "redirect_uri": q["redirect_uri"], "scope": q.get("scope", "")}
         return code, q["state"]
 
     # ------------------------------------------------------------- tokens
 
-    def id_token(self, nonce: Optional[str]) -> str:
+    def id_token(self, nonce: Optional[str], scope: str = "openid") -> str:
+        """Claims as Cognito issues them for the requested scopes: ``openid``
+        alone (or with ``profile``) carries every readable attribute; ``openid``
+        with only ``email`` and ``phone`` carries just those and drops custom
+        attributes. The real pool did exactly that on staging 2026-10-17."""
+        scopes = set(scope.split())
+        narrowed = bool(scopes - {"openid"}) and "profile" not in scopes
         now = int(time.time())
         claims = {"sub": self.sub, "email": self.email, "aud": CLIENT_ID,
                   "iss": f"https://cognito-idp.{REGION}.amazonaws.com/{POOL}",
                   "token_use": "id", "iat": now, "exp": now + 3600, "auth_time": now}
         if self.groups:
             claims["cognito:groups"] = list(self.groups)
-        if self.tenant:
+        if self.tenant and not narrowed:
             claims["custom:tenant"] = self.tenant
         if nonce is not None:
             claims["nonce"] = nonce
@@ -93,8 +100,9 @@ class FakeCognito:
         key = self.other_key if self.sign_with_other_key else self.key
         return jwt.encode(claims, key, algorithm="RS256", headers=headers)
 
-    def _tokens(self, nonce: Optional[str], refresh: Optional[str]) -> dict[str, Any]:
-        body = {"id_token": self.id_token(nonce), "access_token": "access-" + secrets.token_hex(8),
+    def _tokens(self, nonce: Optional[str], refresh: Optional[str],
+                scope: str = "openid") -> dict[str, Any]:
+        body = {"id_token": self.id_token(nonce, scope), "access_token": "access-" + secrets.token_hex(8),
                 "token_type": "Bearer", "expires_in": 3600}
         if refresh:
             body["refresh_token"] = refresh
@@ -131,13 +139,15 @@ class FakeCognito:
                 refresh = ("rt-" + secrets.token_hex(16)) if self.issue_refresh else None
                 if refresh:
                     self.refresh_tokens.add(refresh)
-                return httpx.Response(200, json=self._tokens(pending["nonce"], refresh))
+                if refresh:
+                    self.refresh_scope[refresh] = pending["scope"]
+                return httpx.Response(200, json=self._tokens(pending["nonce"], refresh, pending["scope"]))
             if form["grant_type"] == "refresh_token":
                 token = form["refresh_token"]
                 if self.disabled or token not in self.refresh_tokens or token in self.revoked:
                     return httpx.Response(400, json={"error": "invalid_grant",
                                                      "error_description": "Refresh Token has been revoked"})
-                return httpx.Response(200, json=self._tokens(None, None))
+                return httpx.Response(200, json=self._tokens(None, None, self.refresh_scope.get(token, "openid")))
         if path == "/oauth2/revoke":
             form = {k: v[0] for k, v in parse_qs(request.content.decode()).items()}
             self.revoked.append(form["token"])

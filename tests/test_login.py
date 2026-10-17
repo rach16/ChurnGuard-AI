@@ -67,7 +67,7 @@ def test_the_authorise_url_carries_pkce_state_and_nonce(provider):
     q = {k: v[0] for k, v in parse_qs(parts.query).items()}
     assert f"{parts.scheme}://{parts.netloc}" == DOMAIN and parts.path == "/oauth2/authorize"
     assert q["response_type"] == "code" and q["client_id"] == CLIENT_ID
-    assert q["redirect_uri"] == f"{SITE}/api/auth/callback" and q["scope"] == "openid email"
+    assert q["redirect_uri"] == f"{SITE}/api/auth/callback" and q["scope"] == "openid"
     assert q["code_challenge_method"] == "S256" and len(q["code_challenge"]) == 43
     assert len(q["state"]) >= 40 and len(q["nonce"]) >= 40 and q["state"] != q["nonce"]
     stored = sessions.states[q["state"]]
@@ -168,6 +168,18 @@ def test_an_account_with_no_role_or_tenant_cannot_sign_in(provider, groups, tena
         signed_in(flow, cognito)
     assert e.value.code == code and sessions.rows == {} and len(cognito.revoked) == 1
     assert audit.audit[-1]["actor"] == f"user:{ADMIN_SUB}" and audit.audit[-1]["detail"]["email"] == ADMIN_EMAIL
+
+
+def test_asking_for_more_scopes_would_drop_the_tenant(provider, monkeypatch):
+    """The staging failure, pinned: with ``openid email`` Cognito leaves custom
+    attributes out of the ID token and every sign-in is refused for no tenant."""
+    import integrations.cognito as cognito_module
+    flow, cognito, sessions, _ = setup(provider)
+    assert signed_in(flow, cognito).session.tenant_id == "default"          # openid alone
+    monkeypatch.setattr(cognito_module, "SCOPES", "openid email")
+    with pytest.raises(LoginRefused) as e:
+        signed_in(flow, cognito)
+    assert e.value.code == "no_tenant"
 
 
 def test_a_refused_exchange_says_why(provider):

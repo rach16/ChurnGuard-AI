@@ -27,9 +27,12 @@ from urllib.parse import urlencode, urlsplit
 import httpx
 
 ALGORITHMS = ["RS256"]
-# The email is all this needs; ``profile`` is not granted by default to a
-# traditional-web-application client, and asking for it would fail the sign-in.
-SCOPES = "openid email"
+# ``openid`` alone, on purpose. Cognito puts every attribute the app client may
+# read into the ID token only when no other OIDC scope is requested; adding
+# ``email`` narrows the token to sub, email and email_verified and drops
+# ``custom:tenant``, which refused every sign-in on staging 2026-10-17 (AWS docs,
+# "Scopes, M2M, and resource servers", openid).
+SCOPES = "openid"
 JWKS_TTL_SECONDS = 3600
 CALLBACK_PATH = "/api/auth/callback"
 ROLES = ("admin", "operator", "viewer")          # highest first
