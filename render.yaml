@@ -138,3 +138,13 @@ services:
         sync: false
       - key: OPERATOR_KEY
         sync: false
+      # Operator sign-in (2.6, ADR-0013): the staging Cognito user pool and its
+      # confidential app client. The secret is held only here.
+      - key: COGNITO_USER_POOL_ID
+        sync: false
+      - key: COGNITO_CLIENT_ID
+        sync: false
+      - key: COGNITO_CLIENT_SECRET
+        sync: false
+      - key: COGNITO_DOMAIN
+        sync: false

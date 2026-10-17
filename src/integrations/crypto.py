@@ -38,6 +38,9 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 APP = "churnguard"
 PURPOSE = "salesforce_refresh_token"
+# The sign-in session's Cognito refresh token (ADR-0013 §2). A distinct purpose,
+# so a wrapped key from one kind of row is refused for the other by KMS itself.
+SESSION_PURPOSE = "cognito_refresh_token"
 NONCE_BYTES = 12
 DATA_KEY_BYTES = 32
 
@@ -54,14 +57,14 @@ class KeyVersionUnknown(CustodyError):
     """The data key was wrapped by a master key version this provider does not hold."""
 
 
-def encryption_context(connection_id: str) -> dict[str, str]:
+def encryption_context(connection_id: str, purpose: str = PURPOSE) -> dict[str, str]:
     """Binds a wrapped data key to one connection and one purpose.
 
     Sent to KMS as the EncryptionContext, so a wrapped key presented with any other
     context is refused by KMS itself; used as associated data by the local provider
     for the same effect.
     """
-    return {"app": APP, "purpose": PURPOSE, "connection_id": str(connection_id)}
+    return {"app": APP, "purpose": purpose, "connection_id": str(connection_id)}
 
 
 def _aad(context: Mapping[str, str]) -> bytes:
@@ -214,16 +217,18 @@ class Sealed:
     master_key_version: str
 
 
-def seal(provider: KeyProvider, connection_id: str, plaintext: str) -> Sealed:
-    context = encryption_context(connection_id)
+def seal(provider: KeyProvider, connection_id: str, plaintext: str, *,
+         purpose: str = PURPOSE) -> Sealed:
+    context = encryption_context(connection_id, purpose)
     data_key, wrapped, version = provider.generate_data_key(context)
     nonce = secrets.token_bytes(NONCE_BYTES)
     ciphertext = AESGCM(data_key).encrypt(nonce, plaintext.encode("utf-8"), _aad(context))
     return Sealed(ciphertext, nonce, wrapped, version)
 
 
-def unseal(provider: KeyProvider, connection_id: str, sealed: Sealed) -> str:
-    context = encryption_context(connection_id)
+def unseal(provider: KeyProvider, connection_id: str, sealed: Sealed, *,
+           purpose: str = PURPOSE) -> str:
+    context = encryption_context(connection_id, purpose)
     data_key = provider.unwrap_data_key(sealed.wrapped_data_key, context, sealed.master_key_version)
     try:
         return AESGCM(data_key).decrypt(sealed.nonce, sealed.ciphertext, _aad(context)).decode("utf-8")

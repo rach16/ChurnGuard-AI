@@ -20,6 +20,7 @@ EVENTS = frozenset({
     "refresh", "refresh_failed", "needs_reauth",
     "sync_started", "sync_finished", "sync_deferred", "promotion", "rollback", "retention",
     "disconnect", "purge", "rewrap",
+    "login", "login_refused", "logout", "session_revoked",
 })
 
 

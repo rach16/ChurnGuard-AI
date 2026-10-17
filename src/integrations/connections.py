@@ -233,14 +233,16 @@ class ConnectionStore:
         """The state's row, exactly once, while it is still valid; else None.
 
         One statement, so two callbacks racing on the same state cannot both win:
-        the update's own predicate is the check.
+        the update's own predicate is the check. Only a Salesforce state: a
+        sign-in state (ADR-0013) presented here is not consumed, so this flow
+        never sends its client secret to the host a sign-in state names.
         """
         row = conn.execute(
             "update oauth_states set consumed_at = now()"
-            " where state = %s and consumed_at is null and expires_at > now()"
+            " where state = %s and provider = %s and consumed_at is null and expires_at > now()"
             " returning state, tenant_id, code_verifier, login_host, redirect_uri,"
             " expected_org_id, created_at, expires_at",
-            (state,),
+            (state, PROVIDER),
         ).fetchone()
         return dict(row) if row else None
 

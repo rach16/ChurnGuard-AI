@@ -26,6 +26,7 @@ load_dotenv(ROOT / ".env")
 from integrations import audit, crypto  # noqa: E402
 from integrations.connections import ConnectionStore  # noqa: E402
 from integrations.db import Database, redacted_url  # noqa: E402
+from integrations.sessions import SessionStore, new_cookie_value  # noqa: E402
 from integrations.sync_store import SyncStore  # noqa: E402
 
 URL = os.getenv("DATABASE_URL")
@@ -45,9 +46,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving"]
+        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login"]
         yield database
     finally:
         database.close()
@@ -324,6 +325,62 @@ def test_metrics_sql_aggregates_the_run_rows(db, store):
     assert m["median_seconds"] is not None and m["last_succeeded_at"] is not None
     assert m["api_requests_per_day"] == round(m["api_requests"] / 30, 2)
     assert runs.metrics("00000000-0000-0000-0000-000000000009")["runs"] == 0
+
+
+@needs_db
+def test_sessions_round_trip_hashed_and_expiring(db, provider):
+    from datetime import timedelta
+
+    sessions = SessionStore(db)
+    cookie = new_cookie_value()
+    with db.connection() as conn:
+        sid = sessions.new_id(conn)
+        sealed = crypto.seal(provider, sid, "rt-" + "z" * 40, purpose=crypto.SESSION_PURPOSE)
+        created = sessions.create(conn, id=sid, cookie_value=cookie, tenant_id="default",
+                                  user_sub="sub-1", email="a@example.test", groups=("admin",),
+                                  sealed_refresh=sealed, now=NOW)
+        stored = conn.execute("select id_hash from sessions where id = %s", (sid,)).fetchone()["id_hash"]
+    assert bytes(stored) != cookie.encode() and len(bytes(stored)) == 32        # only the hash
+    assert created.role == "admin" and created.expires_at == NOW + timedelta(hours=8)
+
+    got = sessions.get(cookie, now=NOW + timedelta(minutes=5))
+    assert got.id == sid and got.groups == ("admin",)
+    assert crypto.unseal(provider, sid, got.sealed_refresh, purpose=crypto.SESSION_PURPOSE) == "rt-" + "z" * 40
+    assert sessions.get(cookie, now=NOW + timedelta(minutes=5)).last_seen_at == NOW + timedelta(minutes=5)
+    assert sessions.get("wrong", now=NOW) is None
+
+    with db.connection() as conn:
+        sessions.recheck(conn, sid, ("viewer",), NOW + timedelta(minutes=6))
+    assert sessions.get_by_id(sid).groups == ("viewer",)
+
+    assert sessions.get(cookie, now=NOW + timedelta(hours=2)) is None             # idle: deleted
+    assert sessions.get_by_id(sid) is None
+
+    with db.connection() as conn:
+        for _ in range(2):
+            i = sessions.new_id(conn)
+            sessions.create(conn, id=i, cookie_value=new_cookie_value(), tenant_id="default",
+                            user_sub="sub-2", email="b@example.test", groups=("operator",),
+                            sealed_refresh=crypto.seal(provider, i, "rt", purpose=crypto.SESSION_PURPOSE),
+                            now=NOW)
+        assert sessions.delete_for_user(conn, "sub-2") == 2
+
+
+@needs_db
+def test_a_sign_in_state_and_a_connect_state_cannot_stand_in_for_each_other(db, store):
+    sessions = SessionStore(db)
+    with db.connection() as conn:
+        sessions.create_state(conn, state="login-1", verifier="v" * 43, nonce="n" * 43,
+                              redirect_uri="https://site/api/auth/callback", return_to="/integrations",
+                              login_host="https://x.auth.us-west-2.amazoncognito.com")
+        store.create_state(conn, state="connect-1", code_verifier="v" * 43, login_host="login.salesforce.com",
+                           redirect_uri="https://site/api/integrations/salesforce/callback")
+    with db.connection() as conn:
+        assert store.consume_state(conn, "login-1") is None                      # not a connect state
+        assert sessions.consume_state(conn, "connect-1") is None                 # not a sign-in state
+        got = sessions.consume_state(conn, "login-1")
+        assert got["nonce"] == "n" * 43 and got["return_to"] == "/integrations"
+        assert sessions.consume_state(conn, "login-1") is None                   # single use
 
 
 @needs_db

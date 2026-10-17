@@ -62,6 +62,7 @@ interface Play {
   save_rate?: number;
 }
 import { Rail } from './shell';
+import { AccountMenu } from './account';
 import { SourceLabel, useSource } from './source';
 
 function money(value: number): string {
@@ -261,6 +262,7 @@ export function Console() {
               Ask
             </a>
           </Button>
+          <AccountMenu />
           </div>
         </div>
 

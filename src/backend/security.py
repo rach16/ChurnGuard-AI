@@ -42,6 +42,9 @@ EXEMPT_PATHS = frozenset({
     # Salesforce's redirect after a login. It cannot present a key; it is
     # authenticated by the single-use state the flow issued (ADR-0012, section 1).
     "/integrations/salesforce/callback",
+    # Sign-in (ADR-0013): a browser on its way to signing in cannot present an
+    # API key. Each route authenticates by the session or the single-use state.
+    "/auth/login", "/auth/callback", "/auth/logout", "/auth/me",
 })
 
 API_KEY_HEADER = "X-API-Key"

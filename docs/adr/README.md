@@ -18,3 +18,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0010](0010-api-key-auth-and-per-process-rate-limiting.md) | API key auth and per-process rate limiting | Accepted |
 | [0011](0011-derive-churn-label-from-salesforce.md) | Derive the churn label from a Salesforce org, and report every guess | Accepted |
 | [0012](0012-salesforce-integration-architecture.md) | Salesforce integration architecture: connections, token custody, sync | Accepted |
+| [0013](0013-operator-login-with-cognito.md) | Operator login: Cognito accounts, server-side sessions, roles | Accepted |

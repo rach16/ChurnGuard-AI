@@ -56,10 +56,14 @@ from core.datasource import (
 from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction, serving
+from integrations.cognito import CognitoClient, CognitoConfig, missing_settings as cognito_missing
 from integrations.connections import ConnectionStore
+from integrations.login import LoginFlow
+from integrations.sessions import SessionStore
 from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
+import auth_routes
 import connections_routes
 import security
 from model.survival import ChurnSurvivalModel
@@ -107,6 +111,10 @@ class ServiceState:
         # the engine that starts runs needs the app's credentials too.
         self.sync_runs: Optional[SyncStore] = None
         self.sync: Optional[SyncEngine] = None
+        # Operator sign-in (2.6, ADR-0013): sessions in the same database, the
+        # Cognito refresh token sealed under the same master key.
+        self.sessions: Optional[SessionStore] = None
+        self.login: Optional[LoginFlow] = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -200,6 +208,7 @@ class ServiceState:
             "multi_agent_system": self.multi_agent_system is not None,
             "connections": self.connections is not None,
             "sync": self.sync is not None,
+            "login": self.login is not None,
         }
 
 
@@ -360,6 +369,7 @@ def _init_connections() -> None:
         state.switched_off(
             "connections",
             "DATABASE_URL is not set: connecting Salesforce from the site is not enabled here")
+        state.switched_off("login", "DATABASE_URL is not set: sign-in keeps its sessions there")
         return
     try:
         database = integrations_db.Database(integrations_db.database_url()).open()
@@ -392,8 +402,33 @@ def _init_connections() -> None:
         logger.info(
             f"✓ connections: {integrations_db.redacted_url(database.url)}, "
             f"{len(applied)} migration(s) applied, master key via {key}")
+        _init_login(database, provider)
     except Exception as e:
         state.unavailable("connections", f"{type(e).__name__}: {e}")
+        if "login" not in state.not_applicable:
+            state.unavailable("login", f"needs the database and master key, which failed: {type(e).__name__}: {e}")
+
+
+def _init_login(database, provider) -> None:
+    """Sign-in needs the database and master key above, a user pool, and the
+    site's origin for the callback. Any missing means sign-in is off here."""
+    config = CognitoConfig.from_env()
+    if config is None:
+        state.switched_off("login", f"no user pool configured ({', '.join(cognito_missing())} not set)")
+        return
+    origin = os.getenv("PUBLIC_SITE_ORIGIN", "").strip()
+    if not origin:
+        state.unavailable("login", "PUBLIC_SITE_ORIGIN is not set; the sign-in callback has no address")
+        return
+    state.sessions = SessionStore(database)
+    state.login = LoginFlow(state.sessions, provider, CognitoClient(config), site_origin=origin)
+    try:
+        with database.connection() as conn:
+            purged = state.sessions.purge_expired(conn)
+            state.sessions.purge_states(conn)
+        logger.info(f"✓ sign-in: user pool {config.user_pool_id}, {purged} expired session(s) purged")
+    except Exception as e:  # noqa: BLE001 - housekeeping must not stop the start
+        logger.warning(f"session housekeeping failed: {type(e).__name__}: {e}")
 
 
 def _sync_on_wake() -> None:
@@ -517,6 +552,7 @@ security.install(app)
 # Log in with Salesforce (1.9). The router reads `state` at request time, which
 # is why it takes a getter: the subsystem comes up in lifespan, after this line.
 app.include_router(connections_routes.build_router(lambda: state))
+app.include_router(auth_routes.build_router(lambda: state))
 
 
 def require_ai(component: str):
