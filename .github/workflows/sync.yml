@@ -1,0 +1,75 @@
+# The daily sync (ADR-0012 section 8, 1.11).
+#
+# Asks the backend to run a sync for every connection whose last success is
+# older than a day. This is the schedule and the keep-alive in one: the org
+# expires a refresh token idle for 30 days, and a scheduled run is a use.
+#
+# Why a workflow and not a timer in the process: the free tier sleeps after
+# fifteen idle minutes, so a timer inside the service cannot fire when it is
+# due. A scheduler outside the process is also the production shape (an
+# EventBridge rule or Cloud Scheduler job hitting the same endpoint); GitHub
+# Actions is the free stand-in. The operator key lives in a repository secret
+# and never in the workflow file.
+#
+# Fails loudly when a connection needs a login or a run failed or broke a
+# contract, and GitHub emails the repository owner on a failed scheduled run,
+# the same alarm the heartbeat uses. Cadence is best effort (see heartbeat.yml);
+# "once a day, roughly" is what the 30-day limit needs.
+
+name: Daily sync
+
+on:
+  schedule:
+    - cron: "0 13 * * *"      # 06:00 Pacific, roughly
+  workflow_dispatch:
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+env:
+  BACKEND: https://churnguard-backend-staging.onrender.com
+  # A sleeping service pays a cold start before it can answer; then the run
+  # itself is a few seconds.
+  MAX_WAIT: 240
+  ATTEMPTS: 3
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Sync every connection that is due
+        env:
+          OPERATOR_KEY: ${{ secrets.STAGING_OPERATOR_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -z "$OPERATOR_KEY" ]; then
+            echo "STAGING_OPERATOR_KEY is not set in this repository's secrets"; exit 1
+          fi
+          URL="$BACKEND/connections/sync-due?wait=true"
+          BODY=$(mktemp)
+          CODE=000
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' \
+                   -X POST -H "X-Operator-Key: $OPERATOR_KEY" "$URL")
+            echo "attempt $attempt/$ATTEMPTS: POST $URL -> $CODE"
+            [ "$CODE" = "200" ] && break
+            sleep $((attempt * 20))
+          done
+          echo "---"; cat "$BODY"; echo; echo "---"
+          [ "$CODE" = "200" ] || { echo "the backend did not answer 200"; exit 1; }
+          python3 - "$BODY" <<'PY'
+          import json, sys
+          body = json.load(open(sys.argv[1]))
+          for c in body["connections"]:
+              run = c.get("run") or {}
+              print(f"{c['org_id']}: {c['action']}"
+                    + (f" ({c['reason']})" if c.get("reason") else "")
+                    + (f" -> {run['status']}, {run.get('records_fetched', 0)} records, "
+                       f"{run.get('api_requests', 0)} API calls" if run else "")
+                    + (f": {run['error']}" if run.get("error") else ""))
+          if body["outcome"] != "ok":
+              print("needs attention: see docs/RUNBOOK_SALESFORCE_CONNECTION.md, 'The morning email'")
+              sys.exit(1)
+          PY

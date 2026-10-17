@@ -465,6 +465,11 @@ function RunRow({ run, serving }: { run: SyncRun; serving: boolean }) {
             {run.mode}
           </Badge>
         )}
+        {run.trigger !== 'manual' && (
+          <Badge variant="secondary" className="text-[10px] font-normal">
+            {run.trigger === 'schedule' ? 'scheduled' : 'on wake'}
+          </Badge>
+        )}
         {serving && (
           <Badge className="text-[10px] font-normal">serving</Badge>
         )}

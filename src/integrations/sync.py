@@ -40,6 +40,7 @@ schedule (1.11); a manual run today simply fails with that code named.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 from dataclasses import dataclass, field
@@ -54,7 +55,7 @@ from core.contracts import run_contracts
 from integrations import audit
 from integrations.connections import ConnectionStore
 from integrations.sync_store import Serving, Snapshot, SyncRun, SyncStore
-from integrations.tokens import ConnectionGone, NeedsReauth, TokenError, TokenService
+from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenError, TokenService
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,15 @@ ABANDONED_AFTER_SECONDS = 1800
 # ADR-0012 section 7: snapshots, the last 10; raw landings, 30 days.
 SNAPSHOTS_KEPT = 10
 RAW_RETENTION_DAYS = 30
+# The schedule (ADR-0012 section 8). A connection is due when its last
+# successful run is older than this; a scheduled run is deferred while the
+# org has less than the reserve of its daily API allowance left, and backed
+# off after REQUEST_LIMIT_EXCEEDED: an hour, doubling, capped, with jitter.
+SYNC_INTERVAL = timedelta(hours=float(os.getenv("SYNC_INTERVAL_HOURS", "24")))
+API_RESERVE = float(os.getenv("SYNC_API_RESERVE", "0.20"))
+BACKOFF_BASE = timedelta(hours=1)
+BACKOFF_CAP = timedelta(hours=12)
+BACKOFF_JITTER = timedelta(minutes=10)
 LIMIT_INFO = re.compile(r"api-usage=(\d+)/(\d+)")
 DATA_PREFIX = re.compile(r"^/services/data/v[\d.]+/")
 
@@ -176,6 +186,93 @@ class SyncEngine:
             swept = self._sweep(conn)
             self._retain(conn, "default")
         return swept
+
+    # --------------------------------------------------------------- schedule
+
+    def sync_due(self, *, actor: str = "system", trigger: str = "schedule",
+                 wait: bool = False, interval: timedelta = SYNC_INTERVAL) -> list[dict[str, Any]]:
+        """Start a run for every active connection whose last success is older
+        than ``interval``. One line per connection saying what happened:
+        ``started`` (or ``joined``), ``not_due``, ``deferred`` (API allowance or
+        back-off, with when it will be tried), or ``skipped`` (needs a login).
+        With ``wait`` the runs execute inline and their outcome is in the line,
+        which is what a scheduler that wants to fail loudly needs."""
+        now = self.now()
+        with self.connections.db.connection() as conn:
+            connections = self.connections.all(conn)
+        out: list[dict[str, Any]] = []
+        for c in connections:
+            line: dict[str, Any] = {"connection_id": c.id, "org_id": c.org_id, "trigger": trigger}
+            if c.status != "active":
+                out.append({**line, "action": "skipped", "reason": c.status_reason or c.status})
+                continue
+            recent = self.runs.runs(c.id, limit=10)
+            last_ok = next((r for r in recent if r.status == "succeeded"), None)
+            if last_ok and last_ok.finished_at and now - last_ok.finished_at < interval:
+                out.append({**line, "action": "not_due", "last_succeeded_at": last_ok.finished_at,
+                            "due_at": last_ok.finished_at + interval})
+                continue
+            retry_at = self._backoff_until(recent)
+            if retry_at and now < retry_at:
+                out.append({**line, "action": "deferred", "reason": "backing off after REQUEST_LIMIT_EXCEEDED",
+                            "retry_at": retry_at})
+                continue
+            reserve = self._allowance(c.id)
+            if reserve is not None and reserve["fraction_remaining"] < API_RESERVE:
+                self._audit_deferred(c, {"reason": "api_allowance_low", **reserve})
+                out.append({**line, "action": "deferred", "reason": "org API allowance low", **reserve})
+                continue
+            try:
+                triggered = self.trigger(c.id, actor=actor, trigger=trigger)
+            except NeedsReauth as e:
+                out.append({**line, "action": "skipped", "reason": str(e)})
+                continue
+            if triggered.joined:
+                out.append({**line, "action": "joined", "run": triggered.run.public()})
+                continue
+            if wait:
+                run = self.run(triggered.run.id)
+            else:
+                self.spawn(triggered.run.id)
+                run = triggered.run
+            out.append({**line, "action": "started", "run": run.public()})
+        return out
+
+    def _allowance(self, connection_id: str) -> Optional[dict[str, Any]]:
+        """The org's daily API allowance now, one call. None when it cannot be
+        read; the run itself will find out."""
+        try:
+            limits = self.tokens.get(connection_id, "limits")
+        except (TokenError, RefreshFailed) as e:
+            logger.warning(f"allowance check for {connection_id[:8]} failed: {type(e).__name__}: {e}")
+            return None
+        daily = limits.get("DailyApiRequests") or {}
+        maximum, remaining = daily.get("Max"), daily.get("Remaining")
+        if not maximum:
+            return None
+        return {"api_max": maximum, "api_remaining": remaining,
+                "fraction_remaining": round(remaining / maximum, 4)}
+
+    def _backoff_until(self, recent: list[SyncRun]) -> Optional[datetime]:
+        """After REQUEST_LIMIT_EXCEEDED: one hour, doubling per consecutive
+        such failure, capped, plus a jitter derived from the run id so the
+        decision is the same whoever asks."""
+        streak = 0
+        for r in recent:
+            if r.status == "failed" and r.error and "REQUEST_LIMIT_EXCEEDED" in r.error:
+                streak += 1
+            else:
+                break
+        if not streak or not recent[0].finished_at:
+            return None
+        wait = min(BACKOFF_CAP, BACKOFF_BASE * (2 ** (streak - 1)))
+        jitter = BACKOFF_JITTER * (int(recent[0].id.replace("-", "")[:8], 16) % 1000 / 1000)
+        return recent[0].finished_at + wait + jitter
+
+    def _audit_deferred(self, c, detail: dict[str, Any]) -> None:
+        with self.connections.db.connection() as conn:
+            audit.record(conn, "sync_deferred", actor="system", tenant_id=c.tenant_id,
+                         connection_id=c.id, org_id=c.org_id, detail=detail)
 
     # --------------------------------------------------------------- rollback
 

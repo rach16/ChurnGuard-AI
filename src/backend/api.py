@@ -5,6 +5,7 @@ Main API server with RAG endpoints for churn analysis
 
 import os
 import sys
+import threading
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -382,6 +383,10 @@ def _init_connections() -> None:
             # trigger for half an hour otherwise.
             for run_id in state.sync.sweep():
                 logger.warning(f"sync run {run_id} left unfinished by the previous process; marked failed")
+            # On wake (ADR-0012 §5): the free tier sleeps, so a timer in this
+            # process cannot fire on time. Starting is the moment to ask whether
+            # a sync is due; in a thread so the start-up is not held for it.
+            threading.Thread(target=_sync_on_wake, name="sync-on-wake", daemon=True).start()
         else:
             logger.warning("SALESFORCE_CLIENT_ID/SECRET not set: connections are read-only here")
         logger.info(
@@ -389,6 +394,15 @@ def _init_connections() -> None:
             f"{len(applied)} migration(s) applied, master key via {key}")
     except Exception as e:
         state.unavailable("connections", f"{type(e).__name__}: {e}")
+
+
+def _sync_on_wake() -> None:
+    try:
+        for line in state.sync.sync_due(trigger="wake"):
+            logger.info(f"on wake: org {line.get('org_id')} {line['action']}"
+                        + (f" ({line['reason']})" if line.get("reason") else ""))
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"on-wake sync check failed: {type(e).__name__}: {e}", exc_info=True)
 
 
 def _serve_snapshot(snapshot: Snapshot, reload: bool = True) -> None:

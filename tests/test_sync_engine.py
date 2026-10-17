@@ -32,7 +32,9 @@ from connectors.salesforce import FIELDS, RAW_KEYS, soql  # noqa: E402
 from integrations import crypto  # noqa: E402
 from integrations.flow import ConnectFlow  # noqa: E402
 from integrations.redaction import find_secret  # noqa: E402
-from integrations.sync import OBJECTS, SNAPSHOTS_KEPT, SYNC_FIELDS, RollbackRefused, SyncEngine  # noqa: E402
+from integrations.sync import (
+    BACKOFF_BASE, OBJECTS, SNAPSHOTS_KEPT, SYNC_FIELDS, SYNC_INTERVAL, RollbackRefused, SyncEngine,
+)  # noqa: E402
 from integrations.tokens import NeedsReauth, TokenService  # noqa: E402
 from tests.salesforce_fakes import (  # noqa: E402
     CODE, HOST, ORG, REFRESH, SITE, FakeSalesforce, FakeStore, FakeSyncStore,
@@ -336,6 +338,90 @@ def test_on_promote_is_called_with_the_snapshot_and_its_failure_is_recorded(prov
     assert store.audit[-1]["detail"]["promoted"] is True and store.audit[-1]["detail"]["served"] is False
 
 
+# --------------------------------------------------------------- schedule
+
+def test_sync_due_runs_once_a_day_and_is_a_use(provider):
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+
+    (first,) = engine.sync_due(wait=True)                                # never synced: due
+    assert first["action"] == "started" and first["trigger"] == "schedule"
+    assert first["run"]["status"] == "succeeded" and first["run"]["trigger"] == "schedule"
+    assert store.rows[c.id].last_used_at == NOON                          # resets the org's idle timer
+
+    clock.at = NOON + timedelta(hours=23)
+    (again,) = engine.sync_due(wait=True)
+    assert again["action"] == "not_due" and again["due_at"] == NOON + SYNC_INTERVAL
+
+    clock.at = NOON + timedelta(hours=25)
+    (due,) = engine.sync_due(wait=True)
+    assert due["action"] == "started" and due["run"]["mode"] == "incremental"
+    assert len(runs.runs(c.id)) == 2
+    assert sf.api_calls.count("/services/data/v59.0/limits") == 2         # one allowance check per due run
+
+
+def test_sync_due_defers_while_the_org_allowance_is_low(provider):
+    sf = FakeSalesforce()
+    sf.api_remaining = 2000                                               # 13% of 15,000 left
+    engine, c, sf, store, runs = engine_for(provider, sf)
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "deferred" and line["reason"] == "org API allowance low"
+    assert line["fraction_remaining"] == 0.1333 and runs.runs(c.id) == []
+    assert store.audit[-1]["event"] == "sync_deferred" and store.audit[-1]["detail"]["api_remaining"] == 2000
+
+    sf.api_remaining = 3001                                               # just over the reserve
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "started"
+
+
+def test_sync_due_backs_off_after_request_limit_exceeded(provider):
+    clock = Clock(NOON)
+    sf = FakeSalesforce()
+    sf.fail_object["Account"] = (403, "REQUEST_LIMIT_EXCEEDED")
+    engine, c, sf, store, runs = engine_for(provider, sf, clock=clock)
+    (line,) = engine.sync_due(wait=True)
+    assert line["run"]["status"] == "failed" and "REQUEST_LIMIT_EXCEEDED" in line["run"]["error"]
+
+    clock.at = NOON + timedelta(minutes=30)
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "deferred" and line["reason"].startswith("backing off")
+    assert NOON + BACKOFF_BASE <= line["retry_at"] <= NOON + BACKOFF_BASE + timedelta(minutes=10)
+
+    clock.at = NOON + timedelta(hours=1, minutes=11)                      # past base plus any jitter
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "started" and line["run"]["status"] == "failed"   # second strike
+    clock.at = clock.at + timedelta(hours=1, minutes=30)
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "deferred"                                    # now two hours
+    assert len(runs.runs(c.id)) == 2
+
+    sf.fail_object.clear()
+    clock.at = clock.at + timedelta(hours=2)
+    (line,) = engine.sync_due(wait=True)
+    assert line["action"] == "started" and line["run"]["status"] == "succeeded"
+
+
+def test_sync_due_skips_a_connection_that_needs_a_login_and_joins_a_running_one(provider):
+    engine, c, sf, store, runs = engine_for(provider, FakeSalesforce(refresh_fail="invalid_grant"))
+    (line,) = engine.sync_due(wait=True)                                  # the allowance check kills it
+    assert line["action"] == "skipped" and "invalid_grant" in line["reason"]
+    assert runs.runs(c.id) == []
+
+    engine2, c2, sf2, store2, runs2 = engine_for(provider)
+    engine2.spawn = lambda run_id: None
+    pending = engine2.start(c2.id)
+    (line,) = engine2.sync_due()
+    assert line["action"] == "joined" and line["run"]["id"] == pending.run.id
+
+
+def test_sync_due_without_wait_leaves_the_run_to_the_thread(provider):
+    engine, c, sf, store, runs = engine_for(provider)
+    spawned: list = []
+    engine.spawn = spawned.append
+    (line,) = engine.sync_due()
+    assert line["action"] == "started" and line["run"]["status"] == "pending" and spawned == [line["run"]["id"]]
+
+
 # ----------------------------------------------------------------- rollback
 
 def test_rollback_serves_the_previous_snapshot_and_audits(provider):
@@ -538,6 +624,26 @@ def test_sync_and_runs_routes(provider, monkeypatch):
 
     assert client.post("/connections/nope/sync", headers=KEY).status_code == 404
     assert client.get("/connections/nope/runs").json()["runs"] == []
+
+
+def test_sync_due_route_reports_an_outcome_a_scheduler_can_fail_on(provider, monkeypatch):
+    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
+    engine, c, sf, store, runs = engine_for(provider)
+    client = make_app(State(store, provider, engine.tokens, runs, engine))
+    assert client.post("/connections/sync-due").status_code == 403
+
+    r = client.post("/connections/sync-due?wait=true", headers=KEY)
+    assert r.status_code == 200 and r.json()["outcome"] == "ok"
+    (line,) = r.json()["connections"]
+    assert line["action"] == "started" and line["run"]["status"] == "succeeded" and line["run"]["trigger"] == "schedule"
+
+    sf.records["Account"][2]["Customer_Status__c"] = "Active"            # the next candidate degrades
+    sf.records["Account"][2]["Churn_Date__c"] = None
+    sf.records["Account"][2]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    engine.now = Clock(NOON + timedelta(days=2))
+    r = client.post("/connections/sync-due?wait=true", headers=KEY)
+    assert r.status_code == 200 and r.json()["outcome"] == "attention"
+    assert r.json()["connections"][0]["run"]["status"] == "degraded"
 
 
 def test_rollback_route(provider, monkeypatch):

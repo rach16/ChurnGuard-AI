@@ -60,6 +60,7 @@ class FakeSalesforce:
         self.queries: list[tuple[str, str, str | None]] = []   # (endpoint, sobject, since)
         self.api_used = 0
         self.api_max = 15000
+        self.api_remaining = 14990                        # what /limits reports
         self._cursors: dict[str, list[dict]] = {}
 
     def _token_body(self, access: str, refresh: str | None) -> dict:
@@ -107,7 +108,8 @@ class FakeSalesforce:
             headers = {"Sforce-Limit-Info": f"api-usage={self.api_used}/{self.api_max}"}
             if path.endswith("/limits"):
                 return httpx.Response(200, headers=headers,
-                                      json={"DailyApiRequests": {"Max": 15000, "Remaining": 14990}})
+                                      json={"DailyApiRequests": {"Max": self.api_max,
+                                                                 "Remaining": self.api_remaining}})
             if path.endswith("/query") or path.endswith("/queryAll"):
                 q = parse_qs(request.url.query.decode())["q"][0]
                 if "FROM Organization" in q:

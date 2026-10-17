@@ -19,6 +19,10 @@ Five routes, three audiences:
                                                   timings. No record data.
 - ``POST /connections/{id}/rollback``            operator: serve an earlier snapshot
                                                   (the previous one by default).
+- ``POST /connections/sync-due``                 operator, the schedule: a run for every
+                                                  connection whose last success is older
+                                                  than the interval; ``?wait=true`` reports
+                                                  the outcomes.
 - ``GET  /integrations/salesforce/callback``     Salesforce's redirect, carrying the
                                                   one-time code and the state. Public by
                                                   necessity and authenticated by the
@@ -180,6 +184,20 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             return {"enabled": False, "runs": []}
         rows = await run_in_threadpool(runs.runs, connection_id, max(1, min(limit, 50)))
         return {"enabled": True, "runs": [r.public() for r in rows]}
+
+    @router.post("/connections/sync-due")
+    async def sync_due(wait: bool = False, actor: str = Depends(require_operator)):
+        """The schedule's entry point (1.11): a run for every connection whose
+        last success is older than the interval. ``wait=true`` runs inline and
+        reports each outcome, so a scheduler can fail when one does."""
+        engine = sync_or_503()
+        outcomes = await run_in_threadpool(engine.sync_due, actor=actor, trigger="schedule", wait=wait)
+        worst = "ok"
+        for o in outcomes:
+            run = o.get("run") or {}
+            if o["action"] == "skipped" or run.get("status") in ("failed", "degraded"):
+                worst = "attention"
+        return {"outcome": worst, "connections": outcomes}
 
     @router.post("/connections/{connection_id}/sync", status_code=202)
     async def sync_connection(connection_id: str, actor: str = Depends(require_operator)):

@@ -19,6 +19,8 @@ of real customers, and nothing may be written as if it were (ADR-0007).
 
 **Log in with Salesforce works on staging** (1.9, 2026-10-16, ADR-0012 Accepted). Connect, Test connection and Disconnect on the Integrations page against `churnguard-dev`; the refresh token is sealed under AWS KMS (`alias/churnguard-staging-master`, the project's first paid component at ~$1/month) and stored in Neon Postgres (free tier, branch `staging`); every action is audited. Operator actions are gated by a shared `OPERATOR_KEY` the preview's server attaches, the named stand-in until login (2.6). **Not on the live site:** production has no `DATABASE_URL`, so it reports connections off. The site's data still arrives by the laptop pull until 1.10.
 
+**1.11 Operations, in flight** (started 2026-10-16). **1.11.1 built, awaiting staging:** `POST /connections/sync-due` runs every active connection whose last success is older than 24 h (`SYNC_INTERVAL_HOURS`); called by `.github/workflows/sync.yml` once a day with the operator key from a repository secret, and on every start of the backend. Defers under 20% API allowance (`sync_deferred` audit), backs off after `REQUEST_LIMIT_EXCEEDED` (1 h doubling, cap 12 h, jitter). The workflow fails loudly, and GitHub emails, on a connection needing a login or a failed or degraded run. Needs the `STAGING_OPERATOR_KEY` repository secret to be set by hand. Next: 1.11.2 metrics and alerts, 1.11.3 record.
+
 **The site runs on the sync** (1.10, 2026-10-16, see Completed). On staging every page shows the last promoted snapshot, restored from Neon on every start; the laptop pull is the fallback where no database or no promoted snapshot exists, which is production today.
 
 **Live at https://churnguard.banik.dev** (2026-09-03).

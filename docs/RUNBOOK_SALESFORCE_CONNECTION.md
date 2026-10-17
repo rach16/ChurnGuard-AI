@@ -179,6 +179,37 @@ with `SystemModstamp` since that object's watermark, less five minutes, so a
 sync of an unchanged org is five calls and under a second. Deletes arrive as
 tombstones and leave the candidate at the next transform.
 
+## The schedule, and the morning email
+
+`.github/workflows/sync.yml` runs once a day (best effort, see the heartbeat's
+note on GitHub's cron) and calls `POST /connections/sync-due?wait=true` with
+the operator key from the repository secret `STAGING_OPERATOR_KEY`. The same
+check runs on every start of the backend, because the free tier sleeps and a
+timer inside the process would not fire. Either way a connection is synced
+when its last success is older than `SYNC_INTERVAL_HOURS` (24). A scheduled
+run is a use, so the org's 30-day idle limit never trips while it runs.
+
+Before starting, the schedule reads the org's daily API allowance (one call)
+and defers while less than `SYNC_API_RESERVE` (20%) is left, audited as
+`sync_deferred`. After `REQUEST_LIMIT_EXCEEDED` it backs off: an hour,
+doubling per consecutive strike, capped at twelve, plus up to ten minutes of
+jitter.
+
+**The workflow fails, and GitHub emails you, when** a connection needs a
+login, or a run failed, or a run broke a contract. The email links to the run
+log, which prints one line per connection:
+
+| Line says | Do |
+|---|---|
+| `skipped (Salesforce refused the stored token …)` | Integrations → **Reconnect** |
+| `started -> failed, …: Account: INVALID_FIELD …` | See "Sync runs" above; restore the field, Sync now |
+| `started -> degraded …` | A contract failed; the page names it; fix the data, Sync now. The previous snapshot still serves |
+| `deferred (org API allowance low)` | Nothing; tomorrow's run will go unless something else is spending the org's calls |
+| `the backend did not answer 200` | The service is down or waking slowly: check Render's logs; the heartbeat will say if it is production |
+| `STAGING_OPERATOR_KEY is not set` | GitHub → Settings → Secrets and variables → Actions → New repository secret |
+
+Run it by hand: GitHub → Actions → **Daily sync** → Run workflow.
+
 ## What the site serves (promotion)
 
 The `serving` table has one row per tenant naming the snapshot every page
