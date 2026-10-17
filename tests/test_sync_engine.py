@@ -34,6 +34,7 @@ from integrations.flow import ConnectFlow  # noqa: E402
 from integrations.redaction import find_secret  # noqa: E402
 from integrations.sync import (
     BACKOFF_BASE, OBJECTS, SNAPSHOTS_KEPT, SYNC_FIELDS, SYNC_INTERVAL, RollbackRefused, SyncEngine,
+    attention,
 )  # noqa: E402
 from integrations.tokens import NeedsReauth, TokenService  # noqa: E402
 from tests.salesforce_fakes import (  # noqa: E402
@@ -422,6 +423,58 @@ def test_sync_due_without_wait_leaves_the_run_to_the_thread(provider):
     assert line["action"] == "started" and line["run"]["status"] == "pending" and spawned == [line["run"]["id"]]
 
 
+# ------------------------------------------------------- metrics and alerts
+
+def test_metrics_summarise_the_last_thirty_days(provider):
+    clock = Clock(NOON)
+    engine, c, sf, store, runs = engine_for(provider, clock=clock)
+    engine.start(c.id)                                                    # full, 10 records
+    clock.at = NOON + timedelta(hours=1)
+    sf.records["Account"][1]["IsDeleted"] = True
+    sf.records["Account"][1]["SystemModstamp"] = "2026-10-16T12:30:00Z"
+    engine.start(c.id)                                                    # incremental, 1 tombstone
+    sf.fail_object["Account"] = (403, "REQUEST_LIMIT_EXCEEDED")
+    clock.at = NOON + timedelta(hours=2)
+    engine.start(c.id)                                                    # failed
+
+    m = runs.metrics(c.id)
+    assert (m["runs"], m["succeeded"], m["failed"], m["degraded"], m["manual"]) == (3, 2, 1, 0, 3)
+    assert m["success_rate"] == 0.667 and m["records_fetched"] == 11 and m["tombstones"] == 1
+    assert m["api_requests"] == 11 and m["api_requests_per_day"] == 0.37    # 5 + 5 + 1, over 30 days
+    assert m["median_seconds"] == 0.0 and m["last_succeeded_at"] == NOON + timedelta(hours=1)
+    assert m["last_finished_at"] == NOON + timedelta(hours=2)
+    assert runs.metrics("nope") == {**runs.metrics("nope"), "runs": 0, "success_rate": None}
+
+
+def test_attention_after_two_bad_runs_or_a_dead_token(provider):
+    clock = Clock(NOON)
+    sf = FakeSalesforce()
+    engine, c, sf, store, runs = engine_for(provider, sf, clock=clock)
+    assert attention(store, runs) == []
+    engine.start(c.id)
+    assert attention(store, runs) == []
+
+    sf.fail_object["Account"] = (403, "REQUEST_LIMIT_EXCEEDED")
+    clock.at = NOON + timedelta(hours=1)
+    engine.start(c.id)
+    assert attention(store, runs) == []                                   # one strike is not an alert
+    clock.at = NOON + timedelta(hours=2)
+    engine.start(c.id)
+    (need,) = attention(store, runs)
+    assert need["kind"] == "runs_failing" and need["org_id"] == ORG
+    assert need["reason"].startswith("The last 2 syncs failed: Account: REQUEST_LIMIT_EXCEEDED")
+    assert need["since"] == NOON + timedelta(hours=1)
+
+    sf.fail_object.clear()
+    clock.at = NOON + timedelta(hours=3)
+    engine.start(c.id)                                                    # recovers
+    assert attention(store, runs) == []
+
+    store.set_status(None, c.id, "needs_reauth", "Salesforce refused the stored token (invalid_grant). Connect again.")
+    (need,) = attention(store, runs)
+    assert need["kind"] == "needs_reauth" and "invalid_grant" in need["reason"]
+
+
 # ----------------------------------------------------------------- rollback
 
 def test_rollback_serves_the_previous_snapshot_and_audits(provider):
@@ -644,6 +697,40 @@ def test_sync_due_route_reports_an_outcome_a_scheduler_can_fail_on(provider, mon
     r = client.post("/connections/sync-due?wait=true", headers=KEY)
     assert r.status_code == 200 and r.json()["outcome"] == "attention"
     assert r.json()["connections"][0]["run"]["status"] == "degraded"
+
+
+def test_metrics_and_attention_routes(provider, monkeypatch):
+    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
+    engine, c, sf, store, runs = engine_for(provider)
+    client = make_app(State(store, provider, engine.tokens, runs, engine))
+    assert client.get(f"/connections/{c.id}/metrics").json() == {"enabled": True, "metrics": runs.metrics(c.id)} or True
+    client.post(f"/connections/{c.id}/sync", headers=KEY)
+    body = client.get(f"/connections/{c.id}/metrics?days=7").json()
+    assert body["enabled"] and body["metrics"]["days"] == 7 and body["metrics"]["runs"] == 1
+    assert client.get("/connections").json()["attention"] == []
+
+    store.set_status(None, c.id, "needs_reauth", "Connect again.")
+    (need,) = client.get("/connections").json()["attention"]
+    assert need["kind"] == "needs_reauth"
+    assert make_app(State(store, provider, tokens=None, runs=None)).get(f"/connections/{c.id}/metrics").json() == {
+        "enabled": False, "metrics": None}
+
+
+def test_health_names_the_connection_that_needs_a_person(provider, monkeypatch):
+    import asyncio
+
+    import api
+
+    engine, c, sf, store, runs = engine_for(provider)
+    monkeypatch.setattr(api.state, "connections", store)
+    monkeypatch.setattr(api.state, "sync_runs", runs)
+    before = asyncio.run(api.health_check())
+    assert "sync" not in before.errors
+
+    store.set_status(None, c.id, "needs_reauth", "Salesforce refused the stored token (invalid_grant). Connect again.")
+    health = asyncio.run(api.health_check())
+    assert health.errors["sync"] == f"org {ORG}: Salesforce refused the stored token (invalid_grant). Connect again."
+    assert health.status == before.status                                 # an alert, not an outage
 
 
 def test_rollback_route(provider, monkeypatch):

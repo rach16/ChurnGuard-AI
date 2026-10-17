@@ -429,3 +429,54 @@ class SyncStore:
             "delete from sync_runs where connection_id = any(%s) and status not in ('pending', 'running')"
             " and created_at < now() - make_interval(days => %s)", (ids, older_than_days)).rowcount
         return out
+
+    # ---------------------------------------------------------------- metrics
+
+    def metrics(self, connection_id: str, days: int = 30, conn=None) -> dict[str, Any]:
+        """The last ``days`` of runs for a connection, as the Integrations page
+        shows them: counts by outcome, records changed, API calls, durations."""
+        sql = """
+            select count(*) as runs,
+                   count(*) filter (where status = 'succeeded') as succeeded,
+                   count(*) filter (where status = 'failed') as failed,
+                   count(*) filter (where status = 'degraded') as degraded,
+                   count(*) filter (where trigger = 'manual') as manual,
+                   coalesce(sum((select coalesce(sum((o.value->>'fetched')::int), 0)
+                                 from jsonb_each(objects) o)), 0) as records_fetched,
+                   coalesce(sum((select coalesce(sum((o.value->>'tombstones')::int), 0)
+                                 from jsonb_each(objects) o)), 0) as tombstones,
+                   coalesce(sum(api_requests), 0) as api_requests,
+                   percentile_cont(0.5) within group
+                       (order by extract(epoch from finished_at - started_at))
+                       filter (where finished_at is not null and started_at is not null)
+                       as median_seconds,
+                   max(finished_at) filter (where status = 'succeeded') as last_succeeded_at,
+                   max(finished_at) as last_finished_at
+            from sync_runs
+            where connection_id = %s and created_at >= now() - make_interval(days => %s)
+        """
+        if conn is not None:
+            row = conn.execute(sql, (connection_id, days)).fetchone()
+        else:
+            with self.db.connection() as c:
+                row = c.execute(sql, (connection_id, days)).fetchone()
+        return _shape_metrics(dict(row), days)
+
+
+def _shape_metrics(row: dict[str, Any], days: int) -> dict[str, Any]:
+    runs = int(row.get("runs") or 0)
+    succeeded = int(row.get("succeeded") or 0)
+    median = row.get("median_seconds")
+    return {
+        "days": days, "runs": runs, "succeeded": succeeded,
+        "failed": int(row.get("failed") or 0), "degraded": int(row.get("degraded") or 0),
+        "manual": int(row.get("manual") or 0),
+        "success_rate": round(succeeded / runs, 3) if runs else None,
+        "records_fetched": int(row.get("records_fetched") or 0),
+        "tombstones": int(row.get("tombstones") or 0),
+        "api_requests": int(row.get("api_requests") or 0),
+        "api_requests_per_day": round(int(row.get("api_requests") or 0) / days, 2),
+        "median_seconds": round(float(median), 1) if median is not None else None,
+        "last_succeeded_at": row.get("last_succeeded_at"),
+        "last_finished_at": row.get("last_finished_at"),
+    }

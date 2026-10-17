@@ -210,6 +210,13 @@ log, which prints one line per connection:
 
 Run it by hand: GitHub → Actions → **Daily sync** → Run workflow.
 
+The same two conditions (a connection needing a login; two runs in a row
+failed or degraded) appear as `errors.sync` on `GET /health`, as `attention`
+on `GET /connections`, and as the amber banner at the top of the connection
+block on the Integrations page. `GET /connections/{id}/metrics` is the last 30
+days in numbers (runs, success rate, records changed, API calls per day,
+median duration, last success); the page shows it under the run list.
+
 ## What the site serves (promotion)
 
 The `serving` table has one row per tenant naming the snapshot every page

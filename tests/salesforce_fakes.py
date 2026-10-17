@@ -21,7 +21,7 @@ import httpx
 
 from integrations.connections import Connection
 from integrations.salesforce_oauth import SalesforceOAuth
-from integrations.sync_store import Serving, Snapshot, SyncRun
+from integrations.sync_store import Serving, Snapshot, SyncRun, _shape_metrics
 
 ORG = "00Dg700000J62qbEAB"
 OTHER_ORG = "00D000000000001AAA"
@@ -457,3 +457,25 @@ class FakeSyncStore:
 
     def prune_orphans(self, conn, older_than_days) -> dict[str, int]:
         return {"connections": 0, "raw_records": 0, "watermarks": 0, "runs": 0}
+
+    # metrics
+    def metrics(self, connection_id, days=30, conn=None) -> dict:
+        import statistics
+        since = datetime.now(timezone.utc) - timedelta(days=days)
+        rows = [r for r in self.runs_by_id.values() if r.connection_id == connection_id and r.created_at >= since]
+        durations = [(r.finished_at - r.started_at).total_seconds() for r in rows if r.finished_at and r.started_at]
+        ok = [r.finished_at for r in rows if r.status == "succeeded" and r.finished_at]
+        done = [r.finished_at for r in rows if r.finished_at]
+        return _shape_metrics({
+            "runs": len(rows),
+            "succeeded": sum(r.status == "succeeded" for r in rows),
+            "failed": sum(r.status == "failed" for r in rows),
+            "degraded": sum(r.status == "degraded" for r in rows),
+            "manual": sum(r.trigger == "manual" for r in rows),
+            "records_fetched": sum(o.get("fetched", 0) for r in rows for o in r.objects.values()),
+            "tombstones": sum(o.get("tombstones", 0) for r in rows for o in r.objects.values()),
+            "api_requests": sum(r.api_requests for r in rows),
+            "median_seconds": statistics.median(durations) if durations else None,
+            "last_succeeded_at": max(ok) if ok else None,
+            "last_finished_at": max(done) if done else None,
+        }, days)

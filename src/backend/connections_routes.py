@@ -17,6 +17,8 @@ Five routes, three audiences:
                                                   with the run; the outcome is polled.
 - ``GET  /connections/{id}/runs``                anyone: recent runs, counts and
                                                   timings. No record data.
+- ``GET  /connections/{id}/metrics``             anyone: the last 30 days of runs in
+                                                  numbers.
 - ``POST /connections/{id}/rollback``            operator: serve an earlier snapshot
                                                   (the previous one by default).
 - ``POST /connections/sync-due``                 operator, the schedule: a run for every
@@ -53,7 +55,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
-from integrations.sync import RollbackRefused, SyncEngine
+from integrations.sync import RollbackRefused, SyncEngine, attention
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
 logger = logging.getLogger(__name__)
@@ -171,10 +173,21 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
                 serving = {**pointer.public(), "as_of": head.as_of if head else None,
                            "created_at": head.created_at if head else None,
                            "row_counts": head.row_counts if head else None}
+        needs = await run_in_threadpool(attention, store, runs) if runs is not None else []
         return {"enabled": True, "reason": None,
                 "operator_actions": operator_actions_enabled(),
                 "pinned_org_id": os.getenv("SALESFORCE_ORG_ID", "").strip() or None,
-                "connection": public, "last_run": last_run, "serving": serving}
+                "connection": public, "last_run": last_run, "serving": serving,
+                "attention": needs}
+
+    @router.get("/connections/{connection_id}/metrics")
+    async def connection_metrics(connection_id: str, days: int = 30):
+        """Run metrics for the page (ADR-0012 section 8): counts, records, API calls, durations."""
+        runs = getattr(get_state(), "sync_runs", None)
+        if runs is None:
+            return {"enabled": False, "metrics": None}
+        metrics = await run_in_threadpool(runs.metrics, connection_id, max(1, min(days, 365)))
+        return {"enabled": True, "metrics": metrics}
 
     @router.get("/connections/{connection_id}/runs")
     async def list_runs(connection_id: str, limit: int = 10):

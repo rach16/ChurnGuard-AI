@@ -307,6 +307,26 @@ def test_retention_prunes_old_snapshots_tombstones_and_orphans(db, store):
 
 
 @needs_db
+def test_metrics_sql_aggregates_the_run_rows(db, store):
+    runs = SyncStore(db)
+    c = store.get()
+    with db.connection() as conn:
+        conn.execute("insert into sync_runs (connection_id, org_id, trigger, status, as_of, objects, api_requests,"
+                     " started_at, finished_at) values"
+                     " (%s, %s, 'schedule', 'succeeded', %s, '{\"Account\": {\"fetched\": 7, \"tombstones\": 1}}', 5,"
+                     "  now() - interval '2 hours', now() - interval '2 hours' + interval '3 seconds'),"
+                     " (%s, %s, 'manual', 'failed', %s, '{}', 1,"
+                     "  now() - interval '1 hour', now() - interval '1 hour' + interval '1 second')",
+                     (c.id, ORG, NOW.date(), c.id, ORG, NOW.date()))
+    m = runs.metrics(c.id, days=30)
+    assert m["runs"] >= 3 and m["failed"] >= 1 and m["succeeded"] >= 2         # plus the earlier test's run
+    assert m["records_fetched"] >= 9 and m["tombstones"] >= 1 and m["api_requests"] >= 8
+    assert m["median_seconds"] is not None and m["last_succeeded_at"] is not None
+    assert m["api_requests_per_day"] == round(m["api_requests"] / 30, 2)
+    assert runs.metrics("00000000-0000-0000-0000-000000000009")["runs"] == 0
+
+
+@needs_db
 def test_abandoned_runs_are_swept(db, store):
     runs = SyncStore(db)
     c = store.get()

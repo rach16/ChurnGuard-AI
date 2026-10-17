@@ -47,13 +47,21 @@ function formatDate(iso: string): string {
     : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export function describeSource(s: DataSource): string {
   if (s.synthetic) return 'Synthetic test data';
-  const when = s.as_of
-    ? s.served_from?.kind === 'sync'
-      ? `synced ${formatDate(s.as_of)}`
-      : `pulled ${formatDate(s.as_of)}`
-    : null;
+  const when =
+    s.served_from?.kind === 'sync'
+      ? `synced ${formatWhen(s.served_from.created_at)}`
+      : s.as_of
+        ? `pulled ${formatDate(s.as_of)}`
+        : null;
   return [s.label, s.seeded ? 'seeded test org' : null, when].filter(Boolean).join(' · ');
 }
 

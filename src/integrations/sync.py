@@ -81,6 +81,35 @@ LIMIT_INFO = re.compile(r"api-usage=(\d+)/(\d+)")
 DATA_PREFIX = re.compile(r"^/services/data/v[\d.]+/")
 
 
+# How many failed or degraded runs in a row before the connection needs a person.
+ATTENTION_AFTER_FAILURES = 2
+
+
+def attention(connections: ConnectionStore, runs: SyncStore,
+              tenant_id: str = "default") -> list[dict[str, Any]]:
+    """Connections that need a person (ADR-0012 section 8, alerts): a token that
+    needs a fresh login, or two runs in a row that failed or broke a contract.
+    One line each, with the reason. Read by /health, /connections and the page;
+    the daily workflow fails on the same conditions."""
+    out: list[dict[str, Any]] = []
+    with connections.db.connection() as conn:
+        rows = [c for c in connections.all(conn) if c.tenant_id == tenant_id]
+    for c in rows:
+        if c.status != "active":
+            out.append({"connection_id": c.id, "org_id": c.org_id, "kind": "needs_reauth",
+                        "reason": c.status_reason or "The connection needs a fresh login."})
+            continue
+        recent = runs.runs(c.id, limit=ATTENTION_AFTER_FAILURES)
+        bad = [r for r in recent if r.status in ("failed", "degraded")]
+        if len(recent) >= ATTENTION_AFTER_FAILURES and len(bad) == len(recent):
+            latest = recent[0]
+            out.append({"connection_id": c.id, "org_id": c.org_id, "kind": "runs_failing",
+                        "reason": f"The last {len(bad)} syncs {'failed' if latest.status == 'failed' else 'broke a contract'}: "
+                                  f"{latest.error or latest.status}",
+                        "since": recent[-1].finished_at})
+    return out
+
+
 class RollbackRefused(Exception):
     """The pointer cannot move there; the message says why and is safe to show."""
 

@@ -57,7 +57,7 @@ from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction, serving
 from integrations.connections import ConnectionStore
-from integrations.sync import SyncEngine
+from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 import connections_routes
@@ -620,6 +620,20 @@ class MultiAgentResponse(BaseModel):
     errors: list[str]
 
 
+def _sync_errors() -> dict:
+    """The connection needing a person, as a health error (ADR-0012 §8 alerts).
+    Computed per call: it is a property of the rows, not of this process."""
+    if state.connections is None or state.sync_runs is None:
+        return {}
+    try:
+        needs = sync_attention(state.connections, state.sync_runs)
+    except Exception as e:  # noqa: BLE001 - health must answer
+        return {"sync": f"could not read sync state: {type(e).__name__}"}
+    if not needs:
+        return {}
+    return {"sync": "; ".join(f"org {n['org_id']}: {n['reason']}" for n in needs)}
+
+
 # Health check endpoint
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -637,7 +651,7 @@ async def health_check():
         service="customer-churn-rag-api",
         degraded=not (state.ai_ready or state.ai_not_applicable),
         components=state.components(),
-        errors=state.errors,
+        errors={**state.errors, **_sync_errors()},
         not_applicable=state.not_applicable,
         source=source_name(),
         # Which provider is actually configured, so a deployment can be audited

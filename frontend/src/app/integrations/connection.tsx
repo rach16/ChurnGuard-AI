@@ -61,6 +61,31 @@ export interface SyncRun {
   duration_seconds: number | null;
 }
 
+export interface SyncMetrics {
+  days: number;
+  runs: number;
+  succeeded: number;
+  failed: number;
+  degraded: number;
+  manual: number;
+  success_rate: number | null;
+  records_fetched: number;
+  tombstones: number;
+  api_requests: number;
+  api_requests_per_day: number;
+  median_seconds: number | null;
+  last_succeeded_at: string | null;
+  last_finished_at: string | null;
+}
+
+export interface Attention {
+  connection_id: string;
+  org_id: string;
+  kind: 'needs_reauth' | 'runs_failing';
+  reason: string;
+  since?: string | null;
+}
+
 export interface ConnectionStatus {
   enabled: boolean;
   reason: string | null;
@@ -78,6 +103,7 @@ export interface ConnectionStatus {
     created_at: string | null;
     row_counts: Record<string, number> | null;
   } | null;
+  attention?: Attention[];
 }
 
 // Display order and names. The run stores objects as JSON, whose key order
@@ -135,10 +161,15 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
   const [verified, setVerified] = useState<string | null>(null);
   const [working, setWorking] = useState<'verify' | 'disconnect' | 'sync' | 'rollback' | null>(null);
   const [runs, setRuns] = useState<SyncRun[]>([]);
+  const [metrics, setMetrics] = useState<SyncMetrics | null>(null);
   const popup = useRef<Window | null>(null);
   const connectionId = status?.connection?.id ?? null;
 
   const loadRuns = useCallback((id: string) => {
+    fetch(`/api/connections/${id}/metrics`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { metrics: null }))
+      .then((body) => setMetrics(body.metrics ?? null))
+      .catch(() => undefined);
     return fetch(`/api/connections/${id}/runs?limit=5`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : { runs: [] }))
       .then((body) => setRuns(body.runs ?? []))
@@ -147,7 +178,10 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
 
   useEffect(() => {
     if (connectionId) loadRuns(connectionId);
-    else setRuns([]);
+    else {
+      setRuns([]);
+      setMetrics(null);
+    }
   }, [connectionId, loadRuns]);
 
   // While a run is going, ask again every two seconds; stop when it is not.
@@ -313,8 +347,23 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
   const c = status.connection;
   const canAct = status.operator_actions;
 
+  const needs = status.attention ?? [];
+
   return (
     <div className="rounded-md border px-4 py-3">
+      {needs.length > 0 && (
+        <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          <div className="font-medium">
+            {needs[0].kind === 'needs_reauth' ? 'This connection needs a fresh login.' : 'The sync needs attention.'}
+          </div>
+          <div>{needs[0].reason}</div>
+          <div className="mt-0.5 text-[11px] opacity-80">
+            {needs[0].kind === 'needs_reauth'
+              ? 'Until then nothing syncs and the site keeps serving the last promoted snapshot. Reconnect to fix it.'
+              : 'The site keeps serving the last promoted snapshot. The morning email carries the same message.'}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 text-sm">
           {c ? (
@@ -394,6 +443,31 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
       {verified && <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{verified}</div>}
       {notice && <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
       {c && <RunList runs={runs} serving={status.serving ?? null} />}
+      {c && metrics && metrics.runs > 0 && <MetricsBlock m={metrics} />}
+    </div>
+  );
+}
+
+function MetricsBlock({ m }: { m: SyncMetrics }) {
+  const cells: [string, string][] = [
+    ['syncs', `${m.runs}${m.manual ? ` (${m.manual} by hand)` : ''}`],
+    ['succeeded', m.success_rate === null ? '–' : `${Math.round(m.success_rate * 100)}%`],
+    ['records changed', `${m.records_fetched.toLocaleString()}${m.tombstones ? `, ${m.tombstones} deleted` : ''}`],
+    ['API calls per day', m.api_requests_per_day.toLocaleString()],
+    ['median run', m.median_seconds === null ? '–' : `${m.median_seconds}s`],
+    ['last success', m.last_succeeded_at ? formatWhen(m.last_succeeded_at) : 'none'],
+  ];
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="mb-1.5 text-xs font-medium">Last {m.days} days</div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-3 md:grid-cols-6">
+        {cells.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
