@@ -54,7 +54,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from auth_routes import COOKIE, same_origin
+from integrations.connections import DEFAULT_TENANT
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
+from integrations.login import SessionEnded, actor as actor_of
 from integrations.sync import RollbackRefused, SyncEngine, attention
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
@@ -68,15 +71,28 @@ def operator_actions_enabled() -> bool:
     return bool(os.getenv("OPERATOR_KEY", "").strip())
 
 
+def operator_key_valid(request: Request) -> bool:
+    key = os.getenv("OPERATOR_KEY", "").strip()
+    presented = request.headers.get(OPERATOR_HEADER, "")
+    return bool(key) and bool(presented) and hmac.compare_digest(presented, key)
+
+
 def require_operator(request: Request) -> str:
     key = os.getenv("OPERATOR_KEY", "").strip()
     if not key:
         raise HTTPException(status_code=404, detail="Operator actions are not enabled on this deployment.")
-    presented = request.headers.get(OPERATOR_HEADER, "")
-    if not presented or not hmac.compare_digest(presented, key):
+    if not operator_key_valid(request):
         logger.warning(f"operator key refused on {request.url.path}")
         raise HTTPException(status_code=403, detail="Operator key required.")
     return ACTOR
+
+
+# Who may do what (ADR-0013 section 3). Higher includes lower.
+ROLE_RANK = {"viewer": 1, "operator": 2, "admin": 3}
+
+
+def role_rank(role) -> int:
+    return ROLE_RANK.get(role or "", 0)
 
 
 class StartRequest(BaseModel):
@@ -110,6 +126,52 @@ setTimeout(function () {{ window.close(); }}, {1500 if ok else 6000});
 
 def build_router(get_state: Callable[[], object]) -> APIRouter:
     router = APIRouter(tags=["connections"])
+
+    def require(min_role: str):
+        """The gate on a state-changing route (ADR-0013 section 4).
+
+        Signed in: the request must come from the site's own pages, the person is
+        re-checked with Cognito at this moment (a disabled or signed-out account
+        is refused here and its session deleted), and their role must be at least
+        ``min_role``. Not signed in: the operator key, kept for one step (2.6.3
+        removes it). Sign-in not configured on this deployment: the operator key,
+        as before 2.6.
+        """
+        def dependency(request: Request) -> str:
+            state = get_state()
+            login = getattr(state, "login", None)
+            session = getattr(request.state, "session", None)
+            if login is None or session is None:
+                if login is not None and not operator_key_valid(request):
+                    raise HTTPException(status_code=401, detail="Sign in required.")
+                return require_operator(request)
+            if not same_origin(request):
+                raise HTTPException(status_code=403, detail="This action must come from the site's own pages.")
+            try:
+                session = login.recheck(session)
+            except SessionEnded as e:
+                raise HTTPException(status_code=401, detail=str(e))
+            if session is None:
+                raise HTTPException(status_code=401, detail="Your sign-in ended. Sign in again.")
+            if role_rank(session.role) < ROLE_RANK[min_role]:
+                raise HTTPException(status_code=403, detail=f"This needs the {min_role} role.")
+            request.state.session = session
+            return actor_of(session)
+        return dependency
+
+    def tenant_of(request: Request) -> str:
+        session = getattr(request.state, "session", None)
+        return session.tenant_id if session is not None else DEFAULT_TENANT
+
+    def own_connection(request: Request, connection_id: str):
+        """The connection, if it belongs to the caller's tenant. Another tenant's
+        connection is reported as not found, never as forbidden: its existence is
+        not the caller's business."""
+        store = getattr(get_state(), "connections", None)
+        c = store.get_by_id(connection_id) if store is not None else None
+        if c is None or c.tenant_id != tenant_of(request):
+            raise HTTPException(status_code=404, detail="This connection no longer exists.")
+        return c
 
     def flow_or_503() -> ConnectFlow:
         state = get_state()
@@ -146,8 +208,8 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         return os.getenv("PUBLIC_SITE_ORIGIN", "").rstrip("/")
 
     @router.get("/connections")
-    async def get_connection():
-        """The connection, if any, as anyone may see it."""
+    async def get_connection(request: Request):
+        """The connection, if any, as any signed-in reader may see it."""
         state = get_state()
         store = getattr(state, "connections", None)
         if store is None:
@@ -155,7 +217,7 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             err = (getattr(state, "errors", {}) or {}).get("connections")
             return {"enabled": False, "reason": off or err or "connections not initialised",
                     "operator_actions": False, "connection": None}
-        connection = await run_in_threadpool(store.get)
+        connection = await run_in_threadpool(store.get, tenant_of(request))
         public: Optional[dict] = None
         last_run: Optional[dict] = None
         if connection is not None:
@@ -174,32 +236,44 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
                            "created_at": head.created_at if head else None,
                            "row_counts": head.row_counts if head else None}
         needs = await run_in_threadpool(attention, store, runs) if runs is not None else []
+        session = getattr(request.state, "session", None)
+        if getattr(state, "login", None) is not None:
+            rank = role_rank(session.role) if session is not None else 0
+            operate, administer = rank >= ROLE_RANK["operator"], rank >= ROLE_RANK["admin"]
+        else:
+            operate = administer = operator_actions_enabled()
         return {"enabled": True, "reason": None,
-                "operator_actions": operator_actions_enabled(),
+                "operator_actions": operate, "admin_actions": administer,
+                "role": session.role if session is not None else None,
                 "pinned_org_id": os.getenv("SALESFORCE_ORG_ID", "").strip() or None,
                 "connection": public, "last_run": last_run, "serving": serving,
                 "attention": needs}
 
     @router.get("/connections/{connection_id}/metrics")
-    async def connection_metrics(connection_id: str, days: int = 30):
+    async def connection_metrics(request: Request, connection_id: str, days: int = 30):
         """Run metrics for the page (ADR-0012 section 8): counts, records, API calls, durations."""
         runs = getattr(get_state(), "sync_runs", None)
         if runs is None:
             return {"enabled": False, "metrics": None}
+        await run_in_threadpool(own_connection, request, connection_id)
         metrics = await run_in_threadpool(runs.metrics, connection_id, max(1, min(days, 365)))
         return {"enabled": True, "metrics": metrics}
 
     @router.get("/connections/{connection_id}/runs")
-    async def list_runs(connection_id: str, limit: int = 10):
+    async def list_runs(request: Request, connection_id: str, limit: int = 10):
         """Recent sync runs, newest first. Counts and timings only; no record data."""
         runs = getattr(get_state(), "sync_runs", None)
         if runs is None:
             return {"enabled": False, "runs": []}
+        try:
+            await run_in_threadpool(own_connection, request, connection_id)
+        except HTTPException:
+            return {"enabled": True, "runs": []}
         rows = await run_in_threadpool(runs.runs, connection_id, max(1, min(limit, 50)))
         return {"enabled": True, "runs": [r.public() for r in rows]}
 
     @router.post("/connections/sync-due")
-    async def sync_due(wait: bool = False, actor: str = Depends(require_operator)):
+    async def sync_due(wait: bool = False, actor: str = Depends(require("operator"))):
         """The schedule's entry point (1.11): a run for every connection whose
         last success is older than the interval. ``wait=true`` runs inline and
         reports each outcome, so a scheduler can fail when one does."""
@@ -213,10 +287,12 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         return {"outcome": worst, "connections": outcomes}
 
     @router.post("/connections/{connection_id}/sync", status_code=202)
-    async def sync_connection(connection_id: str, actor: str = Depends(require_operator)):
+    async def sync_connection(request: Request, connection_id: str,
+                              actor: str = Depends(require("operator"))):
         """Start a sync run in the background, or join the one already running.
         The caller polls the runs list for the outcome."""
         engine = sync_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
         try:
             triggered = await run_in_threadpool(engine.start, connection_id, actor=actor, trigger="manual")
         except ConnectionGone as e:
@@ -226,14 +302,12 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         return {"run": triggered.run.public(), "joined": triggered.joined}
 
     @router.post("/connections/{connection_id}/rollback")
-    async def rollback_serving(connection_id: str, body: Optional[RollbackRequest] = None,
-                               actor: str = Depends(require_operator)):
+    async def rollback_serving(request: Request, connection_id: str,
+                               body: Optional[RollbackRequest] = None,
+                               actor: str = Depends(require("operator"))):
         """Move the serving pointer to an earlier snapshot and serve it (1.10.4)."""
         engine = sync_or_503()
-        store = get_state().connections
-        c = await run_in_threadpool(store.get_by_id, connection_id)
-        if c is None:
-            raise HTTPException(status_code=404, detail="This connection no longer exists.")
+        c = await run_in_threadpool(own_connection, request, connection_id)
         try:
             pointer, served = await run_in_threadpool(
                 engine.rollback, actor=actor, tenant_id=c.tenant_id,
@@ -243,7 +317,7 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         return {"serving": pointer.public(), "served": served}
 
     @router.post("/connections/start")
-    async def start_connection(body: StartRequest, actor: str = Depends(require_operator)):
+    async def start_connection(body: StartRequest, actor: str = Depends(require("admin"))):
         flow = flow_or_503()
         started = await run_in_threadpool(flow.start, body.environment)
         # The state is not returned: the browser needs only the URL, and the
@@ -251,9 +325,11 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         return {"authorize_url": started.authorize_url}
 
     @router.post("/connections/{connection_id}/verify")
-    async def verify_connection(connection_id: str, actor: str = Depends(require_operator)):
+    async def verify_connection(request: Request, connection_id: str,
+                                actor: str = Depends(require("operator"))):
         """Refresh the token and ask the org who it is. Proves the stored token works."""
         tokens = tokens_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
         try:
             return await run_in_threadpool(tokens.verify, connection_id)
         except ConnectionGone as e:
@@ -264,17 +340,19 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             raise HTTPException(status_code=502, detail=str(e))
 
     @router.post("/connections/{connection_id}/disconnect")
-    async def disconnect_connection(connection_id: str, actor: str = Depends(require_operator)):
+    async def disconnect_connection(request: Request, connection_id: str,
+                                    actor: str = Depends(require("admin"))):
         """Revoke at Salesforce, delete the stored token, audit."""
         tokens = tokens_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
         try:
             return await run_in_threadpool(tokens.disconnect, connection_id, actor)
         except ConnectionGone as e:
             raise HTTPException(status_code=404, detail=str(e))
 
     @router.get(CALLBACK_PATH.removeprefix("/api"), response_class=HTMLResponse)
-    async def salesforce_callback(code: str = "", state: str = "", error: str = "",
-                                  error_description: str = ""):
+    async def salesforce_callback(request: Request, code: str = "", state: str = "",
+                                  error: str = "", error_description: str = ""):
         """Salesforce redirects the popup here. Completes the flow server-side."""
         origin = site_origin()
         if error:
@@ -289,7 +367,12 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             return HTMLResponse(_popup_page(origin, False, "Not connected", str(e.detail), "unavailable"),
                                 status_code=e.status_code)
         try:
-            done = await run_in_threadpool(flow.complete, code, state)
+            # The popup is the same browser, so the session cookie came back with
+            # Salesforce's redirect: the audit names the admin who connected.
+            sessions = getattr(get_state(), "sessions", None)
+            who = (await run_in_threadpool(sessions.get, request.cookies.get(COOKIE))
+                   if sessions is not None else None)
+            done = await run_in_threadpool(flow.complete, code, state, actor_of(who) if who else ACTOR)
         except FlowRefused as e:
             return HTMLResponse(_popup_page(origin, False, "Not connected", e.reason, e.event),
                                 status_code=400)

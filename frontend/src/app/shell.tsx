@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 import { AccountMenu } from './account';
+import { AuthGate } from './sign-in';
 import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
 import { WakeGate, WakeScreen } from './wake-screen';
@@ -104,7 +105,8 @@ export function BootGate({ children }: { children: React.ReactNode }) {
         </div>
       )}
     >
-      {children}
+      {/* Every page: signed out, only the sign-in screen (2.6.2, ADR-0013). */}
+      <AuthGate>{children}</AuthGate>
     </WakeGate>
   );
 }

@@ -4,7 +4,7 @@
  * Connect Salesforce (1.9, ADR-0012).
  *
  * What the operator sees and clicks. The flow itself runs server-side: this asks
- * /ops/connections/start for the authorise URL, opens it in a popup, and waits for
+ * the backend for the authorise URL, opens it in a popup, and waits for
  * the popup to say it is done. It never sees a code, a state or a token. The
  * popup's final page posts one message, {type, ok, event}, and this refetches the
  * connection from the API like any other reader would.
@@ -13,7 +13,12 @@
  * deployment (production today); it is on and nothing is connected; it is on and
  * an org is connected, active or needing a fresh login. A connected org gets
  * Test connection (refresh and ask the org who it is) and Disconnect (revoke at
- * Salesforce, delete here). Both go through /ops/* like Connect does.
+ * Salesforce, delete here).
+ *
+ * Who may press what (2.6.2, ADR-0013): signed in, the buttons follow the role
+ * (operator: sync, test, roll back; admin: also connect and disconnect) and the
+ * requests go straight to /api with the session cookie, re-checked by the
+ * backend. Where sign-in is off, the old /ops proxy and its operator key remain.
  *
  * Sync now (1.10) starts a run on the server and polls the run list until it
  * finishes. A run row is counts and timings only; the records themselves never
@@ -90,6 +95,8 @@ export interface ConnectionStatus {
   enabled: boolean;
   reason: string | null;
   operator_actions: boolean;
+  admin_actions?: boolean;
+  role?: 'admin' | 'operator' | 'viewer' | null;
   pinned_org_id?: string | null;
   connection: ConnectionInfo | null;
   last_run?: SyncRun | null;
@@ -225,6 +232,17 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
     return () => clearInterval(timer);
   }, [busy, refresh]);
 
+  // Signed in: straight to the backend with the session cookie. Sign-in off on
+  // this deployment: the /ops proxy, which attaches the operator key.
+  function actionUrl(path: string): string {
+    return status?.role ? `/api/${path}` : `/ops/${path}`;
+  }
+
+  function explain(statusCode: number, detail: string): string {
+    if (statusCode === 401) return 'Your sign-in has ended. Sign in again (top right) and retry.';
+    return detail;
+  }
+
   async function connect() {
     setNotice(null);
     setBusy(true);
@@ -233,13 +251,13 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
     const win = window.open('about:blank', 'churnguard-salesforce', 'width=620,height=760,noopener=no');
     popup.current = win;
     try {
-      const r = await fetch('/ops/connections/start', {
+      const r = await fetch(actionUrl('connections/start'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ environment: 'production' }),
       });
       const body = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(body.detail || body.error || `HTTP ${r.status}`);
+      if (!r.ok) throw new Error(explain(r.status, body.detail || body.error || `HTTP ${r.status}`));
       if (win) win.location.href = body.authorize_url;
       else window.location.href = body.authorize_url;
     } catch (e) {
@@ -250,9 +268,9 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
   }
 
   async function operatorPost(path: string): Promise<Record<string, unknown>> {
-    const r = await fetch(`/ops/${path}`, { method: 'POST', headers: { 'content-type': 'application/json' } });
+    const r = await fetch(actionUrl(path), { method: 'POST', headers: { 'content-type': 'application/json' } });
     const body = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(String(body.detail || body.error || `HTTP ${r.status}`));
+    if (!r.ok) throw new Error(explain(r.status, String(body.detail || body.error || `HTTP ${r.status}`)));
     return body;
   }
 
@@ -345,7 +363,8 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
   }
 
   const c = status.connection;
-  const canAct = status.operator_actions;
+  const canOperate = status.operator_actions;
+  const canAdminister = status.admin_actions ?? status.operator_actions;
 
   const needs = status.attention ?? [];
 
@@ -401,7 +420,7 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
           )}
         </div>
 
-        {canAct ? (
+        {canOperate ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {c && c.status === 'active' && (
               <>
@@ -422,22 +441,30 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
                 )}
               </>
             )}
-            <Button
-              size="sm"
-              variant={c && c.status === 'active' ? 'outline' : 'default'}
-              onClick={connect}
-              disabled={busy || working !== null}
-            >
-              {busy ? 'Waiting for Salesforce…' : c ? 'Reconnect' : 'Connect Salesforce'}
-            </Button>
-            {c && (
-              <Button size="sm" variant="ghost" onClick={() => disconnect(c.id, c.org_id)} disabled={busy || working !== null}>
-                {working === 'disconnect' ? 'Disconnecting…' : 'Disconnect'}
-              </Button>
+            {canAdminister && (
+              <>
+                <Button
+                  size="sm"
+                  variant={c && c.status === 'active' ? 'outline' : 'default'}
+                  onClick={connect}
+                  disabled={busy || working !== null}
+                >
+                  {busy ? 'Waiting for Salesforce…' : c ? 'Reconnect' : 'Connect Salesforce'}
+                </Button>
+                {c && (
+                  <Button size="sm" variant="ghost" onClick={() => disconnect(c.id, c.org_id)} disabled={busy || working !== null}>
+                    {working === 'disconnect' ? 'Disconnecting…' : 'Disconnect'}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground">Operator actions are off here.</span>
+          <span className="text-xs text-muted-foreground">
+            {status.role === 'viewer'
+              ? 'You can view this connection. An operator or admin runs syncs.'
+              : 'Operator actions are off here.'}
+          </span>
         )}
       </div>
       {verified && <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">{verified}</div>}

@@ -219,7 +219,7 @@ class FakeStore:
         self.locks: list[str] = []
 
     def get(self, tenant_id="default", provider="salesforce", conn=None):
-        return next(iter(self.rows.values()), None)
+        return next((r for r in self.rows.values() if r.tenant_id == tenant_id), None)
 
     def get_by_id(self, connection_id, conn=None):
         return self.rows.get(connection_id)

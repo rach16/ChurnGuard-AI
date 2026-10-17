@@ -32,7 +32,7 @@ from integrations.salesforce_oauth import (
 logger = logging.getLogger(__name__)
 
 CALLBACK_PATH = "/api/integrations/salesforce/callback"
-ACTOR = "operator"       # one operator until 2.6 gives them names
+ACTOR = "operator"       # where sign-in is off; a signed-in admin is user:<sub> (ADR-0013)
 
 
 class FlowRefused(Exception):
@@ -71,6 +71,9 @@ class ConnectFlow:
         # SALESFORCE_ORG_ID, when set: even the very first connect must be this org.
         self.pinned_org_id = (pinned_org_id or "").strip() or None
         self.tenant_id = tenant_id
+        # Who is connecting, for the audit (ADR-0013 §4): set per completion.
+        # A ConnectFlow is built per request, so this is never shared.
+        self._actor = ACTOR
 
     @classmethod
     def from_env(cls, store: ConnectionStore, provider: crypto.KeyProvider) -> "ConnectFlow":
@@ -109,11 +112,14 @@ class ConnectFlow:
 
     # -------------------------------------------------------------- complete
 
-    def complete(self, code: str, state: str) -> Completed:
+    def complete(self, code: str, state: str, actor: str = ACTOR) -> Completed:
+        """``actor`` is the signed-in admin whose browser came back from
+        Salesforce (``user:<sub>``), or ``operator`` where sign-in is off."""
+        self._actor = actor
         with self.store.db.connection() as conn:
             pending = self.store.consume_state(conn, state) if state else None
             if pending is None:
-                audit.record(conn, "state_rejected", actor=ACTOR, tenant_id=self.tenant_id,
+                audit.record(conn, "state_rejected", actor=self._actor, tenant_id=self.tenant_id,
                              detail={"reason": "unknown, used or expired state"})
                 # Commit before raising: the pooled connection rolls back on an
                 # exception, and the first local run lost this row that way.
@@ -186,7 +192,7 @@ class ConnectFlow:
                 instance_url=instance, login_host=host, user_id=user_id,
                 username=identity.username, scopes=token.scope, sealed=sealed,
                 token_issued_at=issued)
-            audit.record(conn, event, actor=ACTOR, tenant_id=self.tenant_id,
+            audit.record(conn, event, actor=self._actor, tenant_id=self.tenant_id,
                          connection_id=connection.id, org_id=org_id,
                          detail={"instance_url": instance, "login_host": host,
                                  "user_id": user_id, "scopes": token.scope,
@@ -215,6 +221,6 @@ class ConnectFlow:
     def _audit(self, event: str, *, org_id: Optional[str] = None,
                detail: Optional[dict] = None) -> None:
         with self.store.db.connection() as conn:
-            audit.record(conn, event, actor=ACTOR, tenant_id=self.tenant_id, org_id=org_id,
+            audit.record(conn, event, actor=self._actor, tenant_id=self.tenant_id, org_id=org_id,
                          detail=detail)
         logger.warning(f"Salesforce connect refused: {event} {detail or ''}")

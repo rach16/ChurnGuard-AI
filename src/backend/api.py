@@ -65,6 +65,7 @@ from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 import auth_routes
 import connections_routes
+from session_gate import SessionGate
 import security
 from model.survival import ChurnSurvivalModel
 from core.llm import chat_model
@@ -544,6 +545,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# The sign-in lock (2.6.2, ADR-0013 §3): every route needs a session once a user
+# pool is configured. Added before the security middleware so that one runs
+# outside it: a flood of unauthenticated requests is still rate-limited.
+app.add_middleware(SessionGate, get_state=lambda: state)
 
 # Added after CORS so it runs inside it: a rejected request still carries the CORS
 # headers a browser needs to read the 401 rather than reporting a network error.
