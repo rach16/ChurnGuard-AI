@@ -1060,6 +1060,19 @@ async def get_source():
     return info
 
 
+def _served_snapshot_head() -> Optional[Snapshot]:
+    """The snapshot the site serves: the serving pointer's, or before any promotion
+    the newest one that passed its contracts. After a rollback the report must
+    follow the pointer, not the newest snapshot (seen on staging 2026-10-16)."""
+    runs = state.sync_runs
+    pointer = runs.get_serving()
+    if pointer is not None:
+        head = runs.get_snapshot(pointer.snapshot_id, with_tables=False)
+        if head is not None:
+            return head
+    return runs.latest_good_snapshot()
+
+
 @app.get("/integrations/salesforce")
 async def get_salesforce_integration():
     """What the last Salesforce sync or pull brought in, and what the connector decided.
@@ -1075,7 +1088,7 @@ async def get_salesforce_integration():
     # report: the last snapshot whose contracts all passed. Where there is no
     # database, or no passing snapshot yet, the laptop pull's file still serves.
     if state.sync_runs is not None:
-        snapshot = await run_in_threadpool(state.sync_runs.latest_good_snapshot)
+        snapshot = await run_in_threadpool(_served_snapshot_head)
         if snapshot is not None:
             described = describe_report(snapshot.report)
             described["origin"] = {"kind": "sync", "snapshot_id": snapshot.id, "run_id": snapshot.run_id,

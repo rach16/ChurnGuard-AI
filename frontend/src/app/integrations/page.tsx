@@ -12,7 +12,7 @@
  * The other sources are listed as planned, because they are.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -94,8 +94,8 @@ function SalesforcePanel() {
   const [report, setReport] = useState<Report | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'none' | 'error'>('loading');
 
-  useEffect(() => {
-    fetch('/api/integrations/salesforce')
+  const load = useCallback(() => {
+    fetch('/api/integrations/salesforce', { cache: 'no-store' })
       .then(async (r) => {
         if (r.status === 404) return setState('none');
         if (!r.ok) throw new Error(String(r.status));
@@ -104,6 +104,10 @@ function SalesforcePanel() {
       })
       .catch(() => setState('error'));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (state === 'loading') return <Skeleton className="h-80 w-full" />;
 
@@ -149,7 +153,7 @@ function SalesforcePanel() {
           </div>
         </div>
 
-        <ConnectionPanel />
+        <ConnectionPanel onChange={load} />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <FunnelStep value={funnel.accounts_read} label="accounts read" />

@@ -75,6 +75,7 @@ export interface ConnectionStatus {
     promoted_at: string;
     promoted_by: string;
     as_of: string | null;
+    created_at: string | null;
     row_counts: Record<string, number> | null;
   } | null;
 }
@@ -124,8 +125,11 @@ export function useConnection() {
   return { status, refresh };
 }
 
-export function ConnectionPanel() {
-  const { status, refresh } = useConnection();
+export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
+  const { status, refresh: refreshStatus } = useConnection();
+  // Anything that can move the serving pointer also tells the page, so the
+  // report above the panel refetches instead of showing the previous sync.
+  const refresh = useCallback(() => refreshStatus().then(() => onChange?.()), [refreshStatus, onChange]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [verified, setVerified] = useState<string | null>(null);
@@ -410,8 +414,9 @@ function RunList({ runs, serving }: { runs: SyncRun[]; serving: ConnectionStatus
         <span className="text-xs font-medium">Recent syncs</span>
         {serving ? (
           <span className="text-xs text-muted-foreground">
-            Serving the run of {formatWhen(serving.promoted_at)}
+            Serving the sync of {formatWhen(serving.created_at ?? serving.promoted_at)}
             {serving.row_counts?.customers !== undefined ? ` · ${serving.row_counts.customers.toLocaleString()} customers` : ''}
+            {serving.promoted_by === 'operator' ? ` · rolled back ${formatWhen(serving.promoted_at)}` : ''}
           </span>
         ) : (
           <span className="text-xs text-muted-foreground">No run promoted yet; the site serves the last command-line pull.</span>

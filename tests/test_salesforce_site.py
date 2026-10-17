@@ -135,7 +135,8 @@ def test_source_names_the_data_on_screen(api_on):
     import json
     pulled = json.loads((ROOT / "data/salesforce/ingest_report.json").read_text())["as_of"]
     assert source == {"source": "salesforce", "label": "Salesforce", "synthetic": False,
-                      "as_of": pulled, "seeded": True}
+                      "as_of": pulled, "seeded": True,
+                      "served_from": {"kind": "file", "path": "data/salesforce/ingest_report.json"}}
 
     api = api_on("data")
     assert asyncio.run(api.get_source())["synthetic"] is True

@@ -165,6 +165,7 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
             if pointer is not None:
                 head = await run_in_threadpool(runs.get_snapshot, pointer.snapshot_id, None, with_tables=False)
                 serving = {**pointer.public(), "as_of": head.as_of if head else None,
+                           "created_at": head.created_at if head else None,
                            "row_counts": head.row_counts if head else None}
         return {"enabled": True, "reason": None,
                 "operator_actions": operator_actions_enabled(),

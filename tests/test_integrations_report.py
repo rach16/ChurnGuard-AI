@@ -136,3 +136,13 @@ def test_the_endpoint_prefers_the_last_good_snapshot(tmp_path, monkeypatch):
     assert served["origin"]["run_id"] == "r2" and served["origin"]["contracts"]["passed"] == 22
     assert served["funnel"]["accounts_read"] == report["accounts_read"]     # not the failing one
     assert bad.id != good.id
+
+    # Once something is promoted the report follows the pointer, even after a
+    # rollback to an older snapshot than the newest passing one.
+    with runs.db.connection() as conn:
+        older = runs.create_snapshot(conn, run_id="r0", connection_id="c1", tenant_id="default",
+                                     as_of=date(2026, 10, 15), tables={}, report={**report, "accounts_read": 2},
+                                     contracts={"passed": 22, "failed": 0, "skipped": 6, "failures": []})
+        runs.set_serving(conn, tenant_id="default", snapshot_id=older.id, run_id="r0", actor="operator")
+    rolled = asyncio.run(api.get_salesforce_integration())
+    assert rolled["origin"]["snapshot_id"] == older.id and rolled["funnel"]["accounts_read"] == 2
