@@ -21,14 +21,22 @@ export interface DataSource {
     | { kind: 'sync'; snapshot_id: string; run_id: string; as_of: string; created_at: string; row_counts: Record<string, number> };
 }
 
-// One request per page load, shared by every component that asks.
+// One request per page load, shared by every component that asks, until
+// something changes what is served (a sync promoted, a roll back): then
+// refreshSource() asks again and every label on the page updates.
 let pending: Promise<DataSource | null> | null = null;
+const listeners = new Set<(s: DataSource | null) => void>();
 
 export function fetchSource(): Promise<DataSource | null> {
-  pending ??= fetch('/api/source')
+  pending ??= fetch('/api/source', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
   return pending;
+}
+
+export function refreshSource(): void {
+  pending = null;
+  fetchSource().then((s) => listeners.forEach((l) => l(s)));
 }
 
 /** undefined while loading, null if the backend could not say. */
@@ -36,6 +44,10 @@ export function useSource(): DataSource | null | undefined {
   const [source, setSource] = useState<DataSource | null | undefined>(undefined);
   useEffect(() => {
     fetchSource().then(setSource);
+    listeners.add(setSource);
+    return () => {
+      listeners.delete(setSource);
+    };
   }, []);
   return source;
 }

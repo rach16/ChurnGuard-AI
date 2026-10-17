@@ -410,13 +410,20 @@ class FakeSyncStore:
                         row_counts={n: len(r) for n, r in tables.items()},
                         created_at=datetime.now(timezone.utc))
         conn.pending.append(lambda: self.snaps.__setitem__(snap.id, snap))
-        return snap
+        # The real store returns the head only (no tables). The fake once
+        # returned everything, which hid a bug that served empty files.
+        from dataclasses import replace as _replace
+        return _replace(snap, tables={})
 
     def attach_snapshot(self, conn, run_id, snapshot_id, contracts) -> None:
         conn.pending.append(lambda: self._replace(run_id, snapshot_id=snapshot_id, contracts=contracts))
 
     def get_snapshot(self, snapshot_id, conn=None, *, with_tables=True) -> Optional[Snapshot]:
-        return self.snaps.get(snapshot_id)
+        snap = self.snaps.get(snapshot_id)
+        if snap is not None and not with_tables:
+            from dataclasses import replace as _replace
+            return _replace(snap, tables={})
+        return snap
 
     def latest_good_snapshot(self, tenant_id="default", conn=None, *, with_tables=False) -> Optional[Snapshot]:
         good = [s for s in self.snaps.values() if s.contracts_passed and s.tenant_id == tenant_id]

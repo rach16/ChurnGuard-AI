@@ -29,6 +29,10 @@ from integrations.sync_store import Snapshot
 logger = logging.getLogger(__name__)
 
 SERVING_ROOT = Path("data") / "serving"
+
+
+class IncompleteSnapshot(ValueError):
+    """The snapshot's tables do not match its own row counts."""
 MARKER = "SNAPSHOT.json"
 
 
@@ -41,6 +45,14 @@ def restore(snapshot: Snapshot, root: Optional[Path] = None) -> Path:
     and is renamed into place, so a crash mid-write leaves no half folder with
     a marker.
     """
+    short = {name: (len(snapshot.tables.get(name, [])), expected)
+             for name, expected in (snapshot.row_counts or {}).items()
+             if len(snapshot.tables.get(name, [])) != expected}
+    if short:
+        # A snapshot handed over without its tables would be written as empty
+        # files and served as zero customers, silently. Refuse it by name.
+        detail = ", ".join(f"{n} {have} of {want}" for n, (have, want) in sorted(short.items()))
+        raise IncompleteSnapshot(f"snapshot {snapshot.id[:8]} is incomplete ({detail}); not serving it")
     root = root or SERVING_ROOT
     target = root / snapshot.id
     if read_marker(target) and read_marker(target)["snapshot_id"] == snapshot.id:

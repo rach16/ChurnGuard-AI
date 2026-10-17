@@ -20,7 +20,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { BootGate, Shell } from '../shell';
-import { useSource } from '../source';
+import { refreshSource, useSource } from '../source';
 import { ConnectionPanel } from './connection';
 
 const PLANNED = [
@@ -109,6 +109,13 @@ function SalesforcePanel() {
     load();
   }, [load]);
 
+  // A sync or a roll back can change what is served: the report here and the
+  // "synced" label in the header both follow it without a reload.
+  const onChange = useCallback(() => {
+    load();
+    refreshSource();
+  }, [load]);
+
   if (state === 'loading') return <Skeleton className="h-80 w-full" />;
 
   if (state !== 'ready' || !report) {
@@ -153,7 +160,7 @@ function SalesforcePanel() {
           </div>
         </div>
 
-        <ConnectionPanel onChange={load} />
+        <ConnectionPanel onChange={onChange} />
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <FunnelStep value={funnel.accounts_read} label="accounts read" />

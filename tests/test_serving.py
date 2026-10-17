@@ -92,6 +92,15 @@ def test_restore_is_idempotent_and_keeps_one_snapshot_on_disk(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == [second.id]
 
 
+def test_an_incomplete_snapshot_is_refused_not_served_empty(tmp_path):
+    from dataclasses import replace
+    snap = snapshot_of_the_laptop_pull()
+    head_only = replace(snap, tables={})
+    with pytest.raises(serving.IncompleteSnapshot, match="customers 0 of 187"):
+        serving.restore(head_only, tmp_path)
+    assert list(tmp_path.iterdir()) == []                               # nothing written
+
+
 def test_the_scorer_reads_a_restored_snapshot_like_the_files(tmp_path):
     from core.health_scoring import CustomerHealthScorer
 

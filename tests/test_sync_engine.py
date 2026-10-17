@@ -325,6 +325,9 @@ def test_on_promote_is_called_with_the_snapshot_and_its_failure_is_recorded(prov
     run = runs.get_run(engine.start(c.id).run.id)
     assert run.status == "succeeded" and [s.id for s in served] == [run.snapshot_id]
     assert store.audit[-1]["detail"]["served"] is True
+    # Serving gets the tables, not the head create_snapshot returns: the bug
+    # that emptied staging on every Sync now.
+    assert len(served[0].tables["customers"]) == 3 == served[0].row_counts["customers"]
 
     def broken(snapshot):
         raise OSError("disk full")

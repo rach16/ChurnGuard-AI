@@ -507,7 +507,15 @@ class SyncEngine:
         # next start restores it. The run says so rather than failing.
         if self.on_promote is not None:
             try:
-                self.on_promote(snapshot)
+                # Read back with its tables. ``create_snapshot`` returns only the
+                # head (no tables), and serving that wrote empty files: every
+                # Sync now on staging emptied the site until the next restart,
+                # 2026-10-16 to 2026-10-17. Serving reads what the database holds,
+                # the same copy a restart restores.
+                full = self.runs.get_snapshot(snapshot.id)
+                if full is None:
+                    raise LookupError(f"snapshot {snapshot.id} vanished before it could be served")
+                self.on_promote(full)
                 progress.served = True
             except Exception as e:  # noqa: BLE001
                 progress.served = False
