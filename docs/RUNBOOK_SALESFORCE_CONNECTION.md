@@ -291,6 +291,51 @@ The DuckDB warehouse baked into the image is built from the committed pull,
 not from the promoted snapshot (dbt is not in the serving image; see
 Deferred in STATUS). Nothing on the site reads the Salesforce warehouse today.
 
+## Write-back to Salesforce (9.2, ADR-0014)
+
+After every promotion and every roll back, the site's reading for each active
+account goes onto three fields of its Account record in the org:
+`ChurnGuard_Risk_Score__c` (Number 3,1), `ChurnGuard_Risk_Band__c` (picklist
+Critical / High / Medium / Low) and `ChurnGuard_Top_Reason__c` (Text 80). Equal
+to what the site shows; only records whose values changed are written; churned
+accounts, prospects and sample records are never written. Nothing is written on
+a restart.
+
+- **Turn on** (admin, Integrations page, or `POST /connections/{id}/writeback`).
+  Creates whichever of the three fields the org lacks through the Tooling API,
+  grants the connected user's profile read and edit on them, describes Account
+  again to confirm all three are present and updateable, then flips
+  `connections.writeback_enabled`. Needs a connection made by a user with
+  *Customize Application* (any System Administrator). A refusal names the step:
+  "cannot create fields" means the connected user lacks that right; "exists with
+  another type" means someone made a field of that name by hand. Audited
+  `writeback_enabled` with the fields created.
+- **The fields are on no page layout** after creation. To see them: a list view
+  with the three columns (filter *ChurnGuard risk score not equal to blank*,
+  sort descending), or add them to the Account layout in Setup. Field-level
+  security is granted to the connected user's profile only; widen it in Setup
+  for CSMs.
+- **Turn off** (admin, `DELETE`). Stops the writes; the org keeps its last
+  values. Audited `writeback_disabled`.
+- **Write back now** (operator, `POST …/writeback/run`). The retry after a
+  failure, or the first write after turning on without waiting for a sync.
+- **Reading the state.** `GET /connections/{id}/writeback`: on or off and the
+  last attempt (status `succeeded` / `partial` / `failed` / `deferred`, counts
+  of candidates, resolved, unchanged, written, failed, the org's first refusal,
+  API calls). The `writebacks` table keeps the last 10 per connection; the audit
+  has one `writeback` event per attempt with the same counts and never a value.
+- **A failed or partial write** shows as `writeback_failed` in `attention()`:
+  the banner on the page and `errors.sync` on `/health`. The site is unaffected;
+  fix the cause (a validation rule or flow on Account, a removed field
+  permission) and press Write back now. `deferred` means the org's daily API
+  allowance was under 20% and the next promotion will try again.
+- **Both deployments connect the same org** (`churnguard-dev`). The switch is
+  per connection, so turn it on where the values should come from (production)
+  and off on staging, or the two will take turns writing the same fields.
+- **Cost.** One read and one write per 200 accounts per changed sync; an
+  unchanged org costs one read. 2 API calls for 132 accounts on staging
+  2026-10-18.
+
 ## Known gaps carried into 1.11
 
 - The app allows any user in the org to self-authorise, and the connection runs

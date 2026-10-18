@@ -68,8 +68,10 @@ Browser                      ChurnGuard API                 Salesforce
 - The customer connects as a **dedicated integration user** with a permission set
   granting **read-only** access to exactly Account, Opportunity, Case and Task, and
   the fields the connector selects. A leaked token can read those objects and
-  nothing else, and can write nothing. Write-back (9.2, when agreed) adds create on
-  Task only, as a separate permission set.
+  nothing else, and can write nothing. ~~Write-back (9.2, when agreed) adds create on
+  Task only, as a separate permission set.~~ *Amended 2026-10-18:* write-back (ADR-0014)
+  is edit on three custom Account fields, not create on Task; the permission set
+  gains exactly that.
 - Refresh-token policy is set on the app: valid until revoked, with **refresh-token
   rotation enabled** where the org supports it. Rotation means every refresh issues
   a new refresh token and the old one stops working, so a copied token has a short
