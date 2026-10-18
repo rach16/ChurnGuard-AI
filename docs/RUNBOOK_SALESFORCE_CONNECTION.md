@@ -128,6 +128,18 @@ Cognito accounts; the scheduler through GitHub's per-run token.
   their sessions at once. The last admin cannot be demoted or removed, and
   nobody removes themselves. Every change is in the audit log as
   `member_invited`, `member_role_changed`, `member_removed`.
+- **Testing an invite yourself: use a private window** for the invitee's first
+  sign-in. In a browser that already holds your own Cognito session, Cognito's
+  sign-in page fails the new person's "choose a password" step with
+  `Invalid input: Invalid challenge transition`. Seen on staging 2026-10-18;
+  the same steps succeed through Cognito's API and in a private window, so the
+  account and settings are fine. A real invitee on their own browser never
+  meets it.
+- **A role change reaches the person within two minutes**, at their next page
+  load: reads re-confirm the role with Cognito every two minutes, and every
+  action re-confirms it on the spot. No sign-out needed. If Cognito itself is
+  unreachable, reads keep the last confirmed role and actions answer 503 "try
+  again in a moment" rather than signing anyone out.
 - **The first admin of a new environment** is the one account made by hand:
   Cognito → Users → Create user (email invitation, mark verified), add to
   `admin`, set `custom:tenant`. Everyone after that comes from the Team page.

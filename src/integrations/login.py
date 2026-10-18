@@ -16,10 +16,12 @@ from __future__ import annotations
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from integrations import audit, crypto
+import httpx
+
 from integrations.cognito import (
     CALLBACK_PATH, CognitoClient, CognitoError, IdTokenInvalid, Person, TokenRefused,
 )
@@ -39,6 +41,22 @@ class LoginRefused(Exception):
 
 class SessionEnded(Exception):
     """The re-check failed: the person was disabled, signed out everywhere, or removed."""
+
+
+class CognitoUnavailable(Exception):
+    """Cognito could not be asked (network, or a 5xx). Not a verdict on the person:
+    an action is refused for now, a read carries on with the role last confirmed."""
+
+
+# Cognito's answers that mean "this person's session is over", as opposed to
+# "Cognito could not answer". Only these delete the session.
+DEAD_REFRESH_ERRORS = frozenset({"invalid_grant", "unauthorized_client", "invalid_client",
+                                 "access_denied", "invalid_request"})
+
+# How long a role confirmed by Cognito is trusted on reads before it is asked
+# again (2.6.6). A role raised on the Team page appears within this, at the
+# person's next page load, without signing out.
+RECHECK_READS_EVERY = timedelta(minutes=2)
 
 
 @dataclass(frozen=True)
@@ -160,19 +178,49 @@ class LoginFlow:
         try:
             tokens = self.cognito.refresh(refresh_token)
             person = self.cognito.verify_id_token(tokens.id_token, nonce=None)
+        except TokenRefused as e:
+            if e.error not in DEAD_REFRESH_ERRORS:
+                raise CognitoUnavailable(f"Cognito could not confirm the sign-in ({e.error}).") from None
+            self._end(session, str(e))
         except CognitoError as e:
-            with self.store.db.connection() as conn:
-                self.store.delete(conn, session.id)
-                audit.record(conn, "session_revoked", actor="system", tenant_id=session.tenant_id,
-                             detail={"user": actor(session), "email": session.email,
-                                     "reason": str(e)[:200]})
-            raise SessionEnded("Your sign-in is no longer valid. Sign in again.") from None
+            self._end(session, str(e))
+        except httpx.HTTPError as e:
+            raise CognitoUnavailable(f"Cognito could not be reached ({type(e).__name__}).") from None
         finally:
             del refresh_token
         now = self.now()
         with self.store.db.connection() as conn:
             self.store.recheck(conn, session.id, person.groups, now)
         return self.store.get_by_id(session.id)
+
+    def _end(self, session: Session, reason: str) -> None:
+        """A definitive refusal: the session is deleted and audited."""
+        with self.store.db.connection() as conn:
+            self.store.delete(conn, session.id)
+            audit.record(conn, "session_revoked", actor="system", tenant_id=session.tenant_id,
+                         detail={"user": actor(session), "email": session.email,
+                                 "reason": reason[:200]})
+        raise SessionEnded("Your sign-in is no longer valid. Sign in again.")
+
+    def fresh(self, session: Session) -> Optional[Session]:
+        """The session with its role confirmed within ``RECHECK_READS_EVERY``.
+
+        For reads (2.6.6): a role changed on the Team page reaches the person at
+        their next page load, and a disabled account loses its reads too. None
+        means the session is over. If Cognito cannot be asked, the session
+        carries on with its last confirmed role: a read does not sign everyone
+        out because Cognito is briefly unreachable. Actions do not use this:
+        they always re-check, and refuse while Cognito is unreachable.
+        """
+        if self.now() - session.checked_at < RECHECK_READS_EVERY:
+            return session
+        try:
+            return self.recheck(session)
+        except SessionEnded:
+            return None
+        except CognitoUnavailable as e:
+            logger.warning(f"read kept on last confirmed role: {e}")
+            return session
 
     # ------------------------------------------------------------ logout
 

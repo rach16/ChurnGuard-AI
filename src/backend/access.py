@@ -16,7 +16,7 @@ from typing import Callable
 from fastapi import HTTPException, Request
 
 from auth_routes import same_origin
-from integrations.login import SessionEnded, actor as actor_of
+from integrations.login import CognitoUnavailable, SessionEnded, actor as actor_of
 
 # Higher includes lower.
 ROLE_RANK = {"viewer": 1, "operator": 2, "admin": 3}
@@ -45,6 +45,8 @@ def make_require(get_state: Callable[[], object]):
                     session = login.recheck(session)
                 except SessionEnded as e:
                     raise HTTPException(status_code=401, detail=str(e))
+                except CognitoUnavailable as e:
+                    raise HTTPException(status_code=503, detail=f"{e} Try again in a moment.")
                 if session is None:
                     raise HTTPException(status_code=401, detail="Your sign-in ended. Sign in again.")
             if role_rank(session.role) < ROLE_RANK[min_role]:

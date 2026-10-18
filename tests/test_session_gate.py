@@ -85,6 +85,7 @@ def world(provider, monkeypatch, *, groups=("admin",), tenant="default", login=T
                   login=login_flow, sessions=sessions if login else None,
                   scheduler=github.verifier(SITE))
     world.github = github
+    world.state = state
 
     app = FastAPI()
     app.add_middleware(SessionGate, get_state=lambda: state)
@@ -286,3 +287,60 @@ def test_signing_out_locks_the_site_again(provider, monkeypatch):
     assert client.get("/dashboard-stats").status_code == 200
     assert client.post("/auth/logout", headers=ORIGIN).status_code == 303
     assert client.get("/dashboard-stats").status_code == 401
+
+
+# --------------------------------------------------- the role on reads (2.6.6)
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from integrations import login as login_module  # noqa: E402
+
+
+def test_a_role_raised_on_the_team_page_shows_at_the_next_page_load(provider, monkeypatch):
+    """A viewer made operator has no action to trigger the re-check, so reads
+    re-ask Cognito every couple of minutes instead of waiting for a sign-out."""
+    client, c, store, sessions, cognito, sf = world(provider, monkeypatch, groups=("viewer",))
+    sign_in(client, cognito)
+    assert client.get("/connections").json()["role"] == "viewer"
+
+    cognito.groups = ["operator"]                                       # raised on the Team page
+    assert client.get("/connections").json()["role"] == "viewer"         # confirmed seconds ago: trusted
+
+    later = datetime.now(timezone.utc) + login_module.RECHECK_READS_EVERY + timedelta(seconds=1)
+    world.state.login.now = lambda: later
+    body = client.get("/connections").json()
+    assert body["role"] == "operator" and body["operator_actions"] is True
+    (row,) = sessions.rows.values()
+    assert row.groups == ("operator",) and row.checked_at == later       # confirmed, and stamped
+
+
+def test_a_disabled_account_loses_its_reads_within_the_window(provider, monkeypatch):
+    client, c, store, sessions, cognito, sf = world(provider, monkeypatch)
+    sign_in(client, cognito)
+    cognito.disabled = True
+    assert client.get("/dashboard-stats").status_code == 200             # just confirmed
+    later = datetime.now(timezone.utc) + login_module.RECHECK_READS_EVERY + timedelta(seconds=1)
+    world.state.login.now = lambda: later
+    assert client.get("/dashboard-stats").status_code == 401
+    assert sessions.rows == {} and store.audit[-1]["event"] == "session_revoked"
+
+
+def test_a_cognito_outage_keeps_reads_and_refuses_actions(provider, monkeypatch):
+    """Cognito being unreachable is not a verdict on the person: reads carry on
+    with the last confirmed role; an action is refused with 503, not 401, and
+    the session survives."""
+    client, c, store, sessions, cognito, sf = world(provider, monkeypatch)
+    sign_in(client, cognito)
+    cognito.unavailable = True
+    later = datetime.now(timezone.utc) + login_module.RECHECK_READS_EVERY + timedelta(seconds=1)
+    world.state.login.now = lambda: later
+
+    assert client.get("/dashboard-stats").status_code == 200
+    assert client.get("/connections").json()["role"] == "admin"
+    r = client.post(f"/connections/{c.id}/sync", headers=ORIGIN)
+    assert r.status_code == 503 and "Try again" in r.json()["detail"]
+    assert len(sessions.rows) == 1 and "session_revoked" not in [a["event"] for a in store.audit]
+    assert not [a for a in store.audit if a["event"] == "sync_started"]
+
+    cognito.unavailable = False                                           # back: the action goes through
+    assert client.post(f"/connections/{c.id}/sync", headers=ORIGIN).status_code == 202

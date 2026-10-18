@@ -57,6 +57,13 @@ class SessionGate(BaseHTTPMiddleware):
         cookie = request.cookies.get(COOKIE)
         session = await run_in_threadpool(state.sessions.get, cookie) if cookie else None
         if session is not None:
+            # The role as Cognito last confirmed it, re-asked every couple of
+            # minutes (2.6.6): a role changed on the Team page reaches the
+            # person at their next page load, and a disabled account loses its
+            # reads too. If Cognito cannot be asked, the last confirmed role
+            # stands for reads; actions re-check for themselves and refuse.
+            session = await run_in_threadpool(login.fresh, session)
+        if session is not None:
             request.state.session = session
             return await call_next(request)
 

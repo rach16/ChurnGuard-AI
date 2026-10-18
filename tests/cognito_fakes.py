@@ -51,6 +51,7 @@ class FakeCognito:
         self.refresh_tokens: set[str] = set()
         self.revoked: list[str] = []
         self.disabled = False
+        self.unavailable = False          # Cognito answers 5xx to everything
         self.token_overrides: dict[str, Any] = {}
         self.header_overrides: dict[str, Any] = {}
         self.sign_with_other_key = False
@@ -117,6 +118,8 @@ class FakeCognito:
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
+        if self.unavailable:
+            return httpx.Response(503, json={"error": "server_error"})
         if path.endswith("/.well-known/jwks.json"):
             self.jwks_fetches += 1
             return httpx.Response(200, json=self.jwks())

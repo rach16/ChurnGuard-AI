@@ -166,7 +166,13 @@ it does today and says so on `/health`.
   disabled user, a removed account or a global sign-out fails that call, and the
   session is deleted on the spot; the groups in the fresh token replace the
   session's, so a role removed in the console is gone at the next action, not at
-  the next login. Reads use the session row alone.
+  the next login. ~~Reads use the session row alone.~~ *Amended 2026-10-18
+  (2.6.6):* reads re-confirm the role the same way once it is more than two
+  minutes old, so a role raised on the Team page appears at the person's next
+  page load (a viewer has no action that would trigger the check). Cognito
+  being unreachable is not a verdict: reads keep the last confirmed role,
+  actions answer 503; only Cognito's own refusal (``invalid_grant`` and kin)
+  ends a session.
 - **Tenant on every action.** The session carries the tenant from Cognito's
   `custom:tenant` attribute (set by an admin; a user cannot change their own, because the app never requests the `aws.cognito.signin.user.admin` scope that would allow it); an action
   on a connection whose `tenant_id` differs is refused. One tenant today,
