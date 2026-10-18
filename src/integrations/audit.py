@@ -23,6 +23,7 @@ EVENTS = frozenset({
     "login", "login_refused", "logout", "session_revoked",
     "member_invited", "member_role_changed", "member_removed",
     "writeback", "writeback_enabled", "writeback_disabled",
+    "assistant_question",
 })
 
 

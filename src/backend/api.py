@@ -72,6 +72,7 @@ from assistant.notes_index import IndexBuildFailed, NotesIndex, documents_from
 import auth_routes
 import connections_routes
 import team_routes
+import assistant_routes
 from session_gate import SessionGate
 import security
 from model.survival import ChurnSurvivalModel
@@ -648,6 +649,8 @@ security.install(app)
 app.include_router(connections_routes.build_router(lambda: state))
 app.include_router(auth_routes.build_router(lambda: state))
 app.include_router(team_routes.build_router(lambda: state))
+# The assistant (4.6, ADR-0016). require_story is defined below; the lambda reads it at request time.
+app.include_router(assistant_routes.build_router(lambda: state, lambda: require_story()))
 
 
 def require_ai(component: str):

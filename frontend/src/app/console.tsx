@@ -505,6 +505,9 @@ export function StoryView({ story, synthetic, full = false }: { story: Story; sy
         <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(brief())}>
           Copy brief
         </Button>
+        <Button variant="outline" size="sm" asChild>
+          <a href={`/ask?account=${story.id}`}>Ask about this account</a>
+        </Button>
         {story.salesforce_url && (
           <Button variant="outline" size="sm" asChild>
             <a href={story.salesforce_url} target="_blank" rel="noreferrer">

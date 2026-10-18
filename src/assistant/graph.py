@@ -93,6 +93,18 @@ class Cancelled(Exception):
     """The caller went away; nothing more is spent on this question."""
 
 
+class Tracer:
+    """Where each step is reported as it happens. The default does nothing; the
+    service passes one that writes to Langfuse (ADR-0016 section 8). ``start``
+    returns a handle that ``end`` closes, so durations are real."""
+
+    def start(self, kind: str, name: str, **meta: Any) -> Any:
+        return None
+
+    def end(self, handle: Any, **out: Any) -> None:
+        return None
+
+
 def prompt(name: str, **values: str) -> str:
     text = (PROMPTS / f"{name}.md").read_text()
     if "{rules}" in text:
@@ -121,13 +133,14 @@ class Assistant:
     def __init__(self, model: Model, tools: Tools, *, judge: Optional[Model] = None,
                  predictions_available: bool = False,
                  on_event: Optional[Callable[[dict[str, Any]], None]] = None,
-                 cancel: Optional[threading.Event] = None):
+                 cancel: Optional[threading.Event] = None, tracer: Optional[Tracer] = None):
         self.model = model
         self.judge = judge or model
         self.tools = tools
         self.predictions_available = predictions_available
         self.on_event = on_event or (lambda e: None)
         self.cancel = cancel or threading.Event()
+        self.tracer = tracer or Tracer()
         self.results: dict[str, dict[str, Any]] = {}
         self.calls: list[dict[str, Any]] = []
         self.usage = Usage()
@@ -179,7 +192,7 @@ class Assistant:
             {"role": "system", "content": prompt("supervisor", as_of=self.tools.ctx.as_of)},
             {"role": "user", "content": f"Question: {s['question']}\n{self.account_line}\n"
                                         f"Accounts the question names: {', '.join(named) or 'none'}"}],
-            PLAN_SCHEMA)
+            PLAN_SCHEMA, role="supervisor")
         source, agents, out_of_scope, instructions = "rules", rules, False, {}
         if out.data is not None:
             proposed = [a for a in AGENTS if a in (out.data.get("agents") or [])]
@@ -219,7 +232,8 @@ class Assistant:
         merged = "\n\n".join(f"{AGENT_LABEL[a]}:\n" + json.dumps(c, indent=1) for a, c in findings.items())
         out = self._structured([
             {"role": "system", "content": prompt("draft", as_of=self.tools.ctx.as_of)},
-            {"role": "user", "content": f"Question: {s['question']}\n\nFindings:\n{merged}"}], FINDINGS_SCHEMA)
+            {"role": "user", "content": f"Question: {s['question']}\n\nFindings:\n{merged}"}], FINDINGS_SCHEMA,
+            role="draft")
         claims = (out.data or {}).get("claims") if out.data else None
         if not claims:
             claims = [c for cs in findings.values() for c in cs]
@@ -263,7 +277,7 @@ class Assistant:
                         if r in self.results)
             for i, problem in s["failures"].items())
         out = self._structured([{"role": "system", "content": prompt("revise", as_of=self.tools.ctx.as_of)},
-                                {"role": "user", "content": listing}], REVISION_SCHEMA)
+                                {"role": "user", "content": listing}], REVISION_SCHEMA, role="revise")
         changed = []
         for c in (out.data or {}).get("claims", []) if out.data else []:
             i = c.get("index")
@@ -282,7 +296,7 @@ class Assistant:
             {"role": "system", "content": prompt(agent, as_of=self.tools.ctx.as_of)},
             {"role": "user", "content": f"Question: {s['question']}\n{self.account_line}\nYour task: {task}"}]
         for _ in range(MAX_TURNS):
-            reply = self._complete(messages, tools)
+            reply = self._complete(messages, tools, role=agent)
             if not reply.tool_calls:
                 break
             messages.append({"role": "assistant", "content": reply.content,
@@ -292,9 +306,9 @@ class Assistant:
                 messages.append({"role": "tool", "tool_call_id": call.id,
                                  "content": json.dumps({"ref": ref, "result": result}, default=str)})
         messages.append({"role": "user", "content": prompt("findings")})
-        out = self._structured(messages, FINDINGS_SCHEMA)
+        out = self._structured(messages, FINDINGS_SCHEMA, role=agent)
         if out.data is None:
-            out = self._structured(messages, FINDINGS_SCHEMA)          # one retry on a malformed output
+            out = self._structured(messages, FINDINGS_SCHEMA, role=agent)   # one retry on a malformed output
         if out.data is None:
             logger.warning(f"assistant: {agent} returned no usable findings ({out.error})")
             return [{"text": f"The {AGENT_LABEL[agent].lower()} could not produce a usable answer.",
@@ -323,6 +337,7 @@ class Assistant:
             record.update(ok=False, refused=True, ms=0)
         else:
             self._step(agent, self._describe(call))
+            handle = self.tracer.start("tool", call.name, agent=agent, ref=ref, args=call.args)
             started = time.monotonic()
             future = self._pool.submit(self.tools.call, call.name, call.args)
             try:
@@ -333,6 +348,8 @@ class Assistant:
                           "snapshot_id": self.tools.ctx.snapshot_id, "as_of": self.tools.ctx.as_of}
             record.update(ok=bool(result.get("ok")), ms=round((time.monotonic() - started) * 1000),
                           error=result.get("error"))
+            self.tracer.end(handle, ok=record["ok"], error=record["error"], ms=record["ms"],
+                            rows=(result.get("data") or {}).get("count") if isinstance(result.get("data"), dict) else None)
         with self._lock:
             self.results[ref] = result
         return ref, result
@@ -342,7 +359,8 @@ class Assistant:
         if call.name == "find_accounts":
             if a.get("name"):
                 return f"Looking up {a['name']}"
-            parts = [f"{k.replace('_', ' ')} {v}" for k, v in a.items() if k not in ("limit", "sort") and v]
+            parts = [k.replace("_", " ") if v is True else f"{k.replace('_', ' ')} {v}"
+                     for k, v in a.items() if k not in ("limit", "sort") and v not in (None, False, "")]
             return "Finding accounts" + (f" ({', '.join(parts)})" if parts else "")
         if call.name in ("get_story", "get_plays"):
             builder = self.tools.ctx.builder
@@ -364,7 +382,7 @@ class Assistant:
                 f"{r}: {compact(self.results[r], 3000)}" for r in claims[i]["citations"] if r in self.results)
             for i in indexes)
         out = self._structured([{"role": "system", "content": prompt("faithfulness")},
-                                {"role": "user", "content": listing}], VERDICT_SCHEMA, judge=True)
+                                {"role": "user", "content": listing}], VERDICT_SCHEMA, judge=True, role="judge")
         if out.data is None:
             logger.warning(f"assistant: faithfulness check unavailable ({out.error}); code checks stand")
             return {}
@@ -420,23 +438,31 @@ class Assistant:
     def _step(self, agent: str, text: str) -> None:
         self.on_event({"type": "step", "agent": agent, "text": text})
 
-    def _complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Reply:
+    def _complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, role: str) -> Reply:
         self._cancelled()
+        handle = self.tracer.start("generation", role, model=getattr(self.model, "name", "model"),
+                                   tools=[t["name"] for t in tools])
         reply = self.model.complete(messages, tools)
+        self.tracer.end(handle, usage=reply.usage, tool_calls=[c.name for c in reply.tool_calls])
         with self._lock:
             self.model_calls += 1
             self.usage.add(reply.usage)
         return reply
 
-    def _structured(self, messages: list[dict[str, Any]], schema: dict[str, Any], *, judge: bool = False) -> Structured:
+    def _structured(self, messages: list[dict[str, Any]], schema: dict[str, Any], *, judge: bool = False,
+                    role: str = "structured") -> Structured:
         self._cancelled()
+        model = self.judge if judge else self.model
+        handle = self.tracer.start("generation", role, model=getattr(model, "name", "model"),
+                                   schema=schema.get("title"))
         try:
-            out = (self.judge if judge else self.model).structured(messages, schema)
+            out = model.structured(messages, schema)
         except Cancelled:
             raise
         except Exception as e:  # noqa: BLE001 - a failed call is a missing output, handled by the caller
             logger.warning(f"assistant: structured call failed: {type(e).__name__}: {e}")
             out = Structured(data=None, error=f"{type(e).__name__}: {e}")
+        self.tracer.end(handle, usage=out.usage, error=out.error)
         with self._lock:
             self.model_calls += 1
             self.usage.add(out.usage)

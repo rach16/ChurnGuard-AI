@@ -12,37 +12,30 @@ dependencies = [
     # so no server and no credentials. Was warehouse-extra-only until the first
     # real deployment came up degraded without it.
     "duckdb>=1.1.0",
-
     # Web Framework
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
-
     # LangChain Core & Agents
     "langgraph>=0.2.69",
     "langchain>=0.3.19",
     "langchain-community>=0.3.16",
     "langchain-openai>=0.3.7",
     "langchain-experimental>=0.3.4",
-
     # LLM Providers
     "openai>=1.61.0",
-    "langchain-cohere>=0.3.3",   # rag_retrievers.rerank_retrieval
-
+    "langchain-cohere>=0.3.3", # rag_retrievers.rerank_retrieval
     # Vector Database
     "qdrant-client>=1.13.2",
     "langchain-qdrant>=0.2.0",
-
     # Search & Retrieval
-    "tavily-python>=0.5.0",      # agents/churn_agent.py web search, when TAVILY_API_KEY is set
-    "rank-bm25>=0.2.2",          # core/rag_retrievers.hybrid_retrieval
-
+    "tavily-python>=0.5.0", # agents/churn_agent.py web search, when TAVILY_API_KEY is set
+    "rank-bm25>=0.2.2", # core/rag_retrievers.hybrid_retrieval
     # Data
     "numpy>=2.2.2",
     "pandas>=2.0.0",
-    "networkx>=3.0",             # core/knowledge_graph.py
-
+    "networkx>=3.0", # core/knowledge_graph.py
     # Salesforce connections (1.9, ADR-0012). Runtime, because the API process
     # holds the connection: Postgres for the connection, OAuth state and audit
     # rows; KMS to wrap the data keys; AES-GCM for the envelope. Without
@@ -52,6 +45,7 @@ dependencies = [
     "cryptography>=42",
     # Verifying Cognito ID tokens and GitHub OIDC tokens (ADR-0013).
     "pyjwt[crypto]>=2.8",
+    "langfuse>=3,<4",
 ]
 
 
