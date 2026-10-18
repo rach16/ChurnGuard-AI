@@ -123,11 +123,17 @@ against the local provider and by a real KMS re-wrap from a laptop on 2026-10-16
 There is no shared key to rotate (deleted 2.6.3). People act through their own
 Cognito accounts; the scheduler through GitHub's per-run token.
 
-- **Remove someone now:** Cognito → Users → the person → **Disable user**. Their
-  next action fails Cognito's re-check and deletes their session; reads stop at
-  the session's idle hour at the latest.
-- **Change a role:** add or remove them from `admin`, `operator`, `viewer`. It
-  takes effect at their next action.
+- **Invite, change a role, remove:** the **Team** page (left menu, admins only).
+  Removing someone disables the account, signs them out everywhere and deletes
+  their sessions at once. The last admin cannot be demoted or removed, and
+  nobody removes themselves. Every change is in the audit log as
+  `member_invited`, `member_role_changed`, `member_removed`.
+- **The first admin of a new environment** is the one account made by hand:
+  Cognito → Users → Create user (email invitation, mark verified), add to
+  `admin`, set `custom:tenant`. Everyone after that comes from the Team page.
+- **If the Team page answers AccessDenied:** the environment's IAM user lacks
+  its `churnguard-<env>-team` policy (nine `cognito-idp` admin actions on that
+  pool only).
 - **Rotate the app client secret:** Cognito → App clients → `churnguard-staging`
   → Client secrets → add a new one; Render `COGNITO_CLIENT_SECRET` → Save and
   deploy; then delete the old secret in Cognito.

@@ -17,28 +17,33 @@ import {
   MessageSquare,
   Plug,
   TrendingDown,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import { AccountMenu } from './account';
+import { AccountMenu, useMe } from './account';
 import { AuthGate } from './sign-in';
 import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
 import { WakeGate, WakeScreen } from './wake-screen';
 
-const NAV: { icon: LucideIcon; label: string; href: string }[] = [
+const NAV: { icon: LucideIcon; label: string; href: string; adminOnly?: boolean }[] = [
   { icon: AlertTriangle, label: 'At risk', href: '/' },
   { icon: MessageSquare, label: 'Assistant', href: '/ask' },
   { icon: BarChart3, label: 'Analytics', href: '/analytics' },
   { icon: LifeBuoy, label: 'Evaluation', href: '/evaluations' },
   { icon: Plug, label: 'Integrations', href: '/integrations' },
+  // Admins only (2.6.5): the backend refuses anyone else regardless.
+  { icon: Users, label: 'Team', href: '/team', adminOnly: true },
 ];
 
 export function Rail() {
   const pathname = usePathname();
+  const me = useMe();
+  const isAdmin = me?.user?.role === 'admin';
 
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r bg-muted/40 py-3">
@@ -50,7 +55,7 @@ export function Rail() {
         <TrendingDown className="h-4 w-4" />
       </Link>
 
-      {NAV.map(({ icon: Icon, label, href }) => {
+      {NAV.filter((item) => !item.adminOnly || isAdmin).map(({ icon: Icon, label, href }) => {
         // "/" would prefix-match everything, so it is compared exactly.
         const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
         return (

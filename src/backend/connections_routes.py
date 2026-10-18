@@ -55,11 +55,12 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from auth_routes import COOKIE, same_origin
+from access import ROLE_RANK, make_require, role_rank
+from auth_routes import COOKIE
 from integrations.connections import DEFAULT_TENANT
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
 from integrations.github_oidc import SchedulerRefused
-from integrations.login import SessionEnded, actor as actor_of
+from integrations.login import actor as actor_of
 from integrations.sync import RollbackRefused, SyncEngine, attention
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
@@ -73,12 +74,7 @@ def bearer_token(request: Request) -> Optional[str]:
     return header[7:].strip() or None if header[:7].lower() == "bearer " else None
 
 
-# Who may do what (ADR-0013 section 3). Higher includes lower.
-ROLE_RANK = {"viewer": 1, "operator": 2, "admin": 3}
 
-
-def role_rank(role) -> int:
-    return ROLE_RANK.get(role or "", 0)
 
 
 class StartRequest(BaseModel):
@@ -113,36 +109,8 @@ setTimeout(function () {{ window.close(); }}, {1500 if ok else 6000});
 def build_router(get_state: Callable[[], object]) -> APIRouter:
     router = APIRouter(tags=["connections"])
 
-    def require(min_role: str):
-        """The gate on a state-changing route (ADR-0013 section 4).
-
-        Signed in: the request must come from the site's own pages, the person is
-        re-checked with Cognito at this moment (a disabled or signed-out account
-        is refused here and its session deleted), and their role must be at least
-        ``min_role``. A deployment with sign-in off has no actions: 404.
-        """
-        def dependency(request: Request) -> str:
-            state = get_state()
-            login = getattr(state, "login", None)
-            session = getattr(request.state, "session", None)
-            if login is None:
-                raise HTTPException(status_code=404,
-                                    detail="Actions need sign-in, which is not enabled on this deployment.")
-            if session is None:
-                raise HTTPException(status_code=401, detail="Sign in required.")
-            if not same_origin(request):
-                raise HTTPException(status_code=403, detail="This action must come from the site's own pages.")
-            try:
-                session = login.recheck(session)
-            except SessionEnded as e:
-                raise HTTPException(status_code=401, detail=str(e))
-            if session is None:
-                raise HTTPException(status_code=401, detail="Your sign-in ended. Sign in again.")
-            if role_rank(session.role) < ROLE_RANK[min_role]:
-                raise HTTPException(status_code=403, detail=f"This needs the {min_role} role.")
-            request.state.session = session
-            return actor_of(session)
-        return dependency
+    # The gate on every action, shared with the other routers (access.py).
+    require = make_require(get_state)
 
     def tenant_of(request: Request) -> str:
         session = getattr(request.state, "session", None)

@@ -21,6 +21,7 @@ EVENTS = frozenset({
     "sync_started", "sync_finished", "sync_deferred", "promotion", "rollback", "retention",
     "disconnect", "purge", "rewrap",
     "login", "login_refused", "logout", "session_revoked",
+    "member_invited", "member_role_changed", "member_removed",
 })
 
 
@@ -55,3 +56,14 @@ def recent(conn, tenant_id: str = "default", limit: int = 50) -> list[dict[str, 
         (tenant_id, limit),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def last_sign_ins(conn, tenant_id: str = "default") -> dict[str, Any]:
+    """The newest ``login`` per person in a tenant, keyed by Cognito username
+    (the sub), for the Team page."""
+    rows = conn.execute(
+        "select substring(actor from 6) as sub, max(at) as at from audit_events"
+        " where tenant_id = %s and event = 'login' and actor like 'user:%%' group by 1",
+        (tenant_id,),
+    ).fetchall()
+    return {r["sub"]: r["at"] for r in rows}

@@ -61,11 +61,14 @@ from integrations.connections import ConnectionStore
 from integrations.github_oidc import GitHubOidcVerifier, Pins as SchedulerPins
 from integrations.login import LoginFlow
 from integrations.sessions import SessionStore
+from integrations.team import TeamAdmin
+from integrations import audit as audit_log
 from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 import auth_routes
 import connections_routes
+import team_routes
 from session_gate import SessionGate
 import security
 from model.survival import ChurnSurvivalModel
@@ -119,6 +122,9 @@ class ServiceState:
         self.login: Optional[LoginFlow] = None
         # The daily sync workflow's identity: GitHub's OIDC token (2.6.3).
         self.scheduler: Optional[GitHubOidcVerifier] = None
+        # The Team page (2.6.5): invites and roles through Cognito's admin API.
+        self.team: Optional[TeamAdmin] = None
+        self.last_sign_ins = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -430,6 +436,13 @@ def _init_login(database, provider) -> None:
         return
     state.sessions = SessionStore(database)
     state.login = LoginFlow(state.sessions, provider, CognitoClient(config), site_origin=origin)
+    state.team = TeamAdmin(config.user_pool_id)
+
+    def _last_sign_ins(tenant: str) -> dict:
+        with database.connection() as conn:
+            return audit_log.last_sign_ins(conn, tenant)
+
+    state.last_sign_ins = _last_sign_ins
     try:
         with database.connection() as conn:
             purged = state.sessions.purge_expired(conn)
@@ -566,6 +579,7 @@ security.install(app)
 # is why it takes a getter: the subsystem comes up in lifespan, after this line.
 app.include_router(connections_routes.build_router(lambda: state))
 app.include_router(auth_routes.build_router(lambda: state))
+app.include_router(team_routes.build_router(lambda: state))
 
 
 def require_ai(component: str):

@@ -130,8 +130,23 @@ walkthrough, not by an open link (decided 2026-10-16).
 | `admin` | Everything an operator can, plus Connect, Reconnect and Disconnect |
 
 A signed-in account with none of the three groups is refused at sign-in: it
-would see nothing. Admins create users and assign groups in the Cognito console
-for now; a page for it is not part of 2.6 (§10). Buttons render by role.
+would see nothing. Buttons render by role.
+
+### 3a. The Team page (*Amended 2026-10-18, 2.6.5*)
+
+The first version left user management in the Cognito console. The owner's
+objection settled it ("I have to set up each user in the AWS console?"): no
+product works that way. Admins manage their team inside ChurnGuard at `/team`:
+invite (email and role; ChurnGuard creates the account in the admin's tenant
+with one role group, and Cognito emails a temporary password), change a role,
+remove (disable and sign out everywhere, and delete the sessions here). Rules:
+an admin sees and acts on their own tenant only; the last admin can be neither
+demoted nor removed; nobody removes themselves; a removed person invited again
+is re-enabled. Each change is audited with the admin who made it. The console
+is needed once, for the first admin. The backend calls Cognito's admin API as
+the environment's IAM user, whose added policy allows nine actions on that
+environment's pool and nothing else (tested: refused on the other pool and on
+deleting users).
 
 **Where the gate is.** In the backend, on every route except the probes and the
 sign-in routes: the frontend redirecting to a sign-in page is convenience, not
@@ -221,7 +236,7 @@ Production's own key, Neon branch and user pool arrive with production itself
 | A custom login domain (`login.<company>`) with its own certificate | Cognito's prefix domain | Free; a domain is cosmetic for a handful of operators |
 | SES for invitation and reset email | Cognito's default sender, daily-limited | Free; enough for a few users |
 | Threat protection (compromised-credential and risk-based checks) | Not enabled | Plus tier, no free tier |
-| An invite page for admins | The Cognito console | 2.6 is the gate, not user management |
+| ~~An invite page for admins~~ | ~~The Cognito console~~ | Built in 2.6.5, §3a |
 | Sessions in a cache (Redis) at volume | Postgres | A handful of sessions; Neon is already there |
 
 ## 10. Considered and rejected, or later
