@@ -68,6 +68,7 @@ from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 from integrations.writeback import WriteBackEngine
+from assistant.notes_index import IndexBuildFailed, NotesIndex, documents_from
 import auth_routes
 import connections_routes
 import team_routes
@@ -105,6 +106,8 @@ class ServiceState:
         self.health_scorer: Optional[CustomerHealthScorer] = None
         self.playbook: Optional[PlaybookEngine] = None
         self.story: Optional[StoryBuilder] = None
+        # The assistant's notes-and-cases index (ADR-0016 section 4), versioned per snapshot.
+        self.notes_index: Optional[NotesIndex] = None
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
@@ -212,6 +215,7 @@ class ServiceState:
     def components(self) -> dict:
         return {
             "health_scorer": self.health_scorer is not None,
+            "notes_index": self.notes_index is not None,
             "playbook": self.playbook is not None,
             "survival_model": self.survival is not None,
             "exposure": self.exposure is not None,
@@ -321,6 +325,50 @@ def _ai_unavailable(reason: str) -> None:
     """Record one reason against every AI component, so each 503 explains itself."""
     for component in AI_COMPONENTS:
         state.unavailable(component, reason)
+
+
+def _init_notes_index() -> None:
+    """The assistant's index (ADR-0016 section 4): needs an embedding provider and
+    Qdrant. Without them notes search reports itself unavailable; nothing else
+    changes. Built here only as an object: the build itself runs per snapshot."""
+    if not os.getenv("QDRANT_URL"):
+        state.switched_off("notes_index", "QDRANT_URL is not set")
+        return
+    try:
+        from core.llm import embedding_model
+
+        embedder = embedding_model()
+        client = ChurnRAGRetriever._make_client(os.environ["QDRANT_URL"])
+        state.notes_index = NotesIndex(client, embedder.embed_documents, embedder.embed_query,
+                                       tenant=(serving_info() or {}).get("tenant_id", "default"))
+    except Exception as e:  # noqa: BLE001 - a missing key is a configuration, not a fault
+        state.notes_index = None
+        state.switched_off("notes_index", f"notes search is off: {type(e).__name__}: {e}"[:300])
+
+
+def _refresh_notes_index() -> None:
+    """Make the index match the served snapshot: a no-op when it already does, an
+    alias move on a rollback to a kept snapshot, a full build otherwise. In a
+    thread, so a promotion or a start is never held for it. A failure leaves the
+    previous index serving and is named on /health."""
+    index, scorer = state.notes_index, state.health_scorer
+    if index is None or scorer is None:
+        return
+    info = serving_info() or {}
+    snapshot_id = info.get("snapshot_id") or f"pull-{scorer.as_of.date().isoformat()}"
+
+    def run() -> None:
+        try:
+            result = index.build(snapshot_id, documents_from(scorer))
+            state.errors.pop("notes_index", None)
+            logger.info(f"notes index: {result['action']} {result['collection']} ({result['documents']} documents)")
+        except IndexBuildFailed as e:
+            state.unavailable("notes_index", f"the notes index for snapshot {snapshot_id[:8]} failed to build "
+                                             f"({e}); the previous one is still serving")
+        except Exception as e:  # noqa: BLE001
+            state.unavailable("notes_index", f"{type(e).__name__}: {e}"[:300])
+
+    threading.Thread(target=run, name="notes-index", daemon=True).start()
 
 
 def _init_ai_stack() -> None:
@@ -478,10 +526,12 @@ def _serve_snapshot(snapshot: Snapshot, reload: bool = True) -> None:
     set_serving(str(folder), {
         "kind": "sync", "snapshot_id": snapshot.id, "run_id": snapshot.run_id,
         "as_of": snapshot.as_of.isoformat(), "row_counts": snapshot.row_counts,
+        "tenant_id": snapshot.tenant_id,
         "created_at": snapshot.created_at.isoformat(),
     })
     if reload:
         _init_health_scorer()
+        _refresh_notes_index()
     logger.info(f"✓ serving snapshot {snapshot.id[:8]} (run {snapshot.run_id[:8]}, as of {snapshot.as_of})")
 
 
@@ -533,6 +583,8 @@ async def lifespan(app: FastAPI):
     _restore_serving()
     _init_health_scorer()
     _init_ai_stack()
+    _init_notes_index()
+    _refresh_notes_index()
 
     if state.ai_ready:
         logger.info("✅ Fully initialized -- AI endpoints available")
