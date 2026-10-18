@@ -122,6 +122,59 @@ class Serving:
                 "promoted_at": self.promoted_at, "promoted_by": self.promoted_by}
 
 
+@dataclass(frozen=True)
+class WriteBack:
+    """One attempt to put the site's readings on the org (ADR-0014 section 7)."""
+    id: str
+    tenant_id: str
+    connection_id: str
+    snapshot_id: Optional[str]
+    trigger: str
+    status: str
+    counts: dict[str, int]
+    error: Optional[str]
+    api_requests: int
+    api_usage: Optional[dict[str, int]]
+    actor: str
+    started_at: datetime
+    finished_at: Optional[datetime]
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "snapshot_id": self.snapshot_id, "trigger": self.trigger,
+                "status": self.status, "counts": self.counts, "error": self.error,
+                "api_requests": self.api_requests, "api_usage": self.api_usage,
+                "actor": self.actor, "started_at": self.started_at, "finished_at": self.finished_at}
+
+
+def _account_ids(rows: Iterable[tuple[str, Optional[str]]]) -> dict[str, str]:
+    """Shared with the fake store so both resolve the same way."""
+    by_number: dict[str, list[str]] = {}
+    out: dict[str, str] = {}
+    for sf_id, number in rows:
+        if number:
+            by_number.setdefault(number, []).append(sf_id)
+        else:
+            out[f"SF-{sf_id}"] = sf_id
+    for number, ids in by_number.items():
+        if len(ids) == 1:
+            out[number] = ids[0]
+    return out
+
+
+_WRITEBACK_COLUMNS = ("id, tenant_id, connection_id, snapshot_id, trigger, status, counts, error,"
+                      " api_requests, api_usage, actor, started_at, finished_at")
+
+
+def _row_to_writeback(r: dict[str, Any]) -> WriteBack:
+    return WriteBack(
+        id=str(r["id"]), tenant_id=r["tenant_id"], connection_id=str(r["connection_id"]),
+        snapshot_id=str(r["snapshot_id"]) if r["snapshot_id"] else None, trigger=r["trigger"],
+        status=r["status"], counts=r["counts"] or {}, error=r["error"],
+        api_requests=r["api_requests"], api_usage=r["api_usage"], actor=r["actor"],
+        started_at=r["started_at"], finished_at=r["finished_at"],
+    )
+
+
 _SNAPSHOT_COLUMNS = ("id, tenant_id, connection_id, run_id, as_of, tables, report, contracts,"
                      " contracts_passed, row_counts, created_at")
 _SNAPSHOT_HEAD = ("id, tenant_id, connection_id, run_id, as_of, null::jsonb as tables, report,"
@@ -385,6 +438,63 @@ class SyncStore:
             (tenant_id, snapshot_id, run_id, previous, actor),
         )
         return previous
+
+    # -------------------------------------------------------------- write-back
+
+    def account_ids(self, conn, connection_id: str) -> dict[str, str]:
+        """``customer_id`` → Salesforce Account Id, from the live landings
+        (ADR-0014 section 2): the connector names a customer by AccountNumber,
+        or ``SF-<Id>`` without one. An AccountNumber two live records share
+        resolves to neither; the write skips it rather than guess."""
+        rows = conn.execute(
+            "select sf_id, record->>'AccountNumber' as number from raw_records"
+            " where connection_id = %s and sobject = 'Account' and not deleted",
+            (connection_id,),
+        ).fetchall()
+        return _account_ids([(r["sf_id"], r["number"]) for r in rows])
+
+    def create_writeback(self, conn, *, connection_id: str, tenant_id: str,
+                         snapshot_id: Optional[str], trigger: str, actor: str,
+                         started_at: datetime) -> str:
+        row = conn.execute(
+            "insert into writebacks (tenant_id, connection_id, snapshot_id, trigger, status, actor,"
+            " started_at) values (%s, %s, %s, %s, 'failed', %s, %s) returning id::text",
+            (tenant_id, connection_id, snapshot_id, trigger, actor, started_at),
+        ).fetchone()
+        return row["id"]
+
+    def finish_writeback(self, conn, writeback_id: str, *, status: str, counts: dict[str, int],
+                         error: Optional[str], api_requests: int,
+                         api_usage: Optional[dict[str, int]], finished_at: datetime) -> None:
+        from psycopg.types.json import Jsonb
+        conn.execute(
+            "update writebacks set status = %s, counts = %s, error = %s, api_requests = %s,"
+            " api_usage = %s, finished_at = %s where id = %s",
+            (status, Jsonb(counts), error, api_requests,
+             Jsonb(api_usage) if api_usage is not None else None, finished_at, writeback_id),
+        )
+
+    def writebacks(self, connection_id: str, limit: int = 10, conn=None) -> list[WriteBack]:
+        """Newest first."""
+        sql = (f"select {_WRITEBACK_COLUMNS} from writebacks where connection_id = %s"
+               " order by started_at desc limit %s")
+        if conn is not None:
+            rows = conn.execute(sql, (connection_id, limit)).fetchall()
+        else:
+            with self.db.connection() as c:
+                rows = c.execute(sql, (connection_id, limit)).fetchall()
+        return [_row_to_writeback(r) for r in rows]
+
+    def last_writeback(self, connection_id: str, conn=None) -> Optional[WriteBack]:
+        found = self.writebacks(connection_id, limit=1, conn=conn)
+        return found[0] if found else None
+
+    def prune_writebacks(self, conn, connection_id: str, keep: int) -> int:
+        return conn.execute(
+            "delete from writebacks where connection_id = %s and id not in"
+            " (select id from writebacks where connection_id = %s order by started_at desc limit %s)",
+            (connection_id, connection_id, keep),
+        ).rowcount
 
     # -------------------------------------------------------------- retention
 

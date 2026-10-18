@@ -107,6 +107,14 @@ def attention(connections: ConnectionStore, runs: SyncStore,
                         "reason": f"The last {len(bad)} syncs {'failed' if latest.status == 'failed' else 'broke a contract'}: "
                                   f"{latest.error or latest.status}",
                         "since": recent[-1].finished_at})
+        if c.writeback_enabled:
+            last = runs.last_writeback(c.id)
+            if last is not None and last.status in ("failed", "partial"):
+                out.append({"connection_id": c.id, "org_id": c.org_id, "kind": "writeback_failed",
+                            "reason": (f"The last write-back to Salesforce {'failed' if last.status == 'failed' else 'wrote only some accounts'}"
+                                       f" ({last.counts.get('failed', 0)} refused): {last.error or last.status}."
+                                       " Use Write back now after fixing the cause."),
+                            "since": last.finished_at})
     return out
 
 
@@ -165,11 +173,16 @@ class SyncEngine:
     def __init__(self, tokens: TokenService, connections: ConnectionStore, runs: SyncStore,
                  *, overlap: timedelta = OVERLAP, objects: tuple[str, ...] = OBJECTS,
                  clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-                 on_promote: Optional[Callable[[Snapshot], None]] = None):
+                 on_promote: Optional[Callable[[Snapshot], None]] = None,
+                 on_served: Optional[Callable[[Snapshot, str], None]] = None):
         self.tokens = tokens
         # Called after the serving pointer has flipped to a snapshot, with it:
         # the API restores the snapshot to disk and reloads its scorer from it.
         self.on_promote = on_promote
+        # Called once that succeeded, with "promotion" or "rollback": the
+        # write-back (ADR-0014) copies what the site now shows to the org. Its
+        # failure is its own record and never the run's.
+        self.on_served = on_served
         self.connections = connections
         self.runs = runs
         self.overlap = overlap
@@ -345,7 +358,18 @@ class SyncEngine:
                 served = False
                 logger.error(f"rollback to {target.id[:8]}: pointer moved but serving it failed: "
                              f"{type(e).__name__}: {e}", exc_info=True)
+        if served:
+            self._served(target, "rollback")
         return self.runs.get_serving(tenant_id), served
+
+    def _served(self, snapshot: Snapshot, trigger: str) -> None:
+        if self.on_served is None:
+            return
+        try:
+            self.on_served(snapshot, trigger)
+        except Exception as e:  # noqa: BLE001 - the site is served; this is the org's copy
+            logger.error(f"after serving {snapshot.id[:8]} ({trigger}): {type(e).__name__}: {e}",
+                         exc_info=True)
 
     # -------------------------------------------------------------- retention
 
@@ -522,4 +546,5 @@ class SyncEngine:
                 logger.error(f"sync {run.id[:8]}: promoted but not served: {type(e).__name__}: {e}",
                              exc_info=True)
                 return "succeeded", f"promoted, but serving it failed: {type(e).__name__}: {e}"[:500]
+            self._served(full, "promotion")
         return "succeeded", None

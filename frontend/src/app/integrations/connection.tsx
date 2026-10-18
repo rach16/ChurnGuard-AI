@@ -23,6 +23,11 @@
  * Sync now (1.10) starts a run on the server and polls the run list until it
  * finishes. A run row is counts and timings only; the records themselves never
  * come to the browser.
+ *
+ * Write-back (9.2, ADR-0014): off until an admin turns it on, which creates the
+ * three ChurnGuard fields in the org; then every promotion and roll back writes
+ * the site's readings to each active Account. The block shows the switch, the
+ * last attempt as counts, and Write back now for operators.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -44,6 +49,26 @@ export interface ConnectionInfo {
   last_refreshed_at: string | null;
   last_used_at: string | null;
   created_at: string;
+  writeback_enabled?: boolean;
+}
+
+export interface WriteBackAttempt {
+  id: string;
+  snapshot_id: string | null;
+  trigger: 'promotion' | 'rollback' | 'manual';
+  status: 'succeeded' | 'partial' | 'failed' | 'deferred' | 'skipped';
+  counts: { candidates?: number; resolved?: number; unchanged?: number; written?: number; failed?: number };
+  error: string | null;
+  api_requests: number;
+  actor: string;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface WriteBackStatus {
+  enabled: boolean;
+  fields: string[];
+  last: WriteBackAttempt | null;
 }
 
 export interface SyncRun {
@@ -86,7 +111,7 @@ export interface SyncMetrics {
 export interface Attention {
   connection_id: string;
   org_id: string;
-  kind: 'needs_reauth' | 'runs_failing';
+  kind: 'needs_reauth' | 'runs_failing' | 'writeback_failed';
   reason: string;
   since?: string | null;
 }
@@ -373,13 +398,19 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
       {needs.length > 0 && (
         <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
           <div className="font-medium">
-            {needs[0].kind === 'needs_reauth' ? 'This connection needs a fresh login.' : 'The sync needs attention.'}
+            {needs[0].kind === 'needs_reauth'
+              ? 'This connection needs a fresh login.'
+              : needs[0].kind === 'writeback_failed'
+                ? 'The write-back to Salesforce needs attention.'
+                : 'The sync needs attention.'}
           </div>
-          <div>{needs[0].reason}</div>
+          <div className="break-words">{needs[0].reason}</div>
           <div className="mt-0.5 text-[11px] opacity-80">
             {needs[0].kind === 'needs_reauth'
               ? 'Until then nothing syncs and the site keeps serving the last promoted snapshot. Reconnect to fix it.'
-              : 'The site keeps serving the last promoted snapshot. The morning email carries the same message.'}
+              : needs[0].kind === 'writeback_failed'
+                ? 'The site is unaffected; the org holds the readings of an earlier sync for those accounts.'
+                : 'The site keeps serving the last promoted snapshot. The morning email carries the same message.'}
           </div>
         </div>
       )}
@@ -471,6 +502,215 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
       {notice && <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
       {c && <RunList runs={runs} serving={status.serving ?? null} />}
       {c && metrics && metrics.runs > 0 && <MetricsBlock m={metrics} />}
+      {c && c.status === 'active' && (
+        <WriteBackBlock
+          connectionId={c.id}
+          canOperate={canOperate}
+          canAdminister={canAdminister}
+          othersBusy={busy || working !== null || isUnfinished(runs[0])}
+          changedAt={`${status.serving?.snapshot_id ?? ''}|${status.serving?.promoted_at ?? ''}|${runs[0]?.finished_at ?? ''}`}
+          onChange={refresh}
+        />
+      )}
+    </div>
+  );
+}
+
+const WRITEBACK_LABELS: Record<WriteBackAttempt['status'], string> = {
+  succeeded: 'Written',
+  partial: 'Partly written',
+  failed: 'Failed',
+  deferred: 'Deferred',
+  skipped: 'Skipped',
+};
+
+function describeAttempt(a: WriteBackAttempt): string {
+  const n = a.counts;
+  const parts = [
+    `${(n.written ?? 0).toLocaleString()} written`,
+    `${(n.unchanged ?? 0).toLocaleString()} unchanged`,
+  ];
+  if (n.failed) parts.push(`${n.failed.toLocaleString()} refused`);
+  const unresolved = (n.candidates ?? 0) - (n.resolved ?? 0);
+  if (unresolved > 0) parts.push(`${unresolved.toLocaleString()} without a Salesforce Id`);
+  return parts.join(', ');
+}
+
+/**
+ * The switch, the last attempt, and Write back now. Refetched whenever the
+ * serving pointer or the latest run changes, because a promotion or roll back
+ * is what produces an attempt.
+ */
+function WriteBackBlock({
+  connectionId,
+  canOperate,
+  canAdminister,
+  othersBusy,
+  changedAt,
+  onChange,
+}: {
+  connectionId: string;
+  canOperate: boolean;
+  canAdminister: boolean;
+  othersBusy: boolean;
+  changedAt: string;
+  onChange: () => void;
+}) {
+  const [wb, setWb] = useState<WriteBackStatus | null | undefined>(undefined);
+  const [working, setWorking] = useState<'enable' | 'disable' | 'run' | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    return fetch(`/api/connections/${connectionId}/writeback`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: WriteBackStatus | null) => setWb(body))
+      .catch(() => setWb(null));
+  }, [connectionId]);
+
+  useEffect(() => {
+    load();
+  }, [load, changedAt]);
+
+  async function call(method: 'POST' | 'DELETE', path: string): Promise<Record<string, unknown>> {
+    const r = await fetch(`/api/${path}`, { method, headers: { 'content-type': 'application/json' } });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      if (r.status === 401) throw new Error('Your sign-in has ended. Sign in again (top right) and retry.');
+      throw new Error(String(body.detail || body.error || `HTTP ${r.status}`));
+    }
+    return body;
+  }
+
+  async function enable() {
+    if (
+      !window.confirm(
+        'Turn on write-back? This creates three fields on the Account object in the connected org ' +
+          '(ChurnGuard risk score, risk band, top reason) if they do not exist, and writes the readings ' +
+          'this site shows to every active account after each sync and roll back.',
+      )
+    )
+      return;
+    setNotice(null);
+    setDone(null);
+    setWorking('enable');
+    try {
+      const body = await call('POST', `connections/${connectionId}/writeback`);
+      const created = (body.fields_created as string[]) ?? [];
+      setDone(
+        created.length
+          ? `On. Created ${created.length} field${created.length === 1 ? '' : 's'} on Account in the org. The next sync writes; or use Write back now.`
+          : 'On. The org already had the three fields. The next sync writes; or use Write back now.',
+      );
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not turn write-back on.');
+    } finally {
+      setWorking(null);
+      load();
+      onChange();
+    }
+  }
+
+  async function disable() {
+    if (!window.confirm('Turn off write-back? Nothing is removed from the org; it just stops being updated.')) return;
+    setNotice(null);
+    setDone(null);
+    setWorking('disable');
+    try {
+      await call('DELETE', `connections/${connectionId}/writeback`);
+      setDone('Off. The fields in the org keep their last values.');
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not turn write-back off.');
+    } finally {
+      setWorking(null);
+      load();
+      onChange();
+    }
+  }
+
+  async function runNow() {
+    setNotice(null);
+    setDone(null);
+    setWorking('run');
+    try {
+      const body = await call('POST', `connections/${connectionId}/writeback/run`);
+      const a = body.writeback as WriteBackAttempt | null;
+      if (a && (a.status === 'failed' || a.status === 'partial' || a.status === 'deferred')) {
+        setNotice(`${WRITEBACK_LABELS[a.status]}: ${describeAttempt(a)}${a.error ? `. ${a.error}` : ''}`);
+      } else if (a) {
+        setDone(`${WRITEBACK_LABELS[a.status]}: ${describeAttempt(a)}.`);
+      }
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : 'Could not write back.');
+    } finally {
+      setWorking(null);
+      load();
+      onChange();
+    }
+  }
+
+  if (wb === undefined) return null;
+  if (wb === null) {
+    return (
+      <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">Write-back to Salesforce is not available here.</div>
+    );
+  }
+  const last = wb.last;
+  const tone =
+    last?.status === 'succeeded'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : last?.status === 'failed' || last?.status === 'partial'
+        ? 'text-amber-700 dark:text-amber-400'
+        : 'text-muted-foreground';
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Write-back to Salesforce</span>
+            <Badge variant={wb.enabled ? 'default' : 'outline'} className="text-[10px] font-normal">
+              {wb.enabled ? 'on' : 'off'}
+            </Badge>
+          </div>
+          <div className="mt-1 text-muted-foreground">
+            {wb.enabled
+              ? 'After every sync and roll back, each active account\'s risk score, band and top reason are written to its Account record (fields ChurnGuard risk score, risk band, top reason). Only values that changed are written.'
+              : 'Off. Turning it on creates three ChurnGuard fields on Account in the org and writes each active account\'s risk score, band and top reason there after every sync and roll back.'}
+          </div>
+          {last && (
+            <div className="mt-1">
+              <span className={`font-medium ${tone}`}>{WRITEBACK_LABELS[last.status]}</span>{' '}
+              <span className="text-muted-foreground">
+                {formatWhen(last.finished_at ?? last.started_at)}
+                {last.trigger === 'manual' ? ' by hand' : last.trigger === 'rollback' ? ' after a roll back' : ' after a sync'} ·{' '}
+                {describeAttempt(last)} · {last.api_requests} API call{last.api_requests === 1 ? '' : 's'}
+              </span>
+              {last.error && <div className="break-words text-amber-700 dark:text-amber-400">{last.error}</div>}
+            </div>
+          )}
+        </div>
+        {(canOperate || canAdminister) && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {wb.enabled && canOperate && (
+              <Button size="sm" variant="outline" onClick={runNow} disabled={othersBusy || working !== null}>
+                {working === 'run' ? 'Writing…' : 'Write back now'}
+              </Button>
+            )}
+            {canAdminister &&
+              (wb.enabled ? (
+                <Button size="sm" variant="ghost" onClick={disable} disabled={othersBusy || working !== null}>
+                  {working === 'disable' ? 'Turning off…' : 'Turn off'}
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={enable} disabled={othersBusy || working !== null}>
+                  {working === 'enable' ? 'Creating fields…' : 'Turn on'}
+                </Button>
+              ))}
+          </div>
+        )}
+      </div>
+      {done && <div className="mt-2 break-words text-xs text-emerald-700 dark:text-emerald-400">{done}</div>}
+      {notice && <div className="mt-2 break-words text-xs text-amber-700 dark:text-amber-400">{notice}</div>}
     </div>
   );
 }

@@ -66,6 +66,7 @@ from integrations import audit as audit_log
 from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
+from integrations.writeback import WriteBackEngine
 import auth_routes
 import connections_routes
 import team_routes
@@ -116,6 +117,7 @@ class ServiceState:
         # the engine that starts runs needs the app's credentials too.
         self.sync_runs: Optional[SyncStore] = None
         self.sync: Optional[SyncEngine] = None
+        self.writeback: Optional[WriteBackEngine] = None
         # Operator sign-in (2.6, ADR-0013): sessions in the same database, the
         # Cognito refresh token sealed under the same master key.
         self.sessions: Optional[SessionStore] = None
@@ -397,8 +399,9 @@ def _init_connections() -> None:
         # the status still reads; connect, verify, disconnect and sync answer 503.
         if os.getenv("SALESFORCE_CLIENT_ID", "").strip() and os.getenv("SALESFORCE_CLIENT_SECRET", "").strip():
             state.tokens = TokenService.from_env(state.connections, provider)
+            state.writeback = WriteBackEngine(state.tokens, state.connections, state.sync_runs)
             state.sync = SyncEngine(state.tokens, state.connections, state.sync_runs,
-                                    on_promote=_serve_snapshot)
+                                    on_promote=_serve_snapshot, on_served=_write_back)
             pins = SchedulerPins.from_env()
             if pins is not None:
                 state.scheduler = GitHubOidcVerifier(pins)
@@ -478,6 +481,17 @@ def _serve_snapshot(snapshot: Snapshot, reload: bool = True) -> None:
     if reload:
         _init_health_scorer()
     logger.info(f"✓ serving snapshot {snapshot.id[:8]} (run {snapshot.run_id[:8]}, as of {snapshot.as_of})")
+
+
+def _write_back(snapshot: Snapshot, trigger: str) -> None:
+    """After a promotion or rollback is served (ADR-0014 section 3): copy the
+    readings the site now shows to the org, if write-back is on for the
+    connection. Reads the scorer the serve just reloaded, so the org gets exactly
+    what the pages return. Not called on a restart: nothing changed."""
+    if state.writeback is None or state.health_scorer is None:
+        return
+    state.writeback.run(snapshot.connection_id, scored=state.health_scorer.score_active_customers(),
+                        snapshot_id=snapshot.id, trigger=trigger)
 
 
 def _restore_serving() -> None:

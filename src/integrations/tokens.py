@@ -191,18 +191,21 @@ class TokenService:
 
     # ---------------------------------------------------------------- calling
 
-    def request(self, connection_id: str, path: str) -> httpx.Response:
-        """GET a REST path on the connected org, refreshing once on a 401.
+    def request(self, connection_id: str, path: str, *, method: str = "GET",
+                json: Any = None) -> httpx.Response:
+        """Call a REST path on the connected org, refreshing once on a 401.
 
-        Returns the response whatever its status, for callers that read headers
-        (``Sforce-Limit-Info``) or Salesforce's own error body. Does not touch
-        ``last_used_at``; a caller making many requests records one use.
+        GET by default; PATCH and POST with a JSON body for the write-back
+        (ADR-0014). Returns the response whatever its status, for callers that
+        read headers (``Sforce-Limit-Info``) or Salesforce's own error body.
+        Does not touch ``last_used_at``; a caller making many requests records
+        one use.
         """
         access = self.access(connection_id)
-        r = self._get(access, path)
+        r = self._call(access, method, path, json)
         if r.status_code == 401:
             access = self.access(connection_id, force_refresh=True)
-            r = self._get(access, path)
+            r = self._call(access, method, path, json)
         return r
 
     def get(self, connection_id: str, path: str) -> Any:
@@ -218,8 +221,14 @@ class TokenService:
             self.store.touch(conn, connection_id, datetime.now(timezone.utc))
 
     def _get(self, access: Access, path: str) -> httpx.Response:
+        return self._call(access, "GET", path, None)
+
+    def _call(self, access: Access, method: str, path: str, json: Any) -> httpx.Response:
         url = f"{access.instance_url}/services/data/{API_VERSION}/{path.lstrip('/')}"
-        return self.http.get(url, headers={"Authorization": f"Bearer {access.access_token}"})
+        headers = {"Authorization": f"Bearer {access.access_token}"}
+        if method == "GET":
+            return self.http.get(url, headers=headers)
+        return self.http.request(method, url, headers=headers, json=json)
 
     def verify(self, connection_id: str) -> dict[str, Any]:
         """Prove the stored token works: the org's name and today's API allowance.

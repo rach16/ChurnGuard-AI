@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import secrets
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -46,9 +46,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login"]
+        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback"]
         yield database
     finally:
         database.close()
@@ -398,6 +398,51 @@ def test_abandoned_runs_are_swept(db, store):
 
 
 @needs_db
+def test_writeback_rows_flag_and_account_ids(db, store):
+    """The 0006 pieces against the real database: the per-connection switch,
+    an attempt row written then finished, newest first, pruned to a count, and
+    customer ids resolved from the landings (a shared AccountNumber resolves to
+    nothing, a missing one to SF-<Id>)."""
+    runs = SyncStore(db)
+    c = store.get()
+    assert c.writeback_enabled is False
+    with db.connection() as conn:
+        store.set_writeback(conn, c.id, True)
+    assert store.get_by_id(c.id).writeback_enabled is True
+
+    with db.connection() as conn:
+        runs.land(conn, c.id, "Account", "00000000-0000-0000-0000-000000000001", [
+            {"Id": "001W1", "AccountNumber": "W-1", "SystemModstamp": "2026-10-16T10:00:00.000+0000"},
+            {"Id": "001W2", "AccountNumber": None, "SystemModstamp": "2026-10-16T10:00:00.000+0000"},
+            {"Id": "001W3", "AccountNumber": "DUP", "SystemModstamp": "2026-10-16T10:00:00.000+0000"},
+            {"Id": "001W4", "AccountNumber": "DUP", "SystemModstamp": "2026-10-16T10:00:00.000+0000"},
+            {"Id": "001W5", "AccountNumber": "GONE", "SystemModstamp": "2026-10-16T10:00:00.000+0000",
+             "IsDeleted": True},
+        ])
+        ids = runs.account_ids(conn, c.id)
+    assert ids["W-1"] == "001W1" and ids["SF-001W2"] == "001W2"
+    assert "DUP" not in ids and "GONE" not in ids
+
+    with db.connection() as conn:
+        first = runs.create_writeback(conn, connection_id=c.id, tenant_id="default", snapshot_id=None,
+                                      trigger="manual", actor="user:op", started_at=NOW)
+        runs.finish_writeback(conn, first, status="partial",
+                              counts={"candidates": 3, "resolved": 2, "unchanged": 0, "written": 1, "failed": 1},
+                              error="FIELD_CUSTOM_VALIDATION_EXCEPTION: locked", api_requests=2,
+                              api_usage={"used": 5, "max": 15000}, finished_at=NOW + timedelta(seconds=3))
+        second = runs.create_writeback(conn, connection_id=c.id, tenant_id="default", snapshot_id=None,
+                                       trigger="promotion", actor="system", started_at=NOW + timedelta(minutes=1))
+        runs.finish_writeback(conn, second, status="succeeded", counts={"written": 0}, error=None,
+                              api_requests=1, api_usage=None, finished_at=NOW + timedelta(minutes=1, seconds=1))
+    rows = runs.writebacks(c.id)
+    assert [r.id for r in rows] == [second, first]
+    assert rows[1].status == "partial" and rows[1].counts["failed"] == 1 and rows[1].api_usage["max"] == 15000
+    assert runs.last_writeback(c.id).trigger == "promotion"
+    with db.connection() as conn:
+        assert runs.prune_writebacks(conn, c.id, keep=1) == 1
+    assert [r.id for r in runs.writebacks(c.id)] == [second]
+
+
 def test_delete_removes_the_connection(db, store):
     c = store.get()
     with db.connection() as conn:

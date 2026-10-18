@@ -63,6 +63,7 @@ from integrations.github_oidc import SchedulerRefused
 from integrations.login import actor as actor_of
 from integrations.sync import RollbackRefused, SyncEngine, attention
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
+from integrations.writeback import WriteBackEngine, WriteBackRefused
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +156,14 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         if engine is None:
             tokens_or_503()           # names the missing piece
             raise HTTPException(status_code=503, detail="Sync is unavailable: engine not initialised")
+        return engine
+
+    def writeback_or_503() -> WriteBackEngine:
+        state = get_state()
+        engine = getattr(state, "writeback", None)
+        if engine is None:
+            tokens_or_503()
+            raise HTTPException(status_code=503, detail="Write-back is unavailable: engine not initialised")
         return engine
 
     def site_origin() -> str:
@@ -290,6 +299,64 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         except RollbackRefused as e:
             raise HTTPException(status_code=409, detail=str(e))
         return {"serving": pointer.public(), "served": served}
+
+    # ------------------------------------------------------- write-back (9.2)
+
+    @router.get("/connections/{connection_id}/writeback")
+    async def writeback_status(request: Request, connection_id: str):
+        """On or off, the three fields, and the last attempt (ADR-0014 section 5)."""
+        engine = writeback_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
+        return await run_in_threadpool(engine.status, connection_id)
+
+    @router.post("/connections/{connection_id}/writeback")
+    async def enable_writeback(request: Request, connection_id: str,
+                               actor: str = Depends(require("admin"))):
+        """Create the three ChurnGuard fields the org lacks, grant edit, verify, switch on."""
+        engine = writeback_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
+        try:
+            return await run_in_threadpool(engine.enable, connection_id, actor)
+        except WriteBackRefused as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except ConnectionGone as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except NeedsReauth as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        except RefreshFailed as e:
+            raise HTTPException(status_code=502, detail=str(e))
+
+    @router.delete("/connections/{connection_id}/writeback")
+    async def disable_writeback(request: Request, connection_id: str,
+                                actor: str = Depends(require("admin"))):
+        """Switch off. Nothing in the org is cleared."""
+        engine = writeback_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
+        try:
+            return await run_in_threadpool(engine.disable, connection_id, actor)
+        except WriteBackRefused as e:
+            raise HTTPException(status_code=409, detail=str(e))
+
+    @router.post("/connections/{connection_id}/writeback/run")
+    async def run_writeback(request: Request, connection_id: str,
+                            actor: str = Depends(require("operator"))):
+        """Write back now: the retry after a failure, or the first write after enabling."""
+        engine = writeback_or_503()
+        await run_in_threadpool(own_connection, request, connection_id)
+        state = get_state()
+        scorer = getattr(state, "health_scorer", None)
+        serving_pointer = getattr(state, "sync_runs", None)
+        if scorer is None:
+            raise HTTPException(status_code=503, detail="Nothing is scored yet; there is nothing to write.")
+        pointer = await run_in_threadpool(serving_pointer.get_serving) if serving_pointer else None
+        try:
+            row = await run_in_threadpool(
+                engine.run, connection_id, scored=scorer.score_active_customers(),
+                snapshot_id=pointer.snapshot_id if pointer else None, trigger="manual",
+                actor=actor, force=True)
+        except WriteBackRefused as e:
+            raise HTTPException(status_code=409, detail=str(e))
+        return {"writeback": row.public() if row else None}
 
     @router.post("/connections/start")
     async def start_connection(body: StartRequest, actor: str = Depends(require("admin"))):

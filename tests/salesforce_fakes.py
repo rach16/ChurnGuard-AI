@@ -21,7 +21,7 @@ import httpx
 
 from integrations.connections import Connection
 from integrations.salesforce_oauth import SalesforceOAuth
-from integrations.sync_store import Serving, Snapshot, SyncRun, _shape_metrics
+from integrations.sync_store import Serving, Snapshot, SyncRun, _shape_metrics, WriteBack
 
 ORG = "00Dg700000J62qbEAB"
 OTHER_ORG = "00D000000000001AAA"
@@ -62,6 +62,18 @@ class FakeSalesforce:
         self.api_max = 15000
         self.api_remaining = 14990                        # what /limits reports
         self._cursors: dict[str, list[dict]] = {}
+        # Write-back (ADR-0014): the org's custom fields on Account, as
+        # {name: {"type", "updateable"}}; what Enable created; field
+        # permissions granted; composite PATCH bodies received; per-record
+        # refusals to plant ({Id: (statusCode, message)}); whether the
+        # connected user may create fields.
+        self.custom_fields: dict[str, dict] = {}
+        self.created_fields: list[dict] = []
+        self.field_permissions: list[dict] = []
+        self.patches: list[dict] = []
+        self.refuse_records: dict[str, tuple[str, str]] = {}
+        self.can_customize = True
+        self.granted_on_create = False       # True: fields come out updateable without FLS
 
     def _token_body(self, access: str, refresh: str | None) -> dict:
         body = {"access_token": access, "instance_url": self.instance,
@@ -110,6 +122,9 @@ class FakeSalesforce:
                 return httpx.Response(200, headers=headers,
                                       json={"DailyApiRequests": {"Max": self.api_max,
                                                                  "Remaining": self.api_remaining}})
+            wb = self._writeback(request, path, headers)
+            if wb is not None:
+                return wb
             if path.endswith("/query") or path.endswith("/queryAll"):
                 q = parse_qs(request.url.query.decode())["q"][0]
                 if "FROM Organization" in q:
@@ -121,6 +136,75 @@ class FakeSalesforce:
                 return self._page(self._cursors[key], int(offset), headers)
             return httpx.Response(404)
         return httpx.Response(404)
+
+    def _writeback(self, request: httpx.Request, path: str, headers: dict) -> httpx.Response | None:
+        """The org's side of ADR-0014: describe, Tooling field creation, the
+        two FLS queries, FieldPermissions, and the composite read and write."""
+        import json as _json
+        body = _json.loads(request.content.decode()) if request.content else None
+        if path.endswith("/sobjects/Account/describe"):
+            fields = [{"name": n, "type": f["type"], "updateable": f["updateable"]}
+                      for n, f in self.custom_fields.items()]
+            fields.append({"name": "Name", "type": "string", "updateable": True})
+            return httpx.Response(200, headers=headers, json={"name": "Account", "fields": fields})
+        if path.endswith("/tooling/sobjects/CustomField") and request.method == "POST":
+            if not self.can_customize:
+                return httpx.Response(403, headers=headers, json=[{
+                    "errorCode": "INSUFFICIENT_ACCESS", "message": "insufficient access rights on cross-reference id"}])
+            name = body["FullName"].split(".", 1)[1]
+            meta = body["Metadata"]
+            kind = {"Number": "double", "Picklist": "picklist", "Text": "string"}[meta["type"]]
+            self.custom_fields[name] = {"type": kind, "updateable": self.granted_on_create, "meta": meta}
+            self.created_fields.append(body)
+            return httpx.Response(201, headers=headers, json={"id": f"00N{secrets.token_hex(6)}", "success": True})
+        if path.endswith("/sobjects/FieldPermissions") and request.method == "POST":
+            self.field_permissions.append(body)
+            name = body["Field"].split(".", 1)[1]
+            if name in self.custom_fields:
+                self.custom_fields[name]["updateable"] = bool(body.get("PermissionsEdit"))
+            return httpx.Response(201, headers=headers, json={"id": f"01k{secrets.token_hex(6)}", "success": True})
+        if (path.endswith("/query") or path.endswith("/queryAll")):
+            q = parse_qs(request.url.query.decode())["q"][0]
+            if "FROM User" in q:
+                return httpx.Response(200, headers=headers, json={"records": [{"ProfileId": "00e000000000001"}]})
+            if "FROM PermissionSet" in q:
+                return httpx.Response(200, headers=headers, json={"records": [{"Id": "0PS000000000001"}]})
+            return None
+        if "/composite/sobjects/Account" in path and request.method == "GET":
+            params = parse_qs(request.url.query.decode())
+            ids = params["ids"][0].split(",")
+            fields = params["fields"][0].split(",")
+            by_id = {r["Id"]: r for r in self.records.get("Account", [])}
+            out = []
+            for i in ids:
+                r = by_id.get(i)
+                out.append(None if r is None or r.get("IsDeleted") else
+                           {"attributes": {"type": "Account"}, "Id": i, **{f: r.get(f) for f in fields}})
+            return httpx.Response(200, headers=headers, json=out)
+        if path.endswith("/composite/sobjects") and request.method == "PATCH":
+            self.patches.append(body)
+            assert len(body["records"]) <= 200
+            by_id = {r["Id"]: r for r in self.records.get("Account", [])}
+            results = []
+            for rec in body["records"]:
+                sf_id = rec["Id"]
+                if sf_id in self.refuse_records:
+                    code, msg = self.refuse_records[sf_id]
+                    results.append({"id": sf_id, "success": False,
+                                    "errors": [{"statusCode": code, "message": msg, "fields": []}]})
+                    continue
+                target = by_id.get(sf_id)
+                for k, v in rec.items():
+                    if k not in ("attributes", "Id"):
+                        assert k in self.custom_fields, f"write to unknown field {k}"
+                        assert self.custom_fields[k]["updateable"], f"{k} not updateable"
+                        if target is not None:
+                            target[k] = v
+                if target is not None:
+                    target["SystemModstamp"] = "2026-10-18T12:00:00Z"
+                results.append({"id": sf_id, "success": True, "errors": []})
+            return httpx.Response(200, headers=headers, json=results)
+        return None
 
     def _soql(self, endpoint: str, q: str, headers: dict) -> httpx.Response:
         m = re.fullmatch(r"SELECT (.+?) FROM (\w+)(?: WHERE SystemModstamp >= (\S+))?", q.strip())
@@ -267,6 +351,9 @@ class FakeStore:
         if connection_id in self.rows:
             self._replace(self.rows[connection_id], last_used_at=used_at)
 
+    def set_writeback(self, conn, connection_id, enabled):
+        conn.pending.append(lambda: self._replace(self.rows[connection_id], writeback_enabled=enabled))
+
     def delete(self, conn, connection_id):
         self.rows.pop(connection_id, None)
 
@@ -306,6 +393,7 @@ class FakeSyncStore:
         self.watermarks: dict[tuple[str, str], datetime] = {}
         self.snaps: dict[str, Snapshot] = {}
         self.serving: dict[str, Serving] = {}
+        self.writebacks_by_id: dict[str, WriteBack] = {}
 
     def _put(self, run: SyncRun) -> SyncRun:
         self.runs_by_id[run.id] = run
@@ -391,6 +479,47 @@ class FakeSyncStore:
     def live_records(self, conn, connection_id, sobject) -> list[dict]:
         return [row["record"] for (c, s, _), row in sorted(self.raw.items())
                 if c == connection_id and s == sobject and not row["deleted"]]
+
+    # write-back (ADR-0014)
+    def account_ids(self, conn, connection_id) -> dict[str, str]:
+        from integrations.sync_store import _account_ids
+        return _account_ids([(sf_id, row["record"].get("AccountNumber"))
+                             for (c, s, sf_id), row in self.raw.items()
+                             if c == connection_id and s == "Account" and not row["deleted"]])
+
+    def create_writeback(self, conn, *, connection_id, tenant_id, snapshot_id, trigger, actor,
+                         started_at) -> str:
+        wb = WriteBack(id=secrets.token_hex(8), tenant_id=tenant_id, connection_id=connection_id,
+                       snapshot_id=snapshot_id, trigger=trigger, status="failed", counts={},
+                       error=None, api_requests=0, api_usage=None, actor=actor,
+                       started_at=started_at, finished_at=None)
+        conn.pending.append(lambda: self.writebacks_by_id.__setitem__(wb.id, wb))
+        return wb.id
+
+    def finish_writeback(self, conn, writeback_id, *, status, counts, error, api_requests,
+                         api_usage, finished_at) -> None:
+        from dataclasses import replace
+        def apply():
+            self.writebacks_by_id[writeback_id] = replace(
+                self.writebacks_by_id[writeback_id], status=status, counts=counts, error=error,
+                api_requests=api_requests, api_usage=api_usage, finished_at=finished_at)
+        conn.pending.append(apply)
+
+    def writebacks(self, connection_id, limit=10, conn=None) -> list[WriteBack]:
+        rows = [w for w in self.writebacks_by_id.values() if w.connection_id == connection_id]
+        return sorted(rows, key=lambda w: w.started_at, reverse=True)[:limit]
+
+    def last_writeback(self, connection_id, conn=None) -> Optional[WriteBack]:
+        found = self.writebacks(connection_id, limit=1)
+        return found[0] if found else None
+
+    def prune_writebacks(self, conn, connection_id, keep) -> int:
+        keep_ids = {w.id for w in self.writebacks(connection_id, limit=keep)}
+        gone = [i for i, w in self.writebacks_by_id.items()
+                if w.connection_id == connection_id and i not in keep_ids]
+        for i in gone:
+            conn.pending.append(lambda i=i: self.writebacks_by_id.pop(i, None))
+        return len(gone)
 
     def counts(self, conn, connection_id) -> dict[str, dict[str, int]]:
         out: dict[str, dict[str, int]] = {}

@@ -44,6 +44,9 @@ class Connection:
     last_used_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    # ADR-0014 section 5: the site's readings are written to the org only
+    # after an admin enabled it for this connection.
+    writeback_enabled: bool = False
 
     def public(self) -> dict[str, Any]:
         """What an endpoint may return: everything but the sealed token."""
@@ -54,7 +57,7 @@ class Connection:
             "scopes": self.scopes, "status": self.status, "status_reason": self.status_reason,
             "token_issued_at": self.token_issued_at, "last_refreshed_at": self.last_refreshed_at,
             "last_used_at": self.last_used_at, "created_at": self.created_at,
-            "updated_at": self.updated_at,
+            "updated_at": self.updated_at, "writeback_enabled": self.writeback_enabled,
         }
 
 
@@ -68,13 +71,14 @@ def _row_to_connection(r: dict[str, Any]) -> Connection:
                       bytes(r["wrapped_data_key"]), r["master_key_version"]),
         token_issued_at=r["token_issued_at"], last_refreshed_at=r["last_refreshed_at"],
         last_used_at=r["last_used_at"], created_at=r["created_at"], updated_at=r["updated_at"],
+        writeback_enabled=bool(r.get("writeback_enabled", False)),
     )
 
 
 _COLUMNS = ("id, tenant_id, provider, auth_method, org_id, instance_url, login_host, user_id,"
             " username, scopes, status, status_reason, token_ciphertext, token_nonce,"
             " wrapped_data_key, master_key_version, token_issued_at, last_refreshed_at,"
-            " last_used_at, created_at, updated_at")
+            " last_used_at, created_at, updated_at, writeback_enabled")
 
 
 class ConnectionStore:
@@ -183,6 +187,10 @@ class ConnectionStore:
     def touch(self, conn, connection_id: str, used_at: datetime) -> None:
         conn.execute("update connections set last_used_at = %s where id = %s",
                      (used_at, connection_id))
+
+    def set_writeback(self, conn, connection_id: str, enabled: bool) -> None:
+        conn.execute("update connections set writeback_enabled = %s, updated_at = now() where id = %s",
+                     (enabled, connection_id))
 
     def delete(self, conn, connection_id: str) -> None:
         conn.execute("delete from connections where id = %s", (connection_id,))
