@@ -1,15 +1,14 @@
 'use client';
 
 /**
- * Customer detail.
+ * Customer page (8.5, ADR-0015 section 6).
  *
- * The engagement timeline is the argument this page makes -- an account declining
- * from 0.7 to near zero over eighteen months is more convincing than any score --
- * so it gets the width and everything else supports it.
- *
- * Contributing factors are shown as weight x adverse fraction rather than a
- * single number, because a customer success lead should be able to see which
- * signal drove the score and disagree with the weighting.
+ * The same story the queue pane shows, at full width, followed by the three
+ * things that only make sense in full: the ticket list, the CSM note timeline
+ * (newest first, the notes that became signals marked), and the usage chart
+ * only when there are four or more weeks of it. On the Salesforce org there is
+ * one week, so the chart that used to take a third of the screen to draw one
+ * point is gone until the history exists.
  */
 
 import { useEffect, useState } from 'react';
@@ -38,54 +37,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 
+import { formatDay, money, StoryView, type Story } from '../../console';
 import { BootGate, Shell } from '../../shell';
+import { useSource } from '../../source';
 
 const API = '/api';
-
-function money(v: number) {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
-}
-
-function sevClass(score: number) {
-  if (score >= 80) return 'text-sev-critical';
-  if (score >= 60) return 'text-sev-high';
-  if (score >= 40) return 'text-sev-medium';
-  return 'text-sev-low';
-}
+const MIN_CHART_WEEKS = 4;
 
 interface Detail {
-  customer: Record<string, any>;
   analysis: {
     engagement_history: { date: string; engagement_score: number; feature_adoption_rate: number }[];
-    support_tickets: Record<string, any>[];
+    support_tickets: Record<string, string | number>[];
     interactions: { date: string; type: string; content: string }[];
-    predictions: {
-      contributing_factors: {
-        factor: string;
-        weight: number;
-        adverse_fraction: number;
-        contribution: number;
-      }[];
-    };
   };
-  health_indicators: Record<string, string>;
 }
 
 function CustomerPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [data, setData] = useState<Detail | null>(null);
+  const source = useSource();
+  const [story, setStory] = useState<Story | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/customer/${id}/detailed-analysis`)
+    fetch(`${API}/customer/${id}/story`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setData)
+      .then(setStory)
       .catch((e) => setError(String(e.message ?? e)));
+    fetch(`${API}/customer/${id}/detailed-analysis`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setDetail)
+      .catch(() => undefined);
   }, [id]);
 
   if (error) {
@@ -101,7 +85,7 @@ function CustomerPage() {
     );
   }
 
-  if (!data) {
+  if (!story) {
     return (
       <Shell title="Customer" description="Loading">
         <div className="space-y-4 p-6">
@@ -112,15 +96,16 @@ function CustomerPage() {
     );
   }
 
-  const { customer: c, analysis: a, health_indicators: hi } = data;
-  const factors = [...a.predictions.contributing_factors].sort(
-    (x, y) => y.contribution - x.contribution
-  );
+  const history = detail?.analysis.engagement_history ?? [];
+  const tickets = detail?.analysis.support_tickets ?? [];
+  const notes = [...(detail?.analysis.interactions ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1));
+  // A note on the same day as an adverse CSM-note signal is the note that made it.
+  const flagged = new Set(story.signals.filter((s) => s.source === 'CSM note' && s.kind === 'adverse').map((s) => s.date));
 
   return (
     <Shell
-      title={c.name}
-      description={`${c.segment} · ${money(c.arr)} ARR · ${c.tenure_years}y tenure · ${c.industry}`}
+      title={story.name}
+      description={`${story.segment} · ${money(story.arr)} ARR · ${story.tenure_years}y customer · ${story.industry}`}
       actions={
         <Button variant="ghost" size="sm" onClick={() => router.push('/')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -128,199 +113,112 @@ function CustomerPage() {
         </Button>
       }
     >
-      <div className="mx-auto max-w-6xl space-y-6 p-6">
-        {/* Score and the indicators that produced it */}
-        <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-6">
-              <p className={cn('text-5xl font-semibold tabular', sevClass(c.risk_score))}>
-                {Math.round(c.risk_score)}
-              </p>
-              <Badge variant="outline" className="mt-2">
-                {c.risk_level}
-              </Badge>
-            </CardContent>
-          </Card>
+      <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
+        <StoryView story={story} synthetic={!!source?.synthetic} full />
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {Object.entries(hi).map(([k, v]) => (
-              <Card key={k}>
-                <CardContent className="p-4">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {k.replace(/_/g, ' ')}
-                  </p>
-                  <p
-                    className={cn(
-                      'mt-1 text-lg font-semibold',
-                      /poor|weak|at risk/i.test(v) && 'text-sev-critical'
-                    )}
-                  >
-                    {v}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* The argument */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Engagement</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {a.engagement_history.length} weekly observation{a.engagement_history.length === 1 ? '' : 's'}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={a.engagement_history} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-                <defs>
-                  <linearGradient id="eng" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="hsl(var(--chart-grid))" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  stroke="hsl(var(--chart-axis))"
-                  tick={{ fontSize: 11 }}
-                  tickLine={false}
-                  minTickGap={48}
-                />
-                <YAxis
-                  domain={[0, 1]}
-                  stroke="hsl(var(--chart-axis))"
-                  tick={{ fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <RTooltip
-                  contentStyle={{
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: 'hsl(var(--popover-foreground))',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="engagement_score"
-                  stroke="hsl(var(--chart-1))"
-                  strokeWidth={2}
-                  fill="url(#eng)"
-                  isAnimationActive={false}
-                  name="Engagement"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* How the score was reached */}
+        {history.length >= MIN_CHART_WEEKS && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Why this score</CardTitle>
+              <CardTitle className="text-sm font-semibold">Usage</CardTitle>
+              <p className="text-xs text-muted-foreground">{history.length} weekly observations</p>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={history} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="eng" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(var(--chart-grid))" vertical={false} />
+                  <XAxis dataKey="date" stroke="hsl(var(--chart-axis))" tick={{ fontSize: 11 }} tickLine={false} minTickGap={48} />
+                  <YAxis domain={[0, 1]} stroke="hsl(var(--chart-axis))" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <RTooltip
+                    contentStyle={{
+                      background: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      color: 'hsl(var(--popover-foreground))',
+                    }}
+                  />
+                  <Area type="monotone" dataKey="engagement_score" stroke="hsl(var(--chart-1))" strokeWidth={2} fill="url(#eng)" isAnimationActive={false} name="Engagement" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">CSM notes</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Weight applied to how adverse each signal is
+                {notes.length} on record, newest first · marked ones became signals
               </p>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {factors.map((f) => (
-                <div key={f.factor}>
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span>{f.factor}</span>
-                    <span className="tabular text-muted-foreground">
-                      {(f.weight * 100).toFixed(0)}% × {(f.adverse_fraction * 100).toFixed(0)}% ={' '}
-                      <span className="font-medium text-foreground">
-                        {f.contribution.toFixed(1)}
-                      </span>
+            <CardContent className="space-y-0">
+              {notes.length === 0 && <p className="text-sm text-muted-foreground">No notes on record.</p>}
+              {notes.slice(0, 12).map((n, i) => (
+                <div key={i}>
+                  {i > 0 && <Separator />}
+                  <div className="flex gap-3 py-2.5">
+                    <span className="w-14 shrink-0 tabular text-xs text-muted-foreground">{formatDay(n.date)}</span>
+                    <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                      {flagged.has(n.date) && (
+                        <Badge variant="outline" className="mr-2 h-5 align-middle text-[10px] font-normal">signal</Badge>
+                      )}
+                      {n.content}
                     </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-foreground/70"
-                      style={{ width: `${Math.min(100, (f.contribution / 35) * 100)}%` }}
-                    />
                   </div>
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          {/* Support history */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Support</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {a.support_tickets.length} tickets on record
-              </p>
+              <CardTitle className="text-sm font-semibold">Tickets</CardTitle>
+              <p className="text-xs text-muted-foreground">{tickets.length} on record</p>
             </CardHeader>
             <CardContent className="px-0">
-              <div className="max-h-[260px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">Date</TableHead>
-                      <TableHead>Issue</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead className="pr-6 text-right">CSAT</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {a.support_tickets.slice(0, 12).map((t) => (
-                      <TableRow key={t.ticket_id}>
-                        <TableCell className="pl-6 tabular text-muted-foreground">{t.date}</TableCell>
-                        <TableCell className="max-w-[180px] truncate">{t.type}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              ['High', 'Critical'].includes(t.severity) ? 'destructive' : 'secondary'
-                            }
-                          >
-                            {t.severity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="pr-6 text-right tabular">{t.csat_score}/5</TableCell>
+              {tickets.length === 0 ? (
+                <p className="px-6 text-sm text-muted-foreground">No tickets on record.</p>
+              ) : (
+                <div className="max-h-[320px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="pl-6">Date</TableHead>
+                        <TableHead>Issue</TableHead>
+                        <TableHead>Severity</TableHead>
+                        <TableHead className="pr-6 text-right">CSAT</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {tickets.slice(0, 12).map((t) => (
+                        <TableRow key={String(t.ticket_id)}>
+                          <TableCell className="pl-6 tabular text-muted-foreground">{formatDay(String(t.date))}</TableCell>
+                          <TableCell className="max-w-[160px] truncate">{t.type}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="font-normal">{t.severity}</Badge>
+                          </TableCell>
+                          <TableCell className="pr-6 text-right tabular">{t.csat_score}/5</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        {/* Recent contact */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Recent contact</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-0">
-            {a.interactions.slice(0, 6).map((i, n) => (
-              <div key={n}>
-                {n > 0 && <Separator />}
-                <div className="flex gap-4 py-3">
-                  <span className="w-24 shrink-0 tabular text-xs text-muted-foreground">{i.date}</span>
-                  <Badge variant="outline" className="h-5 shrink-0 text-[11px]">
-                    {i.type}
-                  </Badge>
-                  <span className="min-w-0 flex-1 text-sm text-muted-foreground">{i.content}</span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
       </div>
     </Shell>
   );
 }
 
-/* Wait for the free-tier backend before mounting. Without this a cold visit
-   rendered whatever this page shows when a request fails, which reads as a
-   fault rather than as a server still starting. */
 export default function Page() {
   return (
     <BootGate>

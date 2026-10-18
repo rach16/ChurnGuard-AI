@@ -26,7 +26,6 @@ import {
   ChevronDown,
   Circle,
   ExternalLink,
-  MessageSquare,
   Search,
 } from 'lucide-react';
 
@@ -359,12 +358,6 @@ export function Console() {
             <div className="min-w-0 truncate">
               <SourceLabel />
             </div>
-            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-              <a href="/ask">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Ask
-              </a>
-            </Button>
             <AccountMenu />
           </div>
         </div>

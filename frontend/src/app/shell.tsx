@@ -13,8 +13,6 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   BarChart3,
-  LifeBuoy,
-  MessageSquare,
   Plug,
   TrendingDown,
   Users,
@@ -30,11 +28,12 @@ import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
 import { WakeGate, WakeScreen } from './wake-screen';
 
+// Assistant (/ask) and Evaluation (/evaluations) left the rail with 8.5
+// (ADR-0015 section 6): both say "unavailable" on Salesforce data until the
+// assistant redesign. The routes still answer.
 const NAV: { icon: LucideIcon; label: string; href: string; adminOnly?: boolean }[] = [
   { icon: AlertTriangle, label: 'At risk', href: '/' },
-  { icon: MessageSquare, label: 'Assistant', href: '/ask' },
-  { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-  { icon: LifeBuoy, label: 'Evaluation', href: '/evaluations' },
+  { icon: BarChart3, label: 'Why customers leave', href: '/analytics' },
   { icon: Plug, label: 'Integrations', href: '/integrations' },
   // Admins only (2.6.5): the backend refuses anyone else regardless.
   { icon: Users, label: 'Team', href: '/team', adminOnly: true },
