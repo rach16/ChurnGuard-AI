@@ -53,8 +53,7 @@ export function SignInScreen() {
         <div className="flex items-start gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Accounts are by invitation from your admin. Sign-in asks for your password and a code from
-            your authenticator app.
+            Accounts are by invitation from your admin.
           </span>
         </div>
 

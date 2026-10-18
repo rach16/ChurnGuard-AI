@@ -30,8 +30,9 @@ What it must answer:
 
 ## Decision in one paragraph
 
-Accounts live in **AWS Cognito** (one user pool per environment, invite-only,
-authenticator-app MFA required). The **backend runs the login flow** exactly as
+Accounts live in **AWS Cognito** (one user pool per environment, invite-only;
+MFA was required at first and switched off on 2026-10-18, see the decisions at the
+end). The **backend runs the login flow** exactly as
 it runs the Salesforce connect: OAuth 2.0 authorization code with PKCE, `state`
 and `nonce`, server-side, single-use state in Postgres. A successful login
 creates a **server-side session** in Postgres; the browser holds only an opaque,
@@ -60,9 +61,9 @@ shared secret is left. The operator key and the `/ops` proxy are deleted.
   account cannot sign in to production.
 
 **Pool settings, set by hand and recorded in the runbook.** Staging's pool is `us-east-1_sFnyqOnla`, in us-east-1 while the master key is in us-west-2; the region is read from the pool id, and the extra hop is a few tens of milliseconds at sign-in only. self sign-up off
-(admins create users), email as the username, authenticator-app (TOTP) MFA
-required for every account (SMS is not offered: it costs money and is the
-weaker factor), Cognito's default password policy, account recovery by verified
+(admins create users), email as the username, ~~authenticator-app (TOTP) MFA
+required for every account~~ MFA off (decided 2026-10-18; SMS was never offered:
+it costs money and is the weaker factor), Cognito's default password policy, account recovery by verified
 email only, refresh tokens valid 8 hours, ID and access tokens 1 hour, one
 **confidential** app client (it has a secret, held only by the backend) with the
 authorization-code grant and scope `openid` alone (Cognito drops custom attributes from the ID token when `email` or `phone` is also requested; found on staging 2026-10-17).
@@ -72,7 +73,7 @@ authorization-code grant and scope `openid` alone (Cognito drops custom attribut
 **Decision: a backend-for-frontend session. No token ever reaches the browser.**
 
 ```
-browser ──/api/auth/login──▶ backend ──302──▶ Cognito managed login (password + TOTP)
+browser ──/api/auth/login──▶ backend ──302──▶ Cognito managed login (password)
 browser ◀──302 + Set-Cookie── backend ◀──code + state── Cognito
 browser ──/api/… + cookie──▶ backend: session → user, role, tenant
 ```
@@ -209,7 +210,7 @@ Vercel's login gate on staging stays as a second layer.
 |---|---|
 | Stolen session cookie | `httpOnly` (no script reads it), `Secure`, `__Host-` prefix (no subdomain can set it), 1 hour idle and 8 hour absolute expiry, deletable server-side at once |
 | Sessions table leaked | Only hashes of session ids; refresh tokens sealed under KMS |
-| Password guessed or phished | Cognito lockout; TOTP MFA required, so a password alone opens nothing |
+| Password guessed or phished | Cognito lockout after failed attempts. ~~TOTP MFA required, so a password alone opens nothing~~ MFA off since 2026-10-18 (owner's decision for a demo): a stolen admin password is enough to act. A customer deployment turns MFA on, one setting per pool |
 | Forged login (login CSRF), code interception | `state`, `nonce` and PKCE, single use, ten minutes |
 | Forged ID token | Signature against Cognito's keys, `RS256` pinned, issuer, audience, `token_use` and `nonce` checked |
 | Open redirect after login | `return` must be a relative path; otherwise `/` |
@@ -269,5 +270,9 @@ Production's own key, Neon branch and user pool arrive with production itself
 1. **Every page needs an account** (§3). Proposed the other way; changed because
    the product is shown by video, and a customer's data is never public.
 2. **Invite-only accounts.** An admin creates each one.
-3. **Authenticator-app MFA required** for every account.
+3. ~~**Authenticator-app MFA required** for every account.~~ **MFA off** on both pools
+   (2026-10-18). The owner, after inviting a second person: "It's not possible to set
+   MFA for everyone. It's just too much. It's just a demo app." Recorded as a
+   deliberate gap under Known gaps in STATUS; turning it back on is
+   `set-user-pool-mfa-config --mfa-configuration ON` (or OPTIONAL) per pool.
 4. **The scheduler signs in with GitHub's identity token** (§5).
