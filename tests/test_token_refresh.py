@@ -29,6 +29,7 @@ from integrations import crypto  # noqa: E402
 from integrations.flow import ConnectFlow  # noqa: E402
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService  # noqa: E402
 from tests.salesforce_fakes import ACCESS, CODE, HOST, ORG, REFRESH, SITE, FakeSalesforce, FakeStore  # noqa: E402
+from tests.signed_in import ORIGIN, app_with, enable_sign_in, sign_in  # noqa: E402
 import connections_routes  # noqa: E402
 
 
@@ -218,22 +219,26 @@ class State:
         self.not_applicable = {}
 
 
-def make_app(state) -> TestClient:
-    app = FastAPI()
-    app.include_router(connections_routes.build_router(lambda: state))
-    return TestClient(app)
+def make_app(state, groups=("admin",)) -> TestClient:
+    """Signed in, as staging does it: actions need a person since 2.6.3."""
+    cognito = enable_sign_in(state, state.key_provider, state.connections.db, groups=groups)
+    return sign_in(app_with(state, connections_routes.build_router), cognito)
 
 
-KEY = {"X-Operator-Key": "k" * 32}
+KEY = ORIGIN            # an action now carries the site's Origin, not a key
+
+
+@pytest.fixture(autouse=True)
+def site_origin(monkeypatch):
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
 
 
 def test_verify_and_disconnect_routes(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     store, sf = FakeStore(), FakeSalesforce()
     c = connected(store, provider, sf)
     client = make_app(State(store, provider, service(store, provider, sf)))
 
-    assert client.post(f"/connections/{c.id}/verify").status_code == 403
+    assert client.post(f"/connections/{c.id}/verify").status_code == 403       # no Origin
     r = client.post(f"/connections/{c.id}/verify", headers=KEY)
     assert r.status_code == 200 and r.json()["org_name"] == "ChurnGuard Dev"
     assert ACCESS not in r.text and "5Aep" not in r.text
@@ -244,10 +249,10 @@ def test_verify_and_disconnect_routes(provider, monkeypatch):
     r = client.post(f"/connections/{c.id}/disconnect", headers=KEY)
     assert r.status_code == 200 and r.json()["revoked_at_salesforce"] is True
     assert client.get("/connections").json()["connection"] is None
+    assert store.audit[-1]["event"] == "disconnect" and store.audit[-1]["actor"].startswith("user:")
 
 
 def test_verify_route_says_why_when_the_token_is_dead(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     store, sf = FakeStore(), FakeSalesforce(refresh_fail="invalid_grant")
     c = connected(store, provider, sf)
     client = make_app(State(store, provider, service(store, provider, sf)))
@@ -257,7 +262,6 @@ def test_verify_route_says_why_when_the_token_is_dead(provider, monkeypatch):
 
 
 def test_routes_are_503_without_app_credentials(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     store = FakeStore()
     client = make_app(State(store, provider, tokens=None))
     r = client.post("/connections/x/verify", headers=KEY)

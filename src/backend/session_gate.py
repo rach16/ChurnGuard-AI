@@ -11,10 +11,11 @@ directly, so the redirect to a sign-in page is convenience and this is the contr
 A deployment with no user pool (production until 2.6.4) is not locked and says
 so on ``/health``; that is ADR-0013's stand-in, not a silent gap.
 
-One transitional allowance, for one step: a request to ``/connections`` carrying
-a valid operator key passes without a session. It is how the daily sync workflow
-reaches ``/connections/sync-due`` today; 2.6.3 replaces it with GitHub's identity
-token and deletes the key.
+One machine caller passes without a session: the daily sync workflow, on
+``POST /connections/sync-due`` only, carrying a bearer token. The route itself
+verifies it as GitHub's OIDC token for this repository's workflow on main
+(2.6.3, ADR-0013 §5) and refuses anything else, so the check lives in one place.
+The shared operator key this replaced is gone.
 """
 
 from __future__ import annotations
@@ -27,7 +28,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from auth_routes import COOKIE
-from connections_routes import operator_key_valid
+from connections_routes import bearer_token
+
+# The scheduler's one route, reachable with a bearer token instead of a session.
+SCHEDULER_PATH = "/connections/sync-due"
 
 OPEN_PATHS = frozenset({
     # Probes and documentation (ADR-0010): an orchestrator cannot sign in.
@@ -56,8 +60,8 @@ class SessionGate(BaseHTTPMiddleware):
             request.state.session = session
             return await call_next(request)
 
-        if request.url.path.startswith("/connections") and operator_key_valid(request):
-            request.state.machine = "operator"
+        if (request.url.path == SCHEDULER_PATH and request.method == "POST"
+                and bearer_token(request) is not None):
             return await call_next(request)
 
         return JSONResponse({"detail": "Sign in required.", "sign_in": "/api/auth/login"},

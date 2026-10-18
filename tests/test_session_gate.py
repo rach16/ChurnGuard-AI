@@ -7,8 +7,9 @@ are open; signed in, reads work for every role and actions by role (viewer none,
 operator sync / test / roll back, admin also connect and disconnect); every
 action re-checks the person with Cognito, so a disabled account is refused and
 its session deleted; another tenant's connection does not exist for you; an
-action must come from the site's own origin; the audit names the person; and the
-operator key still works on /connections only, for this one step.
+action must come from the site's own origin; the audit names the person. The
+operator key opens nothing (2.6.3); the daily workflow's GitHub OIDC token opens
+sync-due only, and only from this repository's sync.yml on main.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from integrations.login import LoginFlow  # noqa: E402
 from integrations.sync import SyncEngine  # noqa: E402
 from integrations.tokens import TokenService  # noqa: E402
 from tests.cognito_fakes import ADMIN_SUB, SITE, FakeCognito, FakeSessionStore  # noqa: E402
+from tests.github_fakes import FakeGitHub  # noqa: E402
 from tests.salesforce_fakes import CODE, FakeSalesforce, FakeStore, FakeSyncStore  # noqa: E402
 from tests.test_sync_engine import org_data  # noqa: E402
 import auth_routes  # noqa: E402
@@ -78,8 +80,11 @@ def world(provider, monkeypatch, *, groups=("admin",), tenant="default", login=T
     cognito = FakeCognito(groups=groups, tenant=tenant)
     sessions = FakeSessionStore(store.db)
     login_flow = LoginFlow(sessions, provider, cognito.client(), site_origin=SITE) if login else None
+    github = FakeGitHub()
     state = State(connections=store, key_provider=provider, tokens=tokens, sync_runs=runs, sync=engine,
-                  login=login_flow, sessions=sessions if login else None)
+                  login=login_flow, sessions=sessions if login else None,
+                  scheduler=github.verifier(SITE))
+    world.github = github
 
     app = FastAPI()
     app.add_middleware(SessionGate, get_state=lambda: state)
@@ -121,22 +126,75 @@ def test_signed_out_only_the_probes_and_sign_in_are_open(provider, monkeypatch):
     assert r.status_code == 400                                   # reached the route, refused by state
 
 
-def test_with_sign_in_off_nothing_is_locked(provider, monkeypatch):
+def test_with_sign_in_off_nothing_is_locked_and_nothing_can_act(provider, monkeypatch):
     client, c, *_ = world(provider, monkeypatch, login=False)
     assert client.get("/dashboard-stats").status_code == 200
     body = client.get("/connections").json()
-    assert body["operator_actions"] is True and body["admin_actions"] is True and body["role"] is None
+    assert body["operator_actions"] is False and body["admin_actions"] is False and body["role"] is None
+    r = client.post(f"/connections/{c.id}/sync", headers={"X-Operator-Key": KEY, **ORIGIN})
+    assert r.status_code == 404 and "sign-in" in r.json()["detail"]
 
 
-def test_the_operator_key_still_opens_connections_only(provider, monkeypatch):
+def test_the_operator_key_opens_nothing_any_more(provider, monkeypatch):
     client, c, store, *_ = world(provider, monkeypatch)
     key = {"X-Operator-Key": KEY}
-    assert client.post("/connections/sync-due?wait=true", headers=key).json()["outcome"] == "ok"
-    assert client.post(f"/connections/{c.id}/sync", headers=key).status_code == 202
-    assert client.get("/dashboard-stats", headers=key).status_code == 401
-    assert client.post(f"/connections/{c.id}/sync",
-                       headers={"X-Operator-Key": "wrong" * 7}).status_code == 401
-    assert [a["actor"] for a in store.audit if a["event"] == "sync_started"] == ["operator", "operator"]
+    assert client.post("/connections/sync-due?wait=true", headers=key).status_code == 401
+    assert client.post(f"/connections/{c.id}/sync", headers=key).status_code == 401
+    assert not [a for a in store.audit if a["event"] == "sync_started"]
+
+
+# ------------------------------------------------------------- the scheduler
+
+def test_the_workflows_github_token_runs_the_daily_sync(provider, monkeypatch):
+    client, c, store, *_ = world(provider, monkeypatch)
+    token = world.github.token(SITE)
+    r = client.post("/connections/sync-due?wait=true", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200 and r.json()["outcome"] == "ok"
+    assert r.json()["caller"] == {"actor": "service:github-actions/sync.yml", "run_id": "18200000001",
+                                  "event": "schedule"}
+    (line,) = r.json()["connections"]
+    assert line["action"] == "started" and line["run"]["status"] == "succeeded"
+    started = [a for a in store.audit if a["event"] == "sync_started"][-1]
+    assert started["actor"] == "service:github-actions/sync.yml"
+    assert client.post("/connections/sync-due?wait=true",
+                       headers={"Authorization": "Bearer " + world.github.token(
+                           SITE, event_name="workflow_dispatch")}).status_code == 200
+
+
+@pytest.mark.parametrize("change,check", [
+    ({"aud": "https://churnguard.banik.dev"}, "audience"),          # a production token on staging
+    ({"repository": "someone/ChurnGuard-AI"}, "repository"),          # a fork
+    ({"repository_id": "999"}, "repository_id"),                      # a new repo under the old name
+    ({"repository_owner_id": "1"}, "repository_owner_id"),
+    ({"ref": "refs/heads/feat/login"}, "ref"),                        # another branch
+    ({"workflow_ref": "rach16/ChurnGuard-AI/.github/workflows/ci.yml@refs/heads/main"}, "workflow_ref"),
+    ({"event_name": "pull_request"}, "event_name"),
+    ({"exp": 1}, "expired"),
+    ({"iss": "https://evil.example"}, "issuer"),
+])
+def test_every_other_github_token_is_refused_by_name(provider, monkeypatch, change, check):
+    client, c, store, *_ = world(provider, monkeypatch)
+    token = world.github.token(SITE, **change)
+    r = client.post("/connections/sync-due?wait=true", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401 and r.json()["detail"] == f"Scheduler token refused ({check})."
+    assert not [a for a in store.audit if a["event"] == "sync_started"]
+
+
+def test_a_token_signed_by_anyone_else_is_refused(provider, monkeypatch):
+    client, c, store, *_ = world(provider, monkeypatch)
+    for token, check in ((world.github.token(SITE, signed_by_other=True), "signature or claims"),
+                         (world.github.token(SITE, kid="other"), "unknown signing key"),
+                         ("not-a-jwt", "malformed")):
+        r = client.post("/connections/sync-due", headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 401 and check in r.json()["detail"]
+
+
+def test_the_github_token_opens_sync_due_and_nothing_else(provider, monkeypatch):
+    client, c, store, *_ = world(provider, monkeypatch)
+    bearer = {"Authorization": "Bearer " + world.github.token(SITE)}
+    assert client.get("/dashboard-stats", headers=bearer).status_code == 401
+    assert client.post(f"/connections/{c.id}/sync", headers=bearer).status_code == 401
+    assert client.get("/connections/sync-due", headers=bearer).status_code == 401   # POST only
 
 
 # ----------------------------------------------------------------- signed in

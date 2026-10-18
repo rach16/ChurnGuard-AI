@@ -32,7 +32,8 @@ Things the directory tree does not tell you:
 - **The Salesforce connection lives in Postgres, not on disk.** `src/integrations/`
   (ADR-0012): the refresh token is sealed under a per-connection data key wrapped
   by AWS KMS; `DATABASE_URL` unset means connections report off and nothing else
-  changes. Operator routes need `OPERATOR_KEY`. The DB tests run only with
+  changes. Actions need a signed-in person (Cognito, ADR-0013); the daily
+  sync workflow authenticates with GitHub's OIDC token. The DB tests run only with
   `DATABASE_URL`, in a throwaway schema. Runbook: `docs/RUNBOOK_SALESFORCE_CONNECTION.md`.
 - **The site serves a promoted snapshot, not the data folder, when one exists.**
   A sync lands raw records, transforms them, runs the contracts

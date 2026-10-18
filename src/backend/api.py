@@ -58,6 +58,7 @@ from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction, serving
 from integrations.cognito import CognitoClient, CognitoConfig, missing_settings as cognito_missing
 from integrations.connections import ConnectionStore
+from integrations.github_oidc import GitHubOidcVerifier, Pins as SchedulerPins
 from integrations.login import LoginFlow
 from integrations.sessions import SessionStore
 from integrations.sync import SyncEngine, attention as sync_attention
@@ -116,6 +117,8 @@ class ServiceState:
         # Cognito refresh token sealed under the same master key.
         self.sessions: Optional[SessionStore] = None
         self.login: Optional[LoginFlow] = None
+        # The daily sync workflow's identity: GitHub's OIDC token (2.6.3).
+        self.scheduler: Optional[GitHubOidcVerifier] = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
         # fault: the data does not support them yet. Kept apart from errors so a
@@ -390,6 +393,10 @@ def _init_connections() -> None:
             state.tokens = TokenService.from_env(state.connections, provider)
             state.sync = SyncEngine(state.tokens, state.connections, state.sync_runs,
                                     on_promote=_serve_snapshot)
+            pins = SchedulerPins.from_env()
+            if pins is not None:
+                state.scheduler = GitHubOidcVerifier(pins)
+                logger.info(f"✓ scheduler: GitHub OIDC for {pins.workflow_ref}, audience {pins.audience}")
             # A run the previous process left unfinished would block every
             # trigger for half an hour otherwise.
             for run_id in state.sync.sweep():

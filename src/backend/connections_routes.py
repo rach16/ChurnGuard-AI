@@ -33,22 +33,23 @@ Five routes, three audiences:
                                                   small page that tells the opener the
                                                   result and closes.
 
-The operator gate is the stand-in the ADR names: until operator login exists
-(2.6), an operator action must carry ``X-Operator-Key``, which the site's server
-attaches from its own secret on the login-gated staging preview and does not hold
-anywhere else. A deployment with no ``OPERATOR_KEY`` answers 404 to every operator
-route, so the live site cannot start a flow at all.
+Who may act (2.6, ADR-0013): a signed-in person whose role allows it, re-checked
+with Cognito at the moment of the action. The one machine caller, the daily sync
+workflow, presents GitHub's OIDC token for its run, accepted on ``sync-due`` only.
+A deployment with no user pool has no actions at all (404): nobody is signed in
+there to take one. The shared operator key that stood in for all of this until
+2.6 is gone (2.6.3).
 """
 
 from __future__ import annotations
 
-import hmac
 import html
 import json
 import logging
 import os
 from typing import Callable, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
@@ -57,34 +58,19 @@ from pydantic import BaseModel, Field
 from auth_routes import COOKIE, same_origin
 from integrations.connections import DEFAULT_TENANT
 from integrations.flow import CALLBACK_PATH, ConnectFlow, FlowRefused
+from integrations.github_oidc import SchedulerRefused
 from integrations.login import SessionEnded, actor as actor_of
 from integrations.sync import RollbackRefused, SyncEngine, attention
 from integrations.tokens import ConnectionGone, NeedsReauth, RefreshFailed, TokenService
 
 logger = logging.getLogger(__name__)
 
-OPERATOR_HEADER = "X-Operator-Key"
-ACTOR = "operator"
+ACTOR = "operator"       # the connect audit where nobody is signed in
 
 
-def operator_actions_enabled() -> bool:
-    return bool(os.getenv("OPERATOR_KEY", "").strip())
-
-
-def operator_key_valid(request: Request) -> bool:
-    key = os.getenv("OPERATOR_KEY", "").strip()
-    presented = request.headers.get(OPERATOR_HEADER, "")
-    return bool(key) and bool(presented) and hmac.compare_digest(presented, key)
-
-
-def require_operator(request: Request) -> str:
-    key = os.getenv("OPERATOR_KEY", "").strip()
-    if not key:
-        raise HTTPException(status_code=404, detail="Operator actions are not enabled on this deployment.")
-    if not operator_key_valid(request):
-        logger.warning(f"operator key refused on {request.url.path}")
-        raise HTTPException(status_code=403, detail="Operator key required.")
-    return ACTOR
+def bearer_token(request: Request) -> Optional[str]:
+    header = request.headers.get("authorization", "")
+    return header[7:].strip() or None if header[:7].lower() == "bearer " else None
 
 
 # Who may do what (ADR-0013 section 3). Higher includes lower.
@@ -133,18 +119,17 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         Signed in: the request must come from the site's own pages, the person is
         re-checked with Cognito at this moment (a disabled or signed-out account
         is refused here and its session deleted), and their role must be at least
-        ``min_role``. Not signed in: the operator key, kept for one step (2.6.3
-        removes it). Sign-in not configured on this deployment: the operator key,
-        as before 2.6.
+        ``min_role``. A deployment with sign-in off has no actions: 404.
         """
         def dependency(request: Request) -> str:
             state = get_state()
             login = getattr(state, "login", None)
             session = getattr(request.state, "session", None)
-            if login is None or session is None:
-                if login is not None and not operator_key_valid(request):
-                    raise HTTPException(status_code=401, detail="Sign in required.")
-                return require_operator(request)
+            if login is None:
+                raise HTTPException(status_code=404,
+                                    detail="Actions need sign-in, which is not enabled on this deployment.")
+            if session is None:
+                raise HTTPException(status_code=401, detail="Sign in required.")
             if not same_origin(request):
                 raise HTTPException(status_code=403, detail="This action must come from the site's own pages.")
             try:
@@ -237,11 +222,8 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
                            "row_counts": head.row_counts if head else None}
         needs = await run_in_threadpool(attention, store, runs) if runs is not None else []
         session = getattr(request.state, "session", None)
-        if getattr(state, "login", None) is not None:
-            rank = role_rank(session.role) if session is not None else 0
-            operate, administer = rank >= ROLE_RANK["operator"], rank >= ROLE_RANK["admin"]
-        else:
-            operate = administer = operator_actions_enabled()
+        rank = role_rank(session.role) if session is not None else 0
+        operate, administer = rank >= ROLE_RANK["operator"], rank >= ROLE_RANK["admin"]
         return {"enabled": True, "reason": None,
                 "operator_actions": operate, "admin_actions": administer,
                 "role": session.role if session is not None else None,
@@ -272,19 +254,44 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         rows = await run_in_threadpool(runs.runs, connection_id, max(1, min(limit, 50)))
         return {"enabled": True, "runs": [r.public() for r in rows]}
 
+    require_operator_role = require("operator")
+
+    def scheduler_or_operator(request: Request) -> str:
+        """The daily workflow presents GitHub's OIDC token for its run (2.6.3,
+        ADR-0013 §5); anyone else is a signed-in operator."""
+        token = bearer_token(request)
+        if token is None:
+            return require_operator_role(request)
+        verifier = getattr(get_state(), "scheduler", None)
+        if verifier is None:
+            raise HTTPException(status_code=404, detail="No scheduler identity is configured on this deployment.")
+        try:
+            run = verifier.verify(token)
+        except SchedulerRefused as e:
+            logger.warning(f"sync-due refused: {e.check}")
+            raise HTTPException(status_code=401, detail=f"Scheduler token refused ({e.check}).")
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=503, detail=f"GitHub's signing keys could not be read ({type(e).__name__}).")
+        request.state.scheduler_run = run
+        return run.actor
+
     @router.post("/connections/sync-due")
-    async def sync_due(wait: bool = False, actor: str = Depends(require("operator"))):
+    async def sync_due(request: Request, wait: bool = False,
+                       actor: str = Depends(scheduler_or_operator)):
         """The schedule's entry point (1.11): a run for every connection whose
         last success is older than the interval. ``wait=true`` runs inline and
         reports each outcome, so a scheduler can fail when one does."""
         engine = sync_or_503()
         outcomes = await run_in_threadpool(engine.sync_due, actor=actor, trigger="schedule", wait=wait)
+        caller_run = getattr(request.state, "scheduler_run", None)
         worst = "ok"
         for o in outcomes:
             run = o.get("run") or {}
             if o["action"] == "skipped" or run.get("status") in ("failed", "degraded"):
                 worst = "attention"
-        return {"outcome": worst, "connections": outcomes}
+        return {"outcome": worst, "connections": outcomes,
+                "caller": {"actor": actor, "run_id": caller_run.run_id if caller_run else None,
+                           "event": caller_run.event if caller_run else None}}
 
     @router.post("/connections/{connection_id}/sync", status_code=202)
     async def sync_connection(request: Request, connection_id: str,

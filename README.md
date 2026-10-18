@@ -149,7 +149,7 @@ choice moves the entire defensive burden onto spend limits and blast radius.
 | A stored Salesforce refresh token | Envelope-encrypted: AES-256-GCM under a per-connection data key, the data key wrapped by AWS KMS with an encryption context, so a database copy opens nothing and a ciphertext moved to another connection is refused by KMS itself. Single-flight refresh, rotation, `needs_reauth` on `invalid_grant`, revoke on disconnect | `src/integrations/crypto.py`, `tokens.py`; [ADR-0012](docs/adr/0012-salesforce-integration-architecture.md) |
 | Code interception or org swap during Connect | PKCE (S256) with the verifier server-side, single-use `state`, the returned host checked by a parsed suffix rule and pinned, the org pinned; a refused token is revoked before it is refused | `src/integrations/flow.py`, 29 tests in `tests/test_connect_flow.py` |
 | A token in a log | A redaction filter on every log handler, uvicorn's access line included, and an audit log that refuses a row carrying a secret | `src/integrations/redaction.py`, `audit.py` |
-| Operator actions on a public backend | Connect, test and disconnect require an operator key the site's server attaches from its own secret, on the login-gated staging preview only; where no key is set they answer 404 | `src/backend/connections_routes.py`, `frontend/src/app/ops/` |
+| Operator actions on a public backend | Every route needs a signed-in session once a user pool is configured; actions need a role (operator, admin), come from the site's origin, and re-check the person with Cognito at that moment. The daily sync authenticates with GitHub's OIDC token, pinned to this repository's workflow on `main`; no shared key exists | `src/backend/session_gate.py`, `connections_routes.py`, `src/integrations/github_oidc.py`; [ADR-0013](docs/adr/0013-operator-login-with-cognito.md) |
 
 **API key auth and per-process rate limiting** are implemented and wired into the
 ECS task definition ([ADR-0010](docs/adr/0010-api-key-auth-and-per-process-rate-limiting.md)),
@@ -158,8 +158,9 @@ and deliberately left unset on the public demo.
 **What is not defended.** Prompt injection through corpus documents is not
 mitigated: the corpus is synthetic and trusted, and a real deployment ingesting
 customer-authored text would need that work. There is no per-user authorisation
-and no tenant isolation; the audit log covers the Salesforce connection only, and
-the operator key is a shared secret standing in for a login.
+beyond the tenant check on connection actions; the audit log covers the
+Salesforce connection and sign-in only. Production has no user pool yet and is
+not locked (2.6.4).
 
 ## 6. Evaluation set and failure taxonomy
 

@@ -40,6 +40,7 @@ from integrations.tokens import NeedsReauth, TokenService  # noqa: E402
 from tests.salesforce_fakes import (  # noqa: E402
     CODE, HOST, ORG, REFRESH, SITE, FakeSalesforce, FakeStore, FakeSyncStore,
 )
+from tests.signed_in import ORIGIN, app_with, enable_sign_in, sign_in  # noqa: E402
 import connections_routes  # noqa: E402
 
 T0 = "2026-10-16T10:00:00Z"
@@ -643,17 +644,21 @@ class State:
         self.not_applicable = {}
 
 
-def make_app(state) -> TestClient:
-    app = FastAPI()
-    app.include_router(connections_routes.build_router(lambda: state))
-    return TestClient(app)
+def make_app(state, groups=("admin",)) -> TestClient:
+    """Signed in, as staging does it: actions need a person since 2.6.3."""
+    cognito = enable_sign_in(state, state.key_provider, state.connections.db, groups=groups)
+    return sign_in(app_with(state, connections_routes.build_router), cognito)
 
 
-KEY = {"X-Operator-Key": "k" * 32}
+KEY = ORIGIN            # an action now carries the site's Origin, not a key
+
+
+@pytest.fixture(autouse=True)
+def site_origin(monkeypatch):
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
 
 
 def test_sync_and_runs_routes(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     engine, c, sf, store, runs = engine_for(provider)
     client = make_app(State(store, provider, engine.tokens, runs, engine))
 
@@ -683,7 +688,6 @@ def test_sync_and_runs_routes(provider, monkeypatch):
 
 
 def test_sync_due_route_reports_an_outcome_a_scheduler_can_fail_on(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     engine, c, sf, store, runs = engine_for(provider)
     client = make_app(State(store, provider, engine.tokens, runs, engine))
     assert client.post("/connections/sync-due").status_code == 403
@@ -703,7 +707,6 @@ def test_sync_due_route_reports_an_outcome_a_scheduler_can_fail_on(provider, mon
 
 
 def test_metrics_and_attention_routes(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     engine, c, sf, store, runs = engine_for(provider)
     client = make_app(State(store, provider, engine.tokens, runs, engine))
     assert client.get(f"/connections/{c.id}/metrics").json() == {"enabled": True, "metrics": runs.metrics(c.id)} or True
@@ -737,7 +740,6 @@ def test_health_names_the_connection_that_needs_a_person(provider, monkeypatch):
 
 
 def test_rollback_route(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     clock = Clock(NOON)
     engine, c, sf, store, runs = engine_for(provider, clock=clock)
     client = make_app(State(store, provider, engine.tokens, runs, engine))
@@ -760,7 +762,6 @@ def test_rollback_route(provider, monkeypatch):
 
 
 def test_sync_route_says_why_it_cannot(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     engine, c, sf, store, runs = engine_for(provider, FakeSalesforce(refresh_fail="invalid_grant"))
     client = make_app(State(store, provider, engine.tokens, runs, engine))
     client.post(f"/connections/{c.id}/sync", headers=KEY)        # fails, marks needs_reauth

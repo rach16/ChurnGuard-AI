@@ -18,7 +18,7 @@
  * Who may press what (2.6.2, ADR-0013): signed in, the buttons follow the role
  * (operator: sync, test, roll back; admin: also connect and disconnect) and the
  * requests go straight to /api with the session cookie, re-checked by the
- * backend. Where sign-in is off, the old /ops proxy and its operator key remain.
+ * backend. Where sign-in is off there are no actions at all.
  *
  * Sync now (1.10) starts a run on the server and polls the run list until it
  * finishes. A run row is counts and timings only; the records themselves never
@@ -232,10 +232,10 @@ export function ConnectionPanel({ onChange }: { onChange?: () => void } = {}) {
     return () => clearInterval(timer);
   }, [busy, refresh]);
 
-  // Signed in: straight to the backend with the session cookie. Sign-in off on
-  // this deployment: the /ops proxy, which attaches the operator key.
+  // Straight to the backend with the session cookie; the backend checks the
+  // role and re-checks the person with Cognito (ADR-0013).
   function actionUrl(path: string): string {
-    return status?.role ? `/api/${path}` : `/ops/${path}`;
+    return `/api/${path}`;
   }
 
   function explain(statusCode: number, detail: string): string {

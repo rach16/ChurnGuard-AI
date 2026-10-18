@@ -131,12 +131,9 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
-      # The staging preview's origin, for the OAuth callback; and the operator
-      # key the preview's server attaches to connect / test / disconnect. The
-      # same OPERATOR_KEY is set on Vercel for the Preview environment only.
+      # The staging preview's origin: the OAuth callbacks' address, and the
+      # audience the daily workflow's GitHub OIDC token must carry (2.6.3).
       - key: PUBLIC_SITE_ORIGIN
-        sync: false
-      - key: OPERATOR_KEY
         sync: false
       # Operator sign-in (2.6, ADR-0013): the staging Cognito user pool and its
       # confidential app client. The secret is held only here.

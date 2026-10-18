@@ -38,6 +38,7 @@ from integrations.salesforce_oauth import (  # noqa: E402
 from tests.salesforce_fakes import (  # noqa: E402
     ACCESS, CODE, HOST, ORG, OTHER_ORG, REFRESH, SITE, USER, FakeSalesforce, FakeStore,
 )
+from tests.signed_in import ORIGIN, app_with, enable_sign_in, sign_in
 import connections_routes  # noqa: E402
 
 
@@ -229,27 +230,30 @@ class State:
 
 
 def make_app(state) -> TestClient:
+    """No sign-in configured: the routes alone, as on a deployment without a user pool."""
     app = FastAPI()
     app.include_router(connections_routes.build_router(lambda: state))
     return TestClient(app)
 
 
-def test_operator_routes_are_404_until_a_key_exists(monkeypatch):
-    monkeypatch.delenv("OPERATOR_KEY", raising=False)
+def test_without_sign_in_there_are_no_actions(monkeypatch):
+    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)               # the old key opens nothing now
     client = make_app(State(FakeStore(), None))
-    r = client.post("/connections/start", json={})
-    assert r.status_code == 404 and "not enabled" in r.json()["detail"]
+    r = client.post("/connections/start", json={}, headers={"X-Operator-Key": "k" * 32})
+    assert r.status_code == 404 and "sign-in" in r.json()["detail"]
 
 
-def test_operator_routes_refuse_a_wrong_key(monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
-    client = make_app(State(FakeStore(), None))
-    assert client.post("/connections/start", json={}).status_code == 403
-    assert client.post("/connections/start", json={}, headers={"X-Operator-Key": "wrong"}).status_code == 403
+def test_only_a_signed_in_admin_may_connect(provider, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
+    state = State(FakeStore(), provider)
+    signed_out = app_with(state, connections_routes.build_router)
+    enable_sign_in(state, provider, state.connections.db, groups=("operator",))
+    assert signed_out.post("/connections/start", json={}, headers=ORIGIN).status_code == 401
+    operator = sign_in(app_with(state, connections_routes.build_router), state.login.cognito_fake)
+    assert operator.post("/connections/start", json={}, headers=ORIGIN).status_code == 403
 
 
-def test_status_is_public_and_never_shows_the_username(provider, monkeypatch):
-    monkeypatch.delenv("OPERATOR_KEY", raising=False)
+def test_status_never_shows_the_username(provider, monkeypatch):
     store = FakeStore()
     flow = make_flow(store, provider, FakeSalesforce())
     flow.complete(CODE, callback_params(flow.start()))
@@ -265,7 +269,6 @@ def test_status_is_public_and_never_shows_the_username(provider, monkeypatch):
 
 
 def test_callback_page_carries_neither_code_nor_token(provider, monkeypatch):
-    monkeypatch.setenv("OPERATOR_KEY", "k" * 32)
     monkeypatch.setenv("SALESFORCE_CLIENT_ID", "client-id")
     monkeypatch.setenv("SALESFORCE_CLIENT_SECRET", "client-secret-value")
     monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
@@ -274,10 +277,11 @@ def test_callback_page_carries_neither_code_nor_token(provider, monkeypatch):
     sf = FakeSalesforce()
     monkeypatch.setattr(connections_routes.ConnectFlow, "from_env",
                         classmethod(lambda cls, s, p: make_flow(store, provider, sf)))
-    client = make_app(State(store, provider))
+    state = State(store, provider)
+    cognito = enable_sign_in(state, provider, store.db, groups=("admin",))
+    client = sign_in(app_with(state, connections_routes.build_router), cognito)
 
-    r = client.post("/connections/start", json={"environment": "production"},
-                    headers={"X-Operator-Key": "k" * 32})
+    r = client.post("/connections/start", json={"environment": "production"}, headers=ORIGIN)
     assert r.status_code == 200 and "state" not in r.json()
     state = parse_qs(urlsplit(r.json()["authorize_url"]).query)["state"][0]
 

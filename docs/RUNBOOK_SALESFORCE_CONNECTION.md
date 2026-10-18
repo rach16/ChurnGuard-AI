@@ -13,10 +13,11 @@ Everything here was done at least once on staging on 2026-10-16 unless marked
 | Consumer key and secret | Render → service → Environment: `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET` | Never in the repo, never in a log |
 | The connection row | Neon, branch `staging`, table `connections` | Org, host, user, status, and the refresh token **sealed** |
 | The master key | AWS KMS `alias/churnguard-staging-master`, us-west-2 | Reached as IAM user `churnguard-staging-kms`, whose only rights are GenerateDataKey, Decrypt, ReEncrypt and DescribeKey on that key |
-| The operator key | Render `OPERATOR_KEY` and Vercel `OPERATOR_KEY` (Preview, branch `staging`) | Same value in both. Gates connect, test and disconnect |
+| Sign-in | Cognito user pool `us-east-1_sFnyqOnla` (staging); Render `COGNITO_*` | Who may act: admins connect and disconnect, operators sync, test and roll back (ADR-0013). Accounts are created by an admin |
+| The scheduler's identity | GitHub Actions OIDC, no secret | The daily workflow's token, accepted on `sync-due` only, pinned to this repository's `sync.yml` on `main` |
 | The audit log | Neon, table `audit_events` | Append-only. Never holds a token |
 
-Each environment gets its own row set, key, IAM user and operator key. Production
+Each environment gets its own row set, key, IAM user and user pool. Production
 has none of these yet; its `/connections` reports `enabled: false`.
 
 ## Reading the state
@@ -106,15 +107,19 @@ Verified by `tests/test_token_refresh.py::test_rewrap_script_moves_every_row_to_
 against the local provider and by a real KMS re-wrap from a laptop on 2026-10-16;
 *the script has not yet been run against the staging database*.
 
-## Rotate the operator key
+## Who may act, and removing someone
 
-1. `openssl rand -hex 32`.
-2. Render → `OPERATOR_KEY` → Save only. Vercel → `OPERATOR_KEY` (Preview,
-   branch `staging`) → Save, then **redeploy** the staging preview: route
-   handlers read the value at runtime, but Vercel applies a changed variable on
-   the next deployment.
-3. Integrations → Test connection must succeed; with the old key on either side
-   it answers 403.
+There is no shared key to rotate (deleted 2.6.3). People act through their own
+Cognito accounts; the scheduler through GitHub's per-run token.
+
+- **Remove someone now:** Cognito → Users → the person → **Disable user**. Their
+  next action fails Cognito's re-check and deletes their session; reads stop at
+  the session's idle hour at the latest.
+- **Change a role:** add or remove them from `admin`, `operator`, `viewer`. It
+  takes effect at their next action.
+- **Rotate the app client secret:** Cognito → App clients → `churnguard-staging`
+  → Client secrets → add a new one; Render `COGNITO_CLIENT_SECRET` → Save and
+  deploy; then delete the old secret in Cognito.
 
 ## If a token leaked
 
@@ -183,7 +188,9 @@ tombstones and leave the candidate at the next transform.
 
 `.github/workflows/sync.yml` runs once a day (best effort, see the heartbeat's
 note on GitHub's cron) and calls `POST /connections/sync-due?wait=true` with
-the operator key from the repository secret `STAGING_OPERATOR_KEY`. The same
+the OIDC token GitHub issues for that run (audience: the staging site's origin);
+the backend accepts it only from this repository's `sync.yml` on `main`, for a
+schedule or a manual run. No secret is involved. The same
 check runs on every start of the backend, because the free tier sleeps and a
 timer inside the process would not fire. Either way a connection is synced
 when its last success is older than `SYNC_INTERVAL_HOURS` (24). A scheduled
@@ -206,7 +213,8 @@ log, which prints one line per connection:
 | `started -> degraded …` | A contract failed; the page names it; fix the data, Sync now. The previous snapshot still serves |
 | `deferred (org API allowance low)` | Nothing; tomorrow's run will go unless something else is spending the org's calls |
 | `the backend did not answer 200` | The service is down or waking slowly: check Render's logs; the heartbeat will say if it is production |
-| `STAGING_OPERATOR_KEY is not set` | GitHub → Settings → Secrets and variables → Actions → New repository secret |
+| `could not get an OIDC token from GitHub` | The workflow lost `permissions: id-token: write`; restore it in `sync.yml` |
+| `Scheduler token refused (<check>)` | The token was not this repository's `sync.yml` on `main` (the check names which claim). A run from another branch is refused on purpose |
 
 Run it by hand: GitHub → Actions → **Daily sync** → Run workflow.
 
@@ -258,7 +266,6 @@ Deferred in STATUS). Nothing on the site reads the Salesforce warehouse today.
 
 - The app allows any user in the org to self-authorise, and the connection runs
   as the owner's admin user, not a read-only integration user.
-- The operator key is a shared secret, not a login. 2.6 replaces it.
 - No scheduled use yet, so the 30-day idle limit is a real risk until 1.11.
 - The DuckDB warehouse in the image is built from the committed pull, not the
   promoted snapshot (dbt is not in the serving image). Nothing on the site reads
