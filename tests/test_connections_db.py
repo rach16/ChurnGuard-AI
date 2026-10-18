@@ -443,6 +443,7 @@ def test_writeback_rows_flag_and_account_ids(db, store):
     assert [r.id for r in runs.writebacks(c.id)] == [second]
 
 
+@needs_db
 def test_delete_removes_the_connection(db, store):
     c = store.get()
     with db.connection() as conn:
