@@ -58,6 +58,7 @@ export interface QueueRow {
   reason: string | null;
   reason_kind: 'adverse' | 'neutral' | 'good' | null;
   reason_date: string | null;
+  adverse: string[];
 }
 
 interface Queue {
@@ -209,7 +210,7 @@ export function Console() {
     return rows.filter(
       (c) =>
         (!q || c.name.toLowerCase().includes(q) || c.segment.toLowerCase().includes(q) ||
-          (c.reason ?? '').toLowerCase().includes(q)) &&
+          c.adverse.some((t) => t.toLowerCase().includes(q))) &&
         (!soonOnly || (c.renewal_days !== null && c.renewal_days >= 0 && c.renewal_days <= RENEWAL_WINDOW)),
     );
   }, [rows, query, soonOnly]);
@@ -241,7 +242,7 @@ export function Console() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter accounts"
+            placeholder="Filter by name, segment or signal"
             className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
           />
           <Badge variant="secondary" className="tabular shrink-0">

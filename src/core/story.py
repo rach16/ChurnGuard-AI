@@ -245,6 +245,9 @@ class StoryBuilder:
                 "reason": lead.text if lead else None,
                 "reason_kind": lead.kind if lead else None,
                 "reason_date": lead.date if lead else None,
+                # Every adverse signal, so the page can filter by any of them,
+                # not only the one the row shows.
+                "adverse": [x.text for x in signals if x.kind == "adverse" and x.key != "renewal"],
             })
         self._queue = rows
         return rows

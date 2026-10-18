@@ -120,6 +120,10 @@ def test_the_queue_is_every_active_account_riskiest_first_with_evidence(folder):
     assert len({r["reason"] for r in rows}) > 10
     assert not any(r["reason"] in ("Low engagement", "Feature gaps") for r in rows)
     assert sum(1 for r in rows if r["renewal_days"] is not None) > len(rows) * 0.9
+    # The row shows the first adverse signal; the filter can reach all of them.
+    assert all(r["adverse"][:1] == [r["reason"]] for r in rows if r["reason_kind"] == "adverse")
+    if folder == SALESFORCE:
+        assert any("Champion changed roles" in r["adverse"] for r in rows)
 
 
 # ---------------------------------------------------------------- causes
