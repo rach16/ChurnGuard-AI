@@ -238,7 +238,7 @@ that produced it.
 
 | Concern | Decision |
 |---|---|
-| Model | The provider factory's default chat model with tool calling (today `gpt-4o-mini`), the same for every call; a bigger model only if the golden set says so |
+| Model | The provider factory's default chat model with tool calling (`gpt-4o-mini`) for planning, agents, drafting and revision. **The faithfulness judge uses a stronger model** (`gpt-4o` on OpenAI, `ASSISTANT_JUDGE_MODEL` to change it): decided by the owner 2026-10-18 after real runs showed `gpt-4o-mini` as judge removing a correct claim in one of two runs and passing a figure attached to the wrong set of accounts. About $0.01 a question instead of $0.0015, measured at 4.6.4 |
 | Cost | Measured, not assumed, on the golden set before launch; expected about $0.001–0.003 a question. The existing caps hold: 10 questions per person per hour, 200 per deployment per day (2.7), the OpenAI dashboard cap |
 | Steps | At most 6 tool calls and 1 revision per question; the graph stops and answers with what it has |
 | Latency | Targets, measured at 4.6.4: answer starts streaming within 3 s (the plan and the first tool call), full answer within 15 s at p95; tool calls time out at 5 s, model calls at 20 s, one retry each with backoff |

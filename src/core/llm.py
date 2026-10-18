@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Callable, Dict
+from typing import Optional, Any, Callable, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ def max_output_tokens() -> int:
         return DEFAULT_MAX_TOKENS
 
 
-def chat_model(temperature: float = 0.0, **kwargs: Any):
+def chat_model(temperature: float = 0.0, model: Optional[str] = None, **kwargs: Any):
     """Build the configured chat model, capped.
 
     The output cap is applied here rather than at the six call sites, for the same
@@ -140,10 +140,12 @@ def chat_model(temperature: float = 0.0, **kwargs: Any):
 
     Args:
         temperature: sampling temperature; 0 for anything whose output is parsed
+        model: a model of the configured provider other than LLM_MODEL, for a
+            caller that needs a different one (the assistant's judge, ADR-0016)
         **kwargs: passed through to the provider class
     """
     name = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-    model = os.getenv("LLM_MODEL", DEFAULT_CHAT_MODEL)
+    model = model or os.getenv("LLM_MODEL", DEFAULT_CHAT_MODEL)
 
     spec = PROVIDERS.get(name)
     if spec is None:

@@ -167,9 +167,23 @@ class Tools:
             sorted_by = "risk_score desc"
         limit = max(1, min(int(limit), MAX_ROWS))
         shown = rows[:limit]
+        total, shown_total = float(sum(r["arr"] for r in rows)), float(sum(r["arr"] for r in shown))
+        what = " ".join(x for x in (
+            "at-risk" if at_risk_only else "", band or "", segment or "", "active") if x)
+        # The totals as sentences, so the meaning travels with the number: on a
+        # real run the model attached total_arr to "all active accounts" when it
+        # covered only the at-risk filter (2026-10-18).
+        summary = [f"{len(rows)} {what} accounts match these filters; together they hold ${total:,.0f}."]
+        if len(shown) < len(rows):
+            summary.append(f"The {len(shown)} listed here, ranked by {sorted_by.split()[0].replace('_', ' ')}, "
+                           f"hold ${shown_total:,.0f} together.")
         return {
-            "count": len(rows), "total_arr": float(sum(r["arr"] for r in rows)),
-            "shown": len(shown), "shown_arr": float(sum(r["arr"] for r in shown)),
+            "summary": summary,
+            "about": ("Active accounts matching the filters. count and total_arr cover every match; "
+                      "shown and shown_arr cover only the rows listed. risk_score is today's heuristic "
+                      "score, not a churn probability."),
+            "count": len(rows), "total_arr": total,
+            "shown": len(shown), "shown_arr": shown_total,
             "sorted_by": sorted_by,
             "accounts": [{"rank": i + 1, "account_id": r["id"], "name": r["name"], "segment": r["segment"],
                           "arr": r["arr"], "risk_score": r["risk_score"], "band": r["risk_level"],
@@ -206,7 +220,9 @@ class Tools:
         rows = book.queue()
         at_risk = [r for r in rows if r["at_risk"]]
         soon = [r for r in rows if r["renewal_days"] is not None and 0 <= r["renewal_days"] <= RENEWAL_SOON_DAYS]
-        return {"active_accounts": len(rows), "active_arr": float(sum(r["arr"] for r in rows)),
+        return {"about": ("The whole active book. at_risk means the riskiest 20% by today's score; "
+                          "renewing counts accounts whose contract ends within the window."),
+                "active_accounts": len(rows), "active_arr": float(sum(r["arr"] for r in rows)),
                 "at_risk_accounts": len(at_risk), "at_risk_arr": float(sum(r["arr"] for r in at_risk)),
                 "at_risk_rule": "the riskiest 20% of the active book",
                 "renewing_within_days": RENEWAL_SOON_DAYS, "renewing_accounts": len(soon),
@@ -214,7 +230,12 @@ class Tools:
                 "history_weeks": book.scorer.history_weeks()}
 
     def get_causes(self) -> dict[str, Any]:
-        return self._book().causes()
+        return {"about": ("churned.by_cause counts accounts that have ALREADY churned, by the churn category "
+                          "recorded in Salesforce, with the ARR they took; churned.competitors counts churned "
+                          "accounts that named each competitor. active.by_signal counts current accounts by "
+                          "their first adverse signal. None of these counts what customers said in notes: "
+                          "use search_notes for that. plays: every save play, renewed of decided."),
+                **self._book().causes()}
 
     def search_notes(self, query: str, account_id: Optional[int] = None, k: int = 5) -> dict[str, Any]:
         self._book()
@@ -222,7 +243,10 @@ class Tools:
             raise ToolError("Notes search is not available on this deployment.")
         customer_id = self._account(account_id)["customer_id"] if account_id is not None else None
         passages = self.ctx.notes.search(query, customer_id=customer_id, k=max(1, min(int(k), 8)))
-        return {"query": query, "account_id": account_id,
+        return {"about": ("Passages from CSM notes and support cases matching the query, most relevant first. "
+                          "A passage is what someone wrote on that date, not a verified fact. This is a "
+                          "search sample, not a count of every mention."),
+                "query": query, "account_id": account_id,
                 "passages": [{"account_id": p.account_id, "account": p.account, "kind": p.kind,
                               "date": p.date, "text": p.text, "source_id": p.source_id,
                               "snapshot_id": p.snapshot_id} for p in passages]}
