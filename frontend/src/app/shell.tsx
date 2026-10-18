@@ -131,15 +131,21 @@ export function Shell({
     <div className="flex h-screen overflow-hidden">
       <Rail />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-6">
-          <div className="min-w-0">
+        {/* One row from sm up. On a phone the title and the account menu share
+            the first row and the data line takes its own, truncated: before
+            8.5.4 the right-hand group could not shrink and pushed the title off
+            the screen on every page. */}
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-2 sm:h-14 sm:flex-nowrap sm:px-6 sm:py-0">
+          <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-semibold">{title}</h1>
             {description && (
               <p className="truncate text-xs text-muted-foreground">{description}</p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="order-last w-full min-w-0 truncate sm:order-none sm:w-auto sm:max-w-[45%]">
             <SourceLabel />
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
             {actions}
             <AccountMenu />
           </div>

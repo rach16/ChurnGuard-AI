@@ -169,7 +169,7 @@ function SalesforcePanel() {
           <FunnelStep value={funnel.customers_written} label="customers" last />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {SECTIONS.map(({ group, title }) => {
             const rows = report.decisions.filter((d) => d.group === group);
             if (rows.length === 0) return null;
@@ -240,7 +240,7 @@ function IntegrationsPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold">Planned</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {PLANNED.map((i) => (
               <Card key={i.name}>
                 <CardContent className="p-4">

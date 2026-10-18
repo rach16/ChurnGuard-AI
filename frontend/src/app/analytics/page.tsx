@@ -145,7 +145,7 @@ function WhyPage() {
   if (!causes) {
     return (
       <Shell title="Why customers leave" description="Loading">
-        <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2">
           <Skeleton className="h-64" />
           <Skeleton className="h-64" />
         </div>
@@ -196,7 +196,7 @@ function WhyPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Where the risk is now</CardTitle>
