@@ -45,6 +45,7 @@
     --sev-high: 25 85% 42%;
     --sev-medium: 43 74% 38%;
     --sev-low: 220 9% 46%;
+    --sev-good: 160 84% 30%;
 
     /* Charts read these so a series never has to hardcode a colour and can
        therefore never survive a theme flip as an invisible line. */
@@ -89,6 +90,7 @@
     --sev-high: 28 90% 62%;
     --sev-medium: 43 85% 60%;
     --sev-low: 217 11% 62%;
+    --sev-good: 158 64% 52%;
 
     --chart-1: 210 20% 80%;
     --chart-2: 217 11% 50%;
