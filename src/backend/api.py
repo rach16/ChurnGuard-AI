@@ -48,6 +48,7 @@ from agents.multi_agent_system import MultiAgentChurnSystem
 from core.health_scoring import CustomerHealthScorer
 from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
+from core.story import StoryBuilder
 from core.evidence import CustomerEvidence
 from core.datasource import (
     data_dir, is_synthetic, serving_dir, serving_info, set_serving, source_name, survival_model_path,
@@ -103,6 +104,7 @@ class ServiceState:
         self.multi_agent_system: Optional[MultiAgentChurnSystem] = None
         self.health_scorer: Optional[CustomerHealthScorer] = None
         self.playbook: Optional[PlaybookEngine] = None
+        self.story: Optional[StoryBuilder] = None
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
@@ -1540,6 +1542,67 @@ async def get_customer_plays(customer_id: int):
                   else "Outcomes recorded on accounts that faced the same challenge"),
         "mode": state.playbook.mode,
     }
+
+
+def require_story() -> StoryBuilder:
+    """The story builder for the scorer currently serving (ADR-0015). Rebuilt
+    when the scorer is, which is every promotion and restart."""
+    scorer = require_health_scorer()
+    builder = getattr(state, "story", None)
+    if builder is None or builder.scorer is not scorer or builder.playbook is not state.playbook:
+        builder = StoryBuilder(scorer, state.playbook)
+        state.story = builder
+    return builder
+
+
+def _salesforce_account_url(customer_id: str) -> Optional[str]:
+    """The Account's page in the connected org, when the sync's landings can
+    resolve the customer to its Id. Best effort: None where there is no
+    connection, and never an error on the story's account."""
+    if state.sync_runs is None or state.connections is None:
+        return None
+    try:
+        connection = state.connections.get()
+        if connection is None:
+            return None
+        with state.sync_runs.db.connection() as conn:
+            sf_id = state.sync_runs.account_ids(conn, connection.id).get(customer_id)
+        return f"{connection.instance_url}/lightning/r/Account/{sf_id}/view" if sf_id else None
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"could not resolve the Salesforce Account for {customer_id}: {type(e).__name__}: {e}")
+        return None
+
+
+@app.get("/customer/{customer_id}/story")
+async def get_customer_story(customer_id: int):
+    """One account's story (ADR-0015 section 2): a headline, the signals with
+    their evidence and dates, what to do, and how the score is built."""
+    builder = require_story()
+    story = await run_in_threadpool(builder.story, customer_id)
+    if story is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    story["salesforce_url"] = await run_in_threadpool(_salesforce_account_url, story["customer_id"])
+    return story
+
+
+@app.get("/book/queue")
+async def get_book_queue():
+    """Every active account, riskiest first, with the renewal and the evidence
+    phrase (ADR-0015 section 5)."""
+    builder = require_story()
+    rows = await run_in_threadpool(builder.queue)
+    at_risk = [r for r in rows if r["at_risk"]]
+    return {"accounts": rows, "total": len(rows), "at_risk": len(at_risk),
+            "arr_at_risk": float(sum(r["arr"] for r in at_risk)),
+            "as_of": builder.scorer.as_of.date().isoformat()}
+
+
+@app.get("/book/causes")
+async def get_book_causes():
+    """Why customers leave (ADR-0015 section 4): the churned accounts by cause,
+    the active book by its first adverse signal, renewals due, what has worked."""
+    builder = require_story()
+    return await run_in_threadpool(builder.causes)
 
 
 @app.get("/book/exposure")

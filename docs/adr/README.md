@@ -20,3 +20,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0012](0012-salesforce-integration-architecture.md) | Salesforce integration architecture: connections, token custody, sync | Accepted |
 | [0013](0013-operator-login-with-cognito.md) | Operator login: Cognito accounts, server-side sessions, roles | Accepted |
 | [0014](0014-write-back-to-salesforce.md) | Write-back: the site's risk reading on the Salesforce Account | Accepted |
+| [0015](0015-account-story-and-why-customers-leave.md) | The account story, and "Why customers leave": making the cause of churn obvious | Accepted |
