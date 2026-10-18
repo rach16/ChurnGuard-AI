@@ -44,13 +44,6 @@ module.exports = {
   				DEFAULT: 'hsl(var(--accent))',
   				foreground: 'hsl(var(--accent-foreground))'
   			},
-  			sev: {
-  				critical: 'hsl(var(--sev-critical))',
-  				high: 'hsl(var(--sev-high))',
-  				medium: 'hsl(var(--sev-medium))',
-  				low: 'hsl(var(--sev-low))',
-  				good: 'hsl(var(--sev-good))'
-  			},
   			destructive: 'hsl(var(--destructive))',
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

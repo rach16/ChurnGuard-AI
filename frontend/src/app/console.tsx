@@ -132,19 +132,6 @@ export function severity(band: QueueRow['risk_level']) {
   }[band];
 }
 
-/** A tinted chip in the band's colour: the number reads at a glance. */
-export function severityChip(band: QueueRow['risk_level']) {
-  return {
-    Critical: 'bg-sev-critical/15 text-sev-critical border-sev-critical/30',
-    High: 'bg-sev-high/15 text-sev-high border-sev-high/30',
-    Medium: 'bg-sev-medium/15 text-sev-medium border-sev-medium/30',
-    Low: 'bg-sev-low/15 text-sev-low border-sev-low/30',
-  }[band];
-}
-
-const AT_RISK_CHIP = 'bg-sev-high/15 text-sev-high border-sev-high/30';
-const GOOD_CHIP = 'bg-sev-good/15 text-sev-good border-sev-good/30';
-
 export function formatDay(iso: string | null): string {
   if (!iso) return '';
   return new Date(`${iso}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -156,11 +143,11 @@ function renewalText(days: number | null): string | null {
   return `renews in ${days}d`;
 }
 
-function Stat({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: string }) {
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="px-3 sm:px-4">
       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('mt-0.5 whitespace-nowrap text-base font-semibold tabular sm:text-lg', tone)}>
+      <p className="mt-0.5 whitespace-nowrap text-base font-semibold tabular sm:text-lg">
         {value}
         {hint && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{hint}</span>}
       </p>
@@ -265,13 +252,13 @@ export function Console() {
         <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
           <button
             onClick={() => setSoonOnly(false)}
-            className={cn('rounded-full border px-2.5 py-0.5', !soonOnly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
+            className={cn('rounded-full border px-2.5 py-0.5', !soonOnly ? 'bg-accent' : 'text-muted-foreground')}
           >
             All active
           </button>
           <button
             onClick={() => setSoonOnly(true)}
-            className={cn('rounded-full border px-2.5 py-0.5 tabular', soonOnly ? 'bg-sev-high text-white' : 'text-muted-foreground')}
+            className={cn('rounded-full border px-2.5 py-0.5 tabular', soonOnly ? 'bg-accent' : 'text-muted-foreground')}
           >
             Renews in {RENEWAL_WINDOW} days · {soonCount}
           </button>
@@ -318,30 +305,21 @@ export function Console() {
                     active ? 'bg-accent' : 'hover:bg-muted/60',
                   )}
                 >
-                  <span
-                    className={cn(
-                      'flex h-8 w-9 shrink-0 items-center justify-center rounded-md border text-base font-semibold tabular',
-                      severityChip(c.risk_level),
-                    )}
-                  >
+                  <span className={cn('w-7 shrink-0 text-lg font-semibold tabular', severity(c.risk_level))}>
                     {Math.round(c.risk_score)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="block min-w-0 truncate text-sm font-medium">{c.name}</span>
                       {c.at_risk && (
-                        <Badge variant="outline" className={cn('shrink-0 text-[10px] font-normal', AT_RISK_CHIP)}>
+                        <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
                           at risk
                         </Badge>
                       )}
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular">
-                      <span className="font-medium text-foreground">{money(c.arr)}</span> · {c.segment}
-                      {renewal && (
-                        <span className={cn(c.renewal_days !== null && c.renewal_days <= RENEWAL_WINDOW && 'font-medium text-sev-high')}>
-                          {' '}· {renewal}
-                        </span>
-                      )}
+                      {money(c.arr)} · {c.segment}
+                      {renewal ? ` · ${renewal}` : ''}
                     </span>
                     {c.reason && (
                       <span
@@ -373,8 +351,8 @@ export function Console() {
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <Stat label="At risk" value={String(queue?.at_risk ?? 0)} hint="top 20%" tone="text-sev-high" />
-            <Stat label="ARR at risk" value={queue ? money(queue.arr_at_risk) : '$0'} tone="text-sev-high" />
+            <Stat label="At risk" value={String(queue?.at_risk ?? 0)} hint="top 20%" />
+            <Stat label="ARR at risk" value={queue ? money(queue.arr_at_risk) : '$0'} />
             <Stat label="Active" value={String(queue?.total ?? 0)} />
           </div>
           <div className="flex min-w-0 max-w-full items-center gap-3">
@@ -420,7 +398,7 @@ export function Console() {
 const SIGNAL_ICON = {
   adverse: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-sev-medium" aria-hidden="true" />,
   neutral: <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden="true" />,
-  good: <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sev-good" aria-hidden="true" />,
+  good: <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />,
 };
 
 /** The whole story, shared by the console pane and the customer page. */
@@ -440,24 +418,17 @@ export function StoryView({ story, synthetic, full = false }: { story: Story; sy
     <div>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold leading-snug tracking-tight sm:text-2xl">
-            <Headline story={story} />
-          </h1>
+          <h1 className="text-xl font-semibold leading-snug tracking-tight sm:text-2xl">{story.headline}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {story.segment} · {story.industry} · {story.tenure_years}y customer
             {story.crm_created_date ? ` · in Salesforce since ${formatDay(story.crm_created_date)}, ${story.crm_created_date.slice(0, 4)}` : ''}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <p
-            className={cn(
-              'flex h-14 w-16 items-center justify-center rounded-lg border text-3xl font-semibold tabular',
-              severityChip(story.risk.band),
-            )}
-          >
+        <div className="shrink-0 text-right">
+          <p className={cn('text-3xl font-semibold tabular sm:text-4xl', severity(story.risk.band))}>
             {Math.round(story.risk.score)}
           </p>
-          <Badge variant="outline" className={cn('font-normal', story.risk.at_risk ? AT_RISK_CHIP : severityChip(story.risk.band))}>
+          <Badge variant="outline" className="mt-1">
             {story.risk.band}
             {story.risk.at_risk ? ' · at risk' : ''}
           </Badge>
@@ -467,17 +438,9 @@ export function StoryView({ story, synthetic, full = false }: { story: Story; sy
       <Separator className="my-5" />
 
       <h2 className="text-sm font-semibold">Signals</h2>
-      <ul className="mt-2 space-y-1">
+      <ul className="mt-2 divide-y">
         {story.signals.map((s, i) => (
-          <li
-            key={`${s.key}-${i}`}
-            className={cn(
-              'flex items-start gap-3 rounded-md border-l-2 py-2 pl-3 pr-2 text-sm',
-              s.kind === 'adverse' && 'border-sev-medium bg-sev-medium/10',
-              s.kind === 'good' && 'border-sev-good bg-sev-good/10',
-              s.kind === 'neutral' && 'border-transparent',
-            )}
-          >
+          <li key={`${s.key}-${i}`} className="flex items-start gap-3 py-2 text-sm">
             {SIGNAL_ICON[s.kind]}
             <span className={cn('min-w-0 flex-1', s.kind === 'neutral' && 'text-muted-foreground')}>{s.text}</span>
             <span className="shrink-0 text-xs text-muted-foreground">
@@ -511,19 +474,16 @@ export function StoryView({ story, synthetic, full = false }: { story: Story; sy
       ) : (
         <div className="mt-3 space-y-2">
           {story.plays.map((p) => (
-            <div key={p.action} className="rounded-md border border-l-2 border-l-sev-good/60 p-3">
+            <div key={p.action} className="rounded-md border p-3">
               <div className="flex items-start justify-between gap-4">
                 <span className="text-sm font-medium">{p.action}</span>
-                <Badge
-                  variant="outline"
-                  className={cn('shrink-0 text-[11px] capitalize font-normal', p.confidence === 'strong' ? GOOD_CHIP : p.confidence === 'moderate' ? severityChip('Medium') : '')}
-                >
+                <Badge variant={p.confidence === 'strong' ? 'default' : 'outline'} className="shrink-0 text-[11px] capitalize">
                   {p.confidence}
                 </Badge>
               </div>
               {p.kind === 'outcome' ? (
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  Renewed <span className={cn('tabular font-medium', (p.save_rate ?? 0) >= 0.5 ? 'text-sev-good' : 'text-sev-medium')}>{p.renewed} of {p.decided}</span>{' '}
+                  Renewed <span className="tabular font-medium text-foreground">{p.renewed} of {p.decided}</span>{' '}
                   ({Math.round((p.save_rate ?? 0) * 100)}%) after this play
                   {p.scope === 'any challenge' ? ', across all challenges' : ', on this challenge'}
                   {p.pending ? ` · ${p.pending} renewal${p.pending === 1 ? '' : 's'} not decided yet` : ''}
@@ -594,25 +554,5 @@ export function StoryView({ story, synthetic, full = false }: { story: Story; sy
         </div>
       )}
     </div>
-  );
-}
-
-/** The headline with the money and the band in colour, the rest plain. */
-function Headline({ story }: { story: Story }) {
-  const amount = money(story.arr);
-  const band = `${story.risk.band} risk`;
-  const parts = story.headline.split(new RegExp(`(${amount.replace('$', '\\$')} at risk|${band})`));
-  return (
-    <>
-      {parts.map((part, i) =>
-        part === `${amount} at risk` ? (
-          <span key={i} className="text-sev-high">{part}</span>
-        ) : part === band ? (
-          <span key={i} className={severity(story.risk.band)}>{part}</span>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </>
   );
 }
