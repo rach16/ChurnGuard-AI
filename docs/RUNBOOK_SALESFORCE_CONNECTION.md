@@ -17,8 +17,19 @@ Everything here was done at least once on staging on 2026-10-16 unless marked
 | The scheduler's identity | GitHub Actions OIDC, no secret | The daily workflow's token, accepted on `sync-due` only, pinned to this repository's `sync.yml` on `main` |
 | The audit log | Neon, table `audit_events` | Append-only. Never holds a token |
 
-Each environment gets its own row set, key, IAM user and user pool. Production
-has none of these yet; its `/connections` reports `enabled: false`.
+Each environment gets its own row set, key, IAM user and user pool:
+
+| | Staging | Production (2.6.4) |
+|---|---|---|
+| Neon branch | `staging` | `production` |
+| KMS key | `alias/churnguard-staging-master` (us-west-2) | `alias/churnguard-production-master` (us-west-2), yearly rotation |
+| IAM user | `churnguard-staging-kms` | `churnguard-production-kms`, the same five actions on its own key only |
+| Cognito pool | `us-east-1_sFnyqOnla` | `us-west-2_B8jnztWlJ` (domain `churnguard-production`) |
+| Site origin (callbacks, scheduler audience) | the staging preview | `https://churnguard.banik.dev` |
+
+Production's IAM user was tested on 2026-10-18: it wraps and unwraps under its own
+key, a wrapped key presented with another encryption context is refused, and the
+staging key answers AccessDenied to it.
 
 ## Reading the state
 

@@ -102,6 +102,17 @@ jobs:
               print("::error::HTTP 200 but ready=false:", json.dumps(data)[:500])
               sys.exit(1)
 
+          # The AI stack is switched off on integration data until it is rebuilt
+          # on that source (1.8). Off by design is reported under not_applicable,
+          # never under a false component, so this cannot mask a broken join.
+          # Checked first: this ran after the retrieval_problem check below, and
+          # every run failed from 2026-10-15 (the switch to Salesforce data) to
+          # 2026-10-18 on a retriever that is meant not to exist.
+          off = data.get("not_applicable") or {}
+          if "rag_retriever" in off:
+              print(f"ready=true; AI stack off for source {data.get('source')!r}: {off['rag_retriever']}")
+              sys.exit(0)
+
           problem = data.get("retrieval_problem")
           if problem:
               print(f"::error::retrieval_problem: {problem}")
@@ -112,13 +123,6 @@ jobs:
           # sail through this check while nothing verified the join, which is
           # the same false green this workflow exists to prevent.
           components = data.get("components") or {}
-          # The AI stack is switched off on integration data until it is rebuilt
-          # on that source (1.8). Off by design is reported under not_applicable,
-          # never under a false component, so this cannot mask a broken join.
-          off = data.get("not_applicable") or {}
-          if "rag_retriever" in off:
-              print(f"ready=true; AI stack off for source {data.get('source')!r}: {off['rag_retriever']}")
-              sys.exit(0)
           if "retrieval_join" not in components:
               print("::error::backend does not report retrieval_join; it predates "
                     "the readiness probe, so this check verified nothing")
@@ -130,35 +134,38 @@ jobs:
           print("ready=true, retrieval join verified intact")
           PY
 
-      - name: Dashboard returns real numbers
+      - name: The data path serves real figures
         run: |
           set -uo pipefail
 
           # Readiness can be true while the data path returns nothing. This is
-          # the check that would have caught the all-zeros dashboard: an empty
-          # or zeroed response is a failure, not a valid answer.
+          # the check that would have caught the all-zeros dashboard, and the
+          # snapshot served empty after a Sync now (2026-10-17): an empty or
+          # zeroed book is a failure, not a valid answer.
+          # Read from /ready's data check, not /dashboard-stats: once the site
+          # is behind sign-in (2.6.4) the dashboard needs a session, and a
+          # monitor holding a login is a credential to leak. /ready answers
+          # booleans only, never figures.
           # No retry needed here: the readiness step above has already woken
           # the service, so this one is hitting something warm.
           BODY=$(mktemp)
-          CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' \
-            "$SITE/api/dashboard-stats")
+          CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' "$SITE/api/ready")
 
           echo "HTTP $CODE"
-          cat "$BODY"
-          echo
-
           if [ "$CODE" != "200" ]; then
-            echo "::error::dashboard-stats returned HTTP $CODE"
+            cat "$BODY"; echo
+            echo "::error::ready returned HTTP $CODE"
             exit 1
           fi
 
           python3 - "$BODY" <<'PY'
           import json, sys
-          d = json.load(open(sys.argv[1]))
-          arr = d.get("total_arr_at_risk") or 0
-          customers = d.get("total_active_customers") or 0
-          if arr <= 0 or customers <= 0:
-              print(f"::error::dashboard served zeros: arr={arr} customers={customers}")
+          d = (json.load(open(sys.argv[1])).get("data")) or {}
+          print("data:", d)
+          if "customers_loaded" not in d:
+              print("::error::backend does not report a data check; it predates it, so nothing was verified")
               sys.exit(1)
-          print(f"arr_at_risk={arr} active_customers={customers}")
+          if not d["customers_loaded"] or not d["arr_at_risk_positive"]:
+              print(f"::error::the data path served zeros: {d}")
+              sys.exit(1)
           PY

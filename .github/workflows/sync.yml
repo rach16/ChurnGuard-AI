@@ -12,7 +12,7 @@
 #
 # No secret (2.6.3, ADR-0013 §5). Each run asks GitHub for a short-lived OIDC
 # token naming this repository, this workflow, the branch and the event, with
-# the staging site as its audience; the backend verifies GitHub's signature and
+# that deployment's site as its audience; the backend verifies GitHub's signature and
 # every claim, and accepts it on sync-due only. A fork, another workflow, another
 # branch or a token for another deployment is refused. The shared operator key
 # that used to sit in a repository secret is gone.
@@ -39,10 +39,6 @@ permissions:
   contents: read
 
 env:
-  BACKEND: https://churnguard-backend-staging.onrender.com
-  # The token's audience: the deployment's own site origin, which is what the
-  # backend expects (PUBLIC_SITE_ORIGIN). A staging token opens staging only.
-  AUDIENCE: https://churn-guard-ai-git-staging-rbanik16-gmailcoms-projects.vercel.app
   # A sleeping service pays a cold start before it can answer; then the run
   # itself is a few seconds.
   MAX_WAIT: 240
@@ -50,10 +46,51 @@ env:
 
 jobs:
   sync:
+    # One job per deployment, each with its own token: the audience is that
+    # deployment's site origin (its PUBLIC_SITE_ORIGIN), so a staging token
+    # opens staging only and a production token production only (2.6.4).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - deployment: staging
+            backend: https://churnguard-backend-staging.onrender.com
+            audience: https://churn-guard-ai-git-staging-rbanik16-gmailcoms-projects.vercel.app
+          - deployment: production
+            backend: https://churnguard-backend-qb76.onrender.com
+            audience: https://churnguard.banik.dev
+    name: sync (${{ matrix.deployment }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      BACKEND: ${{ matrix.backend }}
+      AUDIENCE: ${{ matrix.audience }}
     steps:
+      - name: Is sync configured on this deployment?
+        id: configured
+        run: |
+          set -uo pipefail
+          # A deployment with no database has no connections by design and
+          # says so under not_applicable; that is a skip, not a failure. Any
+          # other state goes on to the sync, where a fault fails loudly.
+          BODY=$(mktemp)
+          CODE=000
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            CODE=$(curl -s --max-time "$MAX_WAIT" -o "$BODY" -w '%{http_code}' "$BACKEND/health")
+            [ "$CODE" = "200" ] && break
+            sleep $((attempt * 20))
+          done
+          [ "$CODE" = "200" ] || { echo "the backend did not answer /health (HTTP $CODE)"; exit 1; }
+          python3 - "$BODY" <<'PY' >> "$GITHUB_OUTPUT"
+          import json, sys
+          off = (json.load(open(sys.argv[1])).get("not_applicable") or {}).get("connections")
+          print(f"skip={'true' if off else 'false'}")
+          if off:
+              print(f"::notice::{off}; nothing to sync on this deployment", file=sys.stderr)
+          PY
+
       - name: Sync every connection that is due
+        if: steps.configured.outputs.skip != 'true'
         run: |
           set -uo pipefail
           # GitHub's token for this run. Fetched per attempt: it lives minutes.

@@ -713,6 +713,32 @@ async def health_check():
     )
 
 
+_DATA_CHECK_TTL = 60.0
+_data_check_cache: Optional[tuple[float, int, dict]] = None
+
+
+def _data_check() -> dict:
+    """Do the scorer's figures look like a real book? Cached a minute per scorer,
+    as the retrieval probe is: the answer changes only when a snapshot is served,
+    and serving one builds a new scorer, which misses the cache."""
+    global _data_check_cache
+    now = time.monotonic()
+    scorer = state.health_scorer
+    if (_data_check_cache is not None and _data_check_cache[1] == id(scorer)
+            and now - _data_check_cache[0] < _DATA_CHECK_TTL):
+        return _data_check_cache[2]
+    result = {"customers_loaded": False, "arr_at_risk_positive": False}
+    if scorer is not None:
+        try:
+            stats = scorer.get_dashboard_stats()
+            result = {"customers_loaded": (stats.get("total_active_customers") or 0) > 0,
+                      "arr_at_risk_positive": (stats.get("total_arr_at_risk") or 0) > 0}
+        except Exception as e:  # noqa: BLE001 - readiness must answer
+            result["error"] = type(e).__name__
+    _data_check_cache = (now, id(scorer), result)
+    return result
+
+
 @app.get("/ready")
 async def readiness_check(require_ai_stack: bool = False):
     """Readiness check for load balancers and orchestrators.
@@ -736,10 +762,19 @@ async def readiness_check(require_ai_stack: bool = False):
         "not_applicable": state.not_applicable,
     }
     # Name the specific fault rather than leaving a caller to infer it from a
-    # false in the components map.
-    problem = state.retrieval_problem()
-    if problem:
-        payload["retrieval_problem"] = problem
+    # false in the components map. Not when the AI stack is off by design: an
+    # unbuilt retriever is then the intended state, not a fault, and reporting
+    # it as one failed the heartbeat on every run from 2026-10-15, when the
+    # site moved to Salesforce data, until 2026-10-18.
+    if not state.ai_not_applicable:
+        problem = state.retrieval_problem()
+        if problem:
+            payload["retrieval_problem"] = problem
+    # Whether the data path serves real figures, as booleans: the heartbeat
+    # checks this instead of reading /dashboard-stats, which needs a session
+    # once the site is behind sign-in (2.6.4). No customer data, only whether
+    # there is any.
+    payload["data"] = _data_check()
     if not ready:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=payload)
     return payload

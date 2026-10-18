@@ -116,9 +116,58 @@ def test_salesforce_assistant_is_off_by_design_and_ready_says_so(api_on):
     assert ready["ready"] is True
     assert ready["source"] == "salesforce"
     assert "synthetic test data" in ready["not_applicable"]["rag_retriever"]
+    # Off by design is not a fault: no retrieval_problem (it failed the
+    # heartbeat on every run from 2026-10-15 to 2026-10-18).
+    assert "retrieval_problem" not in ready
+    assert ready["data"] == {"customers_loaded": True, "arr_at_risk_positive": True}
 
     health = asyncio.run(api.health_check())
     assert health.status == "healthy" and health.degraded is False
+
+
+def _heartbeat_check(step_name: str) -> str:
+    """The Python a heartbeat step runs on the response, taken from the workflow
+    file itself, so the test exercises the monitor and not a copy of it."""
+    import textwrap
+
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "heartbeat.yml").read_text())
+    step = next(st for st in workflow["jobs"]["probe"]["steps"] if st.get("name") == step_name)
+    script = step["run"]
+    body = script.split("<<'PY'\n", 1)[1].split("\nPY", 1)[0]
+    return textwrap.dedent(body)
+
+
+@pytest.mark.parametrize("step", ["Readiness, including the AI stack", "The data path serves real figures"])
+def test_the_heartbeat_passes_on_the_live_sites_answer(api_on, tmp_path, step):
+    """Runs the heartbeat's own checks on the answer this backend gives on
+    Salesforce data. The readiness test above passed throughout the outage; the
+    monitor's script was never run against it."""
+    import json
+    import subprocess
+
+    api = api_on(SALESFORCE)
+    payload = asyncio.run(api.readiness_check(require_ai_stack=True))
+    body = tmp_path / "ready.json"
+    body.write_text(json.dumps(payload, default=str))
+    out = subprocess.run([sys.executable, "-c", _heartbeat_check(step), str(body)],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout + out.stderr
+
+
+def test_the_heartbeat_fails_on_an_empty_book(api_on, tmp_path):
+    import json
+    import subprocess
+
+    api = api_on(SALESFORCE)
+    payload = asyncio.run(api.readiness_check(require_ai_stack=True))
+    payload["data"] = {"customers_loaded": False, "arr_at_risk_positive": False}
+    body = tmp_path / "ready.json"
+    body.write_text(json.dumps(payload, default=str))
+    out = subprocess.run([sys.executable, "-c", _heartbeat_check("The data path serves real figures"), str(body)],
+                         capture_output=True, text=True)
+    assert out.returncode == 1 and "served zeros" in out.stdout
 
 
 def test_salesforce_evaluation_explains_why_there_is_none(api_on):
