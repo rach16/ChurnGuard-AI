@@ -148,3 +148,11 @@ services:
         sync: false
       - key: COGNITO_DOMAIN
         sync: false
+      # Self sign-up to the read-only demo (2.6.7, ADR-0017): "true" opens it;
+      # the pool must allow sign-up too. The demo line links to the contacts.
+      - key: SELF_SIGNUP
+        sync: false
+      - key: CONTACT_LINKEDIN
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false

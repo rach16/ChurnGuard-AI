@@ -43,7 +43,7 @@ OPEN_PATHS = frozenset({
     # Probes and documentation (ADR-0010): an orchestrator cannot sign in.
     "/", "/health", "/ready", "/docs", "/redoc", "/openapi.json", "/favicon.ico",
     # Signing in, which by definition happens without a session.
-    "/auth/login", "/auth/callback", "/auth/logout", "/auth/me",
+    "/auth/login", "/auth/callback", "/auth/logout", "/auth/me", "/auth/signup",
     # Salesforce's redirect after a connect: authenticated by its single-use state.
     "/integrations/salesforce/callback",
 })

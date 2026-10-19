@@ -36,6 +36,9 @@ SCOPES = "openid"
 JWKS_TTL_SECONDS = 3600
 CALLBACK_PATH = "/api/auth/callback"
 ROLES = ("admin", "operator", "viewer")          # highest first
+# Not a role: marks an account that signed itself up to the read-only demo
+# (2.6.7, ADR-0017). Always held with viewer; refused access tokens.
+DEMO_GROUP = "demo"
 
 
 class CognitoError(Exception):
@@ -142,13 +145,17 @@ class CognitoClient:
 
     # ----------------------------------------------------------- endpoints
 
-    def authorize_url(self, *, redirect_uri: str, state: str, nonce: str, challenge: str) -> str:
+    def authorize_url(self, *, redirect_uri: str, state: str, nonce: str, challenge: str,
+                      signup: bool = False) -> str:
+        """Managed login's sign-in page, or its sign-up page (ADR-0017), with the
+        same parameters: a sign-up comes back through the same callback."""
         query = urlencode({
             "response_type": "code", "client_id": self.config.client_id,
             "redirect_uri": redirect_uri, "scope": SCOPES, "state": state, "nonce": nonce,
             "code_challenge": challenge, "code_challenge_method": "S256",
         })
-        return f"{self.config.domain}/oauth2/authorize?{query}"
+        path = "/signup" if signup else "/oauth2/authorize"
+        return f"{self.config.domain}{path}?{query}"
 
     def logout_url(self, logout_uri: str) -> str:
         """Ends the Cognito session too, so the next sign-in asks for the password."""

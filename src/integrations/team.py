@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 ROLES = ("admin", "operator", "viewer")
+DEMO_GROUP = "demo"
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -49,11 +50,12 @@ class Member:
     enabled: bool
     created_at: Optional[datetime]
     tenant: Optional[str]
+    demo: bool = False     # signed itself up to the read-only demo (ADR-0017)
 
     def public(self, last_sign_in: Optional[datetime] = None) -> dict[str, Any]:
         return {"username": self.username, "email": self.email, "role": self.role,
                 "status": self.status, "created_at": self.created_at,
-                "last_sign_in": last_sign_in}
+                "last_sign_in": last_sign_in, "demo": self.demo}
 
 
 def _attrs(user: dict[str, Any]) -> dict[str, str]:
@@ -84,7 +86,8 @@ class TeamAdmin:
         status = "invited" if user.get("UserStatus") == "FORCE_CHANGE_PASSWORD" else "active"
         return Member(username=username, email=attrs.get("email", ""), role=role, status=status,
                       enabled=bool(user.get("Enabled", True)),
-                      created_at=user.get("UserCreateDate"), tenant=attrs.get("custom:tenant"))
+                      created_at=user.get("UserCreateDate"), tenant=attrs.get("custom:tenant"),
+                      demo=DEMO_GROUP in groups)
 
     def members(self, tenant: str) -> list[Member]:
         """Everyone enabled in this tenant, admins first, then by email."""
@@ -111,6 +114,21 @@ class TeamAdmin:
         if member.tenant != tenant or not member.enabled:
             raise NotOnTeam("That person is not on this team.")
         return member
+
+    def enroll_demo(self, username: str, tenant: str) -> None:
+        """A self sign-up's first sign-in (ADR-0017): the tenant and the demo
+        viewer's groups, set here and never by the person. Only for an account
+        with no tenant and no role yet; anything else is left alone."""
+        user = self.client.admin_get_user(UserPoolId=self.pool, Username=username)
+        groups = [g["GroupName"] for g in self.client.admin_list_groups_for_user(
+            UserPoolId=self.pool, Username=username).get("Groups", [])]
+        if _attrs(user).get("custom:tenant") or any(g in ROLES for g in groups):
+            raise TeamRefused("This account is already set up.")
+        self.client.admin_update_user_attributes(
+            UserPoolId=self.pool, Username=username,
+            UserAttributes=[{"Name": "custom:tenant", "Value": tenant}])
+        for group in ("viewer", DEMO_GROUP):
+            self.client.admin_add_user_to_group(UserPoolId=self.pool, Username=username, GroupName=group)
 
     def _admins(self, tenant: str) -> list[Member]:
         return [m for m in self.members(tenant) if m.role == "admin"]
@@ -176,6 +194,7 @@ class TeamAdmin:
             UserPoolId=self.pool, Username=username).get("Groups", [])]
         self.client.admin_add_user_to_group(UserPoolId=self.pool, Username=username, GroupName=role)
         for other in current:
-            if other in ROLES and other != role:
+            # Given a role on the Team page, a demo sign-up joins the team (ADR-0017).
+            if (other in ROLES or other == DEMO_GROUP) and other != role:
                 self.client.admin_remove_user_from_group(UserPoolId=self.pool, Username=username,
                                                          GroupName=other)

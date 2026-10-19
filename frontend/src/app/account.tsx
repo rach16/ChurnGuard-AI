@@ -19,11 +19,15 @@ import { KeyRound, LogIn, LogOut } from 'lucide-react';
 export interface Me {
   enabled: boolean;
   reason: string | null;
+  /** Self sign-up to the read-only demo is open here (ADR-0017). */
+  signup?: boolean;
+  contact?: { linkedin: string | null; email: string | null };
   user: {
     email: string;
     role: 'admin' | 'operator' | 'viewer' | null;
     groups: string[];
     tenant: string;
+    demo?: boolean;
     signed_in_at: string;
     expires_at: string;
   } | null;
@@ -72,9 +76,10 @@ export function AccountMenu() {
       </span>
       {me.user.role && (
         <span className="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-          {me.user.role}
+          {me.user.demo ? 'demo' : me.user.role}
         </span>
       )}
+      {!me.user.demo && (
       <a
         href="/tokens"
         className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -83,6 +88,7 @@ export function AccountMenu() {
         <KeyRound className="h-3.5 w-3.5" />
         <span className="sr-only sm:not-sr-only">Tokens</span>
       </a>
+      )}
       <form method="post" action="/api/auth/logout">
         <button
           type="submit"
@@ -93,6 +99,37 @@ export function AccountMenu() {
           <span className="sr-only sm:not-sr-only">Sign out</span>
         </button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * The line a demo sign-up sees under the header on every page (ADR-0017): what
+ * they are looking at, and how to reach the owner. Nothing for anyone else.
+ */
+export function DemoLine() {
+  const me = useMe();
+  if (!me?.user?.demo) return null;
+  const { linkedin, email } = me.contact ?? { linkedin: null, email: null };
+  return (
+    <div className="shrink-0 border-b px-4 py-1.5 text-xs text-muted-foreground sm:px-6">
+      You&apos;re viewing a demo on seeded Salesforce data. Want ChurnGuard on your own org? Get in touch
+      {linkedin && (
+        <>
+          {' on '}
+          <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">
+            LinkedIn
+          </a>
+        </>
+      )}
+      {linkedin && email && ' or by '}
+      {!linkedin && email && ' by '}
+      {email && (
+        <a href={`mailto:${email}`} className="text-foreground underline underline-offset-2">
+          email
+        </a>
+      )}
+      .
     </div>
   );
 }

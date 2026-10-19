@@ -60,6 +60,8 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
     async def create_token(request: Request, body: CreateRequest, actor: str = Depends(require("viewer"))):
         tokens = tokens_or_404()
         session = request.state.session
+        if session.demo:
+            raise HTTPException(status_code=403, detail="Access tokens are for team members, not demo accounts.")
         token, value = await run_in_threadpool(guard, tokens.create, name=body.name, days=body.days,
                                                tenant_id=session.tenant_id, user_sub=session.user_sub,
                                                email=session.email, actor=actor)

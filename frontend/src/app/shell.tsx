@@ -23,7 +23,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import { AccountMenu, useMe } from './account';
+import { AccountMenu, DemoLine, useMe } from './account';
 import { AuthGate } from './sign-in';
 import { SourceLabel } from './source';
 import { ThemeToggle } from './theme-toggle';
@@ -151,6 +151,7 @@ export function Shell({
             <AccountMenu />
           </div>
         </header>
+        <DemoLine />
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>

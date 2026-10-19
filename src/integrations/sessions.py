@@ -55,12 +55,18 @@ class Session:
         from integrations.cognito import ROLES
         return next((r for r in ROLES if r in self.groups), None)
 
+    @property
+    def demo(self) -> bool:
+        """Signed itself up to the read-only demo (ADR-0017)."""
+        from integrations.cognito import DEMO_GROUP
+        return DEMO_GROUP in self.groups
+
     def live(self, now: datetime) -> bool:
         return now < self.expires_at and now - self.last_seen_at < IDLE_TIMEOUT
 
     def public(self) -> dict[str, Any]:
         """What the page may know about who is signed in. No token, no hash."""
-        return {"email": self.email, "role": self.role, "groups": list(self.groups),
+        return {"email": self.email, "role": self.role, "groups": list(self.groups), "demo": self.demo,
                 "tenant": self.tenant_id, "signed_in_at": self.created_at,
                 "expires_at": self.expires_at}
 

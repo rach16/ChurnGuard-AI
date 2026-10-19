@@ -8,7 +8,9 @@ anything is believed. A refused sign-in revokes the refresh token it was handed,
 writes ``login_refused`` with the reason, and creates nothing.
 
 Who is refused, beyond a bad token: an account in none of the three groups (it
-would see nothing; ADR-0013 §3), and an account with no tenant.
+would see nothing; ADR-0013 §3), and an account with no tenant. Except, where
+self sign-up is on (ADR-0017): an account with neither is a new sign-up, and is
+given the demo tenant and the demo viewer's groups before its session starts.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Callable, Optional
 
 from integrations import audit, crypto
 import httpx
@@ -79,12 +81,21 @@ def actor(session: Session) -> str:
 
 class LoginFlow:
     def __init__(self, store: SessionStore, provider: crypto.KeyProvider, cognito: CognitoClient,
-                 *, site_origin: str, clock=lambda: datetime.now(timezone.utc)):
+                 *, site_origin: str, clock=lambda: datetime.now(timezone.utc),
+                 enroll: Optional[Callable[[str, str], None]] = None, signup_tenant: str = "default"):
         self.store = store
         self.provider = provider
         self.cognito = cognito
         self.site_origin = site_origin.rstrip("/")
         self.now = clock
+        # Self sign-up to the demo (ADR-0017): ``enroll(username, tenant)`` sets a
+        # new account's tenant and groups through the admin API. None: off.
+        self.enroll = enroll
+        self.signup_tenant = signup_tenant
+
+    @property
+    def signup_enabled(self) -> bool:
+        return self.enroll is not None
 
     @property
     def redirect_uri(self) -> str:
@@ -92,7 +103,7 @@ class LoginFlow:
 
     # ------------------------------------------------------------- start
 
-    def start(self, return_to: Optional[str] = None) -> str:
+    def start(self, return_to: Optional[str] = None, *, signup: bool = False) -> str:
         verifier, challenge = pkce_pair()
         state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         with self.store.db.connection() as conn:
@@ -100,7 +111,8 @@ class LoginFlow:
                                     redirect_uri=self.redirect_uri, return_to=safe_return(return_to),
                                     login_host=self.cognito.config.domain)
         return self.cognito.authorize_url(redirect_uri=self.redirect_uri, state=state,
-                                          nonce=nonce, challenge=challenge)
+                                          nonce=nonce, challenge=challenge,
+                                          signup=signup and self.signup_enabled)
 
     # ---------------------------------------------------------- complete
 
@@ -129,6 +141,9 @@ class LoginFlow:
             self._refused(None, f"id token rejected ({e.check})", tokens.refresh_token)
             raise LoginRefused("The sign-in could not be verified.", "id_token") from None
 
+        signed_up = False
+        if person.role is None and not person.tenant and self.enroll is not None and tokens.refresh_token:
+            person, signed_up = self._enroll(person, tokens.refresh_token), True
         if person.role is None:
             self._refused(person, "no role: not in admin, operator or viewer", tokens.refresh_token)
             raise LoginRefused("This account has no role here yet. Ask an admin to add you to a group.",
@@ -152,11 +167,26 @@ class LoginFlow:
                                         tenant_id=person.tenant, user_sub=person.sub,
                                         email=person.email, groups=person.groups,
                                         sealed_refresh=sealed, now=now)
+            if signed_up:
+                audit.record(conn, "signup", actor=actor(session), tenant_id=session.tenant_id,
+                             detail={"email": person.email, "role": person.role, "demo": session.demo})
             audit.record(conn, "login", actor=actor(session), tenant_id=session.tenant_id,
                          detail={"email": person.email, "role": person.role,
                                  "session_id": session.id})
         logger.info(f"✓ signed in: {person.email} as {person.role}")
         return Completed(session, cookie, pending["return_to"] or "/")
+
+    def _enroll(self, person: Person, refresh_token: str) -> Person:
+        """A new sign-up (ADR-0017): the demo tenant and groups through the admin
+        API, then a fresh ID token, so the session holds what Cognito now says."""
+        try:
+            self.enroll(person.sub, self.signup_tenant)
+            tokens = self.cognito.refresh(refresh_token)
+            return self.cognito.verify_id_token(tokens.id_token, nonce=None)
+        except Exception as e:  # noqa: BLE001 - any failure here leaves the account unset, and says so
+            self._refused(person, f"sign-up could not be completed: {type(e).__name__}", refresh_token)
+            raise LoginRefused("Your account was created but could not be set up. Try signing in again "
+                               "in a minute.", "signup") from None
 
     def _refused(self, person: Optional[Person], reason: str, refresh_token: Optional[str]) -> None:
         status = self.cognito.revoke(refresh_token) if refresh_token else None

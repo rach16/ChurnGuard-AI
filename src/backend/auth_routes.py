@@ -10,6 +10,8 @@ the backend sets belongs to the site's origin:
 - ``POST /auth/logout``               revoke, delete, clear the cookie, and end the
                                       Cognito session too.
 - ``GET  /auth/me``                   who is signed in, for the header. Never a token.
+- ``GET  /auth/signup?return=/path``  like login, to Cognito's sign-up page; where
+                                      self sign-up is on (ADR-0017), else 404.
 
 A deployment with no user pool configured answers ``/auth/me`` with
 ``enabled: false`` and 404 on the rest: sign-in is off there, and says so.
@@ -54,6 +56,12 @@ def same_origin(request: Request) -> bool:
     return bool(origin) and origin == site_origin()
 
 
+def contact() -> dict[str, Optional[str]]:
+    """Where the demo line points (ADR-0017), from the deployment's settings."""
+    return {"linkedin": os.getenv("CONTACT_LINKEDIN", "").strip() or None,
+            "email": os.getenv("CONTACT_EMAIL", "").strip() or None}
+
+
 def _page(title: str, message: str, status: int) -> HTMLResponse:
     return HTMLResponse(f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>{html.escape(title)}</title>
@@ -85,14 +93,23 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         if getattr(state, "login", None) is None:
             reason = (getattr(state, "not_applicable", {}) or {}).get("login") \
                 or (getattr(state, "errors", {}) or {}).get("login") or "sign-in not initialised"
-            return {"enabled": False, "reason": reason, "user": None}
+            return {"enabled": False, "reason": reason, "user": None, "signup": False}
         session = await run_in_threadpool(current, request)
-        return {"enabled": True, "reason": None, "user": session.public() if session else None}
+        return {"enabled": True, "reason": None, "user": session.public() if session else None,
+                "signup": state.login.signup_enabled, "contact": contact()}
 
     @router.get("/auth/login")
     async def login(request: Request):
         flow = flow_or_404()
         url = await run_in_threadpool(flow.start, request.query_params.get("return"))
+        return RedirectResponse(url, status_code=302)
+
+    @router.get("/auth/signup")
+    async def signup(request: Request):
+        flow = flow_or_404()
+        if not flow.signup_enabled:
+            raise HTTPException(status_code=404, detail="Sign-up is not open on this deployment.")
+        url = await run_in_threadpool(lambda: flow.start(request.query_params.get("return"), signup=True))
         return RedirectResponse(url, status_code=302)
 
     @router.get("/auth/callback")

@@ -70,7 +70,9 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
         session = request.state.session
         members = await run_in_threadpool(team.members, session.tenant_id)
         seen = await run_in_threadpool(last_sign_ins, session.tenant_id)
-        return {"members": [m.public(seen.get(m.username)) for m in members],
+        # Demo sign-ups (ADR-0017) are listed apart, so the team stays readable.
+        return {"members": [m.public(seen.get(m.username)) for m in members if not m.demo],
+                "demo": [m.public(seen.get(m.username)) for m in members if m.demo],
                 "you": session.user_sub}
 
     @router.post("/team/invite")

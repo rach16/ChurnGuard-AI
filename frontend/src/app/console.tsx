@@ -38,7 +38,7 @@ import { cn } from '@/lib/utils';
 
 import { COLD_START_HINT_MS } from './api-client';
 import { Rail } from './shell';
-import { AccountMenu } from './account';
+import { AccountMenu, DemoLine } from './account';
 import { SourceLabel, useSource } from './source';
 
 const API = '/api';
@@ -228,161 +228,165 @@ export function Console() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Rail />
-
-      {/* Queue */}
-      <div
-        className={cn(
-          'flex min-w-0 flex-1 flex-col border-r md:w-[380px] md:flex-none',
-          mobileOpen && 'hidden md:flex',
-        )}
-      >
-        <div className="flex h-14 items-center gap-2 border-b px-3">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by name, segment or signal"
-            className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
-          />
-          <Badge variant="secondary" className="tabular shrink-0">
-            {filtered.length}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
-          <button
-            onClick={() => setSoonOnly(false)}
-            className={cn('rounded-full border px-2.5 py-0.5', !soonOnly ? 'bg-accent' : 'text-muted-foreground')}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DemoLine />
+        <div className="flex min-h-0 flex-1">
+          {/* Queue */}
+          <div
+            className={cn(
+              'flex min-w-0 flex-1 flex-col border-r md:w-[380px] md:flex-none',
+              mobileOpen && 'hidden md:flex',
+            )}
           >
-            All active
-          </button>
-          <button
-            onClick={() => setSoonOnly(true)}
-            className={cn('rounded-full border px-2.5 py-0.5 tabular', soonOnly ? 'bg-accent' : 'text-muted-foreground')}
-          >
-            Renews in {RENEWAL_WINDOW} days · {soonCount}
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {loading && waking ? (
-            <div className="px-4 py-8 text-sm">
-              <p className="font-medium">Waking the server</p>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                The backend sleeps when idle to keep this demo free to run. First
-                load takes up to a minute; after that it is instant.
-              </p>
+            <div className="flex h-14 items-center gap-2 border-b px-3">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter by name, segment or signal"
+                className="h-8 border-0 px-0 shadow-none focus-visible:ring-0"
+              />
+              <Badge variant="secondary" className="tabular shrink-0">
+                {filtered.length}
+              </Badge>
             </div>
-          ) : loading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="border-b px-4 py-3">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="mt-2 h-3 w-56" />
-              </div>
-            ))
-          ) : loadError ? (
-            <div className="px-4 py-8 text-sm">
-              <p className="font-medium">Backend unreachable</p>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{loadError}</p>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                This site forwards <code>/api</code> to the backend named by
-                <code>BACKEND_ORIGIN</code>. Either that backend is down, or the
-                setting points somewhere unreachable. Locally it defaults to
-                <code>http://localhost:8000</code>, so check the backend is
-                running.
-              </p>
+            <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
+              <button
+                onClick={() => setSoonOnly(false)}
+                className={cn('rounded-full border px-2.5 py-0.5', !soonOnly ? 'bg-accent' : 'text-muted-foreground')}
+              >
+                All active
+              </button>
+              <button
+                onClick={() => setSoonOnly(true)}
+                className={cn('rounded-full border px-2.5 py-0.5 tabular', soonOnly ? 'bg-accent' : 'text-muted-foreground')}
+              >
+                Renews in {RENEWAL_WINDOW} days · {soonCount}
+              </button>
             </div>
-          ) : (
-            filtered.map((c) => {
-              const active = selectedId === c.id;
-              const renewal = renewalText(c.renewal_days);
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => open(c.id)}
-                  className={cn(
-                    'flex w-full items-start gap-3 border-b px-4 py-3 text-left transition-colors',
-                    active ? 'bg-accent' : 'hover:bg-muted/60',
-                  )}
-                >
-                  <span className={cn('w-7 shrink-0 text-lg font-semibold tabular', severity(c.risk_level))}>
-                    {Math.round(c.risk_score)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="block min-w-0 truncate text-sm font-medium">{c.name}</span>
-                      {c.at_risk && (
-                        <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
-                          at risk
-                        </Badge>
-                      )}
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular">
-                      {money(c.arr)} · {c.segment}
-                      {renewal ? ` · ${renewal}` : ''}
-                    </span>
-                    {c.reason && (
-                      <span
-                        className={cn(
-                          'mt-0.5 block truncate text-xs',
-                          c.reason_kind === 'adverse' ? 'text-sev-medium' : 'text-muted-foreground',
-                        )}
-                      >
-                        {c.reason}
-                        {c.reason_date ? ` · ${formatDay(c.reason_date)}` : ''}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
 
-      {/* Story */}
-      <div className={cn('flex min-w-0 flex-1 flex-col', !mobileOpen && 'hidden md:flex')}>
-        <div className="flex min-h-14 flex-wrap items-center justify-between gap-y-1 border-b px-2 py-1 sm:px-5 sm:py-0">
-          <div className="flex items-center divide-x">
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="mr-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent md:hidden"
-              aria-label="Back to the queue"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <Stat label="At risk" value={String(queue?.at_risk ?? 0)} hint="top 20%" />
-            <Stat label="ARR at risk" value={queue ? money(queue.arr_at_risk) : '$0'} />
-            <Stat label="Active" value={String(queue?.total ?? 0)} />
-          </div>
-          <div className="flex min-w-0 max-w-full items-center gap-3">
-            <div className="min-w-0 truncate">
-              <SourceLabel />
-            </div>
-            <AccountMenu />
-          </div>
-        </div>
-
-        {selected ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8">
-              {story ? (
-                <StoryView story={story} synthetic={!!source?.synthetic} />
-              ) : (
-                <div>
-                  <Skeleton className="h-7 w-3/4" />
-                  <Skeleton className="mt-3 h-4 w-full" />
-                  <Skeleton className="mt-2 h-4 w-5/6" />
-                  <Skeleton className="mt-8 h-4 w-1/2" />
-                  <Skeleton className="mt-2 h-4 w-2/3" />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loading && waking ? (
+                <div className="px-4 py-8 text-sm">
+                  <p className="font-medium">Waking the server</p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    The backend sleeps when idle to keep this demo free to run. First
+                    load takes up to a minute; after that it is instant.
+                  </p>
                 </div>
+              ) : loading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="border-b px-4 py-3">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="mt-2 h-3 w-56" />
+                  </div>
+                ))
+              ) : loadError ? (
+                <div className="px-4 py-8 text-sm">
+                  <p className="font-medium">Backend unreachable</p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{loadError}</p>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    This site forwards <code>/api</code> to the backend named by
+                    <code>BACKEND_ORIGIN</code>. Either that backend is down, or the
+                    setting points somewhere unreachable. Locally it defaults to
+                    <code>http://localhost:8000</code>, so check the backend is
+                    running.
+                  </p>
+                </div>
+              ) : (
+                filtered.map((c) => {
+                  const active = selectedId === c.id;
+                  const renewal = renewalText(c.renewal_days);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => open(c.id)}
+                      className={cn(
+                        'flex w-full items-start gap-3 border-b px-4 py-3 text-left transition-colors',
+                        active ? 'bg-accent' : 'hover:bg-muted/60',
+                      )}
+                    >
+                      <span className={cn('w-7 shrink-0 text-lg font-semibold tabular', severity(c.risk_level))}>
+                        {Math.round(c.risk_score)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="block min-w-0 truncate text-sm font-medium">{c.name}</span>
+                          {c.at_risk && (
+                            <Badge variant="outline" className="shrink-0 text-[10px] font-normal">
+                              at risk
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground tabular">
+                          {money(c.arr)} · {c.segment}
+                          {renewal ? ` · ${renewal}` : ''}
+                        </span>
+                        {c.reason && (
+                          <span
+                            className={cn(
+                              'mt-0.5 block truncate text-xs',
+                              c.reason_kind === 'adverse' ? 'text-sev-medium' : 'text-muted-foreground',
+                            )}
+                          >
+                            {c.reason}
+                            {c.reason_date ? ` · ${formatDay(c.reason_date)}` : ''}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-muted-foreground">Select an account</p>
+
+          {/* Story */}
+          <div className={cn('flex min-w-0 flex-1 flex-col', !mobileOpen && 'hidden md:flex')}>
+            <div className="flex min-h-14 flex-wrap items-center justify-between gap-y-1 border-b px-2 py-1 sm:px-5 sm:py-0">
+              <div className="flex items-center divide-x">
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  className="mr-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent md:hidden"
+                  aria-label="Back to the queue"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <Stat label="At risk" value={String(queue?.at_risk ?? 0)} hint="top 20%" />
+                <Stat label="ARR at risk" value={queue ? money(queue.arr_at_risk) : '$0'} />
+                <Stat label="Active" value={String(queue?.total ?? 0)} />
+              </div>
+              <div className="flex min-w-0 max-w-full items-center gap-3">
+                <div className="min-w-0 truncate">
+                  <SourceLabel />
+                </div>
+                <AccountMenu />
+              </div>
+            </div>
+
+            {selected ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8 sm:py-8">
+                  {story ? (
+                    <StoryView story={story} synthetic={!!source?.synthetic} />
+                  ) : (
+                    <div>
+                      <Skeleton className="h-7 w-3/4" />
+                      <Skeleton className="mt-3 h-4 w-full" />
+                      <Skeleton className="mt-2 h-4 w-5/6" />
+                      <Skeleton className="mt-8 h-4 w-1/2" />
+                      <Skeleton className="mt-2 h-4 w-2/3" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-sm text-muted-foreground">Select an account</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
