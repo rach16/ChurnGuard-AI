@@ -66,13 +66,13 @@ async function post(path: string, body?: unknown): Promise<Record<string, unknow
   return data;
 }
 
-function CopyBlock({ label, text, display }: { label?: string; text: string; display?: string }) {
+function CopyBlock({ label, text }: { label?: string; text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-1">
       {label && <div className="text-xs text-muted-foreground">{label}</div>}
       <div className="flex min-w-0 items-start gap-2">
-        <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">{display ?? text}</code>
+        <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-2 py-1.5 font-mono text-xs">{text}</code>
         <Button
           type="button"
           size="sm"
@@ -158,7 +158,6 @@ function TokensPage() {
   }
 
   const url = made?.mcp_url ?? listing?.mcp_url ?? '';
-  const short = made ? `${made.value.slice(0, 11)}…` : '';
   const header = made ? `Authorization: Bearer ${made.value}` : '';
 
   return (
@@ -213,12 +212,10 @@ function TokensPage() {
               <CopyBlock
                 label="Claude Code"
                 text={`claude mcp add --transport http churnguard ${url} --header "${header}"`}
-                display={`claude mcp add --transport http churnguard ${url} --header "Authorization: Bearer ${short}"`}
               />
               <CopyBlock
                 label="Claude Desktop (claude_desktop_config.json, under mcpServers)"
                 text={`"churnguard": {"command": "npx", "args": ["mcp-remote", "${url}", "--header", "${header}"]}`}
-                display={`"churnguard": {"command": "npx", "args": ["mcp-remote", "${url}", "--header", "Authorization: Bearer ${short}"]}`}
               />
               <Button type="button" size="sm" variant="ghost" onClick={() => setMade(null)}>
                 Done

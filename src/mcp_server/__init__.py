@@ -128,6 +128,13 @@ class McpEndpoint:
     # ------------------------------------------------------------------ ASGI
 
     async def __call__(self, scope, receive, send) -> None:
+        if scope["method"] == "GET":
+            # A stateless server has nothing to push, so it offers no event
+            # stream; the spec's answer is 405. The SDK would otherwise hold
+            # the GET open, idle, for as long as the client keeps it.
+            await JSONResponse({"detail": "This MCP server is stateless: POST requests only."}, status_code=405,
+                               headers={"Allow": "POST"})(scope, receive, send)
+            return
         tokens = getattr(self.get_state(), "tokens", None)
         if tokens is None:
             await JSONResponse({"detail": "MCP needs sign-in and a database, which are not enabled on this "

@@ -294,3 +294,19 @@ def test_cognito_unreachable_keeps_the_last_confirmation(site):
 def test_a_token_never_reaches_a_log():
     value = "cg_pat_" + secrets.token_urlsafe(32)
     assert value not in redact(f"Authorization: {value}") and "cg_pat_" + "abcd" in redact("prefix cg_pat_abcd")
+
+
+def test_a_clients_handshake_works(site):
+    """What Claude Code sends on connect: initialize, the initialized notice, a
+    GET for server events (refused in stateless mode), then tools/list."""
+    client, *_ = site
+    token = make(client)["value"]
+    auth = dict(RPC, Authorization=f"Bearer {token}")
+    r = client.post("/mcp", headers=auth, json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+        "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "claude-code", "version": "2"}}})
+    assert r.status_code == 200, r.text
+    init = r.json()["result"]
+    assert init["serverInfo"]["name"] == "churnguard" and "tools" in init["capabilities"]
+    assert client.post("/mcp", headers=auth, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
+    assert client.get("/mcp", headers=auth).status_code == 405                # no idle event stream
+    assert len(rpc(client, "tools/list", token=token).json()["result"]["tools"]) == 6
