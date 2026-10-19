@@ -111,6 +111,13 @@ export function DemoLine() {
   const me = useMe();
   if (!me?.user?.demo) return null;
   const { linkedin, email } = me.contact ?? { linkedin: null, email: null };
+  if (!linkedin && !email) {
+    return (
+      <div className="shrink-0 border-b px-4 py-1.5 text-xs text-muted-foreground sm:px-6">
+        You&apos;re viewing a demo on seeded Salesforce data.
+      </div>
+    );
+  }
   return (
     <div className="shrink-0 border-b px-4 py-1.5 text-xs text-muted-foreground sm:px-6">
       You&apos;re viewing a demo on seeded Salesforce data. Want ChurnGuard on your own org? Get in touch
