@@ -27,7 +27,7 @@ dependencies = [
     "openai>=1.61.0",
     "langchain-cohere>=0.3.3", # rag_retrievers.rerank_retrieval
     # Vector Database
-    "qdrant-client>=1.13.2",
+    "qdrant-client>=1.19,<2",
     "langchain-qdrant>=0.2.0",
     # Search & Retrieval
     "tavily-python>=0.5.0", # agents/churn_agent.py web search, when TAVILY_API_KEY is set
