@@ -98,6 +98,15 @@ Not yet proven: that Cognito's `/signup` page carries the authorization
 request's state, nonce and PKCE through to the redirect. Staging proves it; if
 it does not, Sign up goes to the sign-in page, whose own "Sign up" link does.
 
+## Decided on staging (2026-10-19)
+
+The owner signed up on staging and landed in the demo (audited `signup`, then
+`login`, as a demo viewer). The Integrations page shows a demo account the
+connected org as any viewer sees it: the org ID, its Salesforce address, the
+login host and the token's times. Hiding those for demo accounts was offered
+and **declined by the owner**: the org is a seeded test org, and the page's
+point is that a real connection is behind the demo.
+
 ## Consequences
 
 - Anyone can see the seeded book and ask the assistant, within the caps.
