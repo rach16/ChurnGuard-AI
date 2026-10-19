@@ -22,3 +22,4 @@ the code shows *what* was chosen, never *why* the alternative was rejected.
 | [0014](0014-write-back-to-salesforce.md) | Write-back: the site's risk reading on the Salesforce Account | Accepted |
 | [0015](0015-account-story-and-why-customers-leave.md) | The account story, and "Why customers leave": making the cause of churn obvious | Accepted |
 | [0016](0016-assistant-agents-tools-and-evals.md) | The assistant: a supervisor, three tool-calling agents, a checker, and evals that gate it | Accepted |
+| [0017](0017-self-service-signup-to-the-demo.md) | Self-service sign-up to a read-only demo | Accepted |

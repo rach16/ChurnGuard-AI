@@ -44,7 +44,7 @@ EXEMPT_PATHS = frozenset({
     "/integrations/salesforce/callback",
     # Sign-in (ADR-0013): a browser on its way to signing in cannot present an
     # API key. Each route authenticates by the session or the single-use state.
-    "/auth/login", "/auth/callback", "/auth/logout", "/auth/me",
+    "/auth/login", "/auth/callback", "/auth/logout", "/auth/me", "/auth/signup",
 })
 
 API_KEY_HEADER = "X-API-Key"

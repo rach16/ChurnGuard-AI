@@ -114,7 +114,7 @@ function TokensPage() {
   }, []);
 
   useEffect(() => {
-    if (me?.user) load();
+    if (me?.user && !me.user.demo) load();
   }, [me, load]);
 
   async function create(e: React.FormEvent) {
@@ -153,6 +153,13 @@ function TokensPage() {
     return (
       <Shell title="Access tokens">
         <div className="p-8 text-sm text-muted-foreground">Sign in to manage your access tokens.</div>
+      </Shell>
+    );
+  }
+  if (me.user.demo) {
+    return (
+      <Shell title="Access tokens">
+        <div className="p-8 text-sm text-muted-foreground">Access tokens are for team members, not demo accounts.</div>
       </Shell>
     );
   }

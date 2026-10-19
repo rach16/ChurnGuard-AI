@@ -310,3 +310,11 @@ def test_a_clients_handshake_works(site):
     assert client.post("/mcp", headers=auth, json={"jsonrpc": "2.0", "method": "notifications/initialized"}).status_code == 202
     assert client.get("/mcp", headers=auth).status_code == 405                # no idle event stream
     assert len(rpc(client, "tools/list", token=token).json()["result"]["tools"]) == 6
+
+
+def test_a_demo_account_cannot_make_tokens(site):
+    """ADR-0017: MCP is for team members; a demo sign-up reads the site only."""
+    client, state, store, *_ = site
+    state.login.cognito_fake.groups = ["viewer", "demo"]                  # what the action's re-check reads
+    r = client.post("/tokens", headers=ORIGIN, json={"name": "x", "days": 30})
+    assert r.status_code == 403 and "team members" in r.json()["detail"]

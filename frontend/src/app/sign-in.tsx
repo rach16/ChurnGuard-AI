@@ -14,7 +14,7 @@
  */
 
 import { usePathname } from 'next/navigation';
-import { LogIn, PlayCircle, ShieldCheck } from 'lucide-react';
+import { LogIn, PlayCircle, ShieldCheck, UserPlus } from 'lucide-react';
 
 import { useMe } from './account';
 
@@ -29,8 +29,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export function SignInScreen() {
+  const me = useMe();
   const pathname = usePathname() || '/';
   const signIn = `/api/auth/login?return=${encodeURIComponent(pathname)}`;
+  const signUp = `/api/auth/signup?return=${encodeURIComponent(pathname)}`;
+  const open = !!me?.signup;
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
@@ -50,10 +53,22 @@ export function SignInScreen() {
           Sign in
         </a>
 
+        {open && (
+          <a
+            href={signUp}
+            className="-mt-3 flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-medium hover:bg-muted"
+          >
+            <UserPlus className="h-4 w-4" />
+            Sign up
+          </a>
+        )}
+
         <div className="flex items-start gap-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Accounts are by invitation from your admin.
+            {open
+              ? 'Signing up opens a read-only demo on a seeded Salesforce org.'
+              : 'Accounts are by invitation from your admin.'}
           </span>
         </div>
 

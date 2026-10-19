@@ -56,7 +56,7 @@ from connectors.salesforce import describe_report
 from core.llm import active_configuration
 from integrations import crypto as custody, db as integrations_db, redaction, serving
 from integrations.cognito import CognitoClient, CognitoConfig, missing_settings as cognito_missing
-from integrations.connections import ConnectionStore
+from integrations.connections import DEFAULT_TENANT, ConnectionStore
 from integrations.github_oidc import GitHubOidcVerifier, Pins as SchedulerPins
 from integrations.login import LoginFlow
 from integrations.sessions import SessionStore
@@ -475,8 +475,13 @@ def _init_login(database, provider) -> None:
         state.unavailable("login", "PUBLIC_SITE_ORIGIN is not set; the sign-in callback has no address")
         return
     state.sessions = SessionStore(database)
-    state.login = LoginFlow(state.sessions, provider, CognitoClient(config), site_origin=origin)
     state.team = TeamAdmin(config.user_pool_id)
+    # Self sign-up to the read-only demo (2.6.7, ADR-0017): off unless SELF_SIGNUP
+    # is true; the pool must allow sign-up too.
+    signup = os.getenv("SELF_SIGNUP", "").strip().lower() in ("1", "true", "yes")
+    state.login = LoginFlow(state.sessions, provider, CognitoClient(config), site_origin=origin,
+                            enroll=state.team.enroll_demo if signup else None,
+                            signup_tenant=os.getenv("SIGNUP_TENANT", DEFAULT_TENANT).strip() or DEFAULT_TENANT)
     state.tokens = TokenAuth(TokenStore(database), state.team)
 
     def _last_sign_ins(tenant: str) -> dict:

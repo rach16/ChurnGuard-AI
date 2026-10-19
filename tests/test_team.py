@@ -89,6 +89,12 @@ class FakeIdp:
         self.add(sub, attrs["email"], attrs["custom:tenant"], None, status="FORCE_CHANGE_PASSWORD")
         return {"User": self.users[sub]}
 
+    def admin_update_user_attributes(self, UserPoolId, Username, UserAttributes):
+        u = self._find(Username)
+        names = {x["Name"]: x["Value"] for x in UserAttributes}
+        u["Attributes"] = [x for x in u["Attributes"] if x["Name"] not in names] + [
+            {"Name": k, "Value": v} for k, v in names.items()]
+
     def admin_enable_user(self, UserPoolId, Username):
         self._find(Username)["Enabled"] = True
 
@@ -213,3 +219,25 @@ def test_someone_in_another_tenant_does_not_exist_here(team):
 def test_a_change_must_come_from_the_site(team):
     client, *_ = team
     assert client.post("/team/invite", json={"email": "a@b.co", "role": "viewer"}).status_code == 403
+
+
+def test_a_demo_signup_is_enrolled_listed_apart_and_can_join_the_team(team):
+    """ADR-0017: the backend sets a new sign-up's tenant and groups; the Team page
+    lists demo accounts apart; giving one a role makes them a team member."""
+    client, state, idp, store, build = team
+    idp.add("sub-new", "visitor@example.test", None, None)
+    state.team.enroll_demo("sub-new", "default")
+    assert idp.groups["sub-new"] == {"viewer", "demo"}
+    assert {a["Name"]: a["Value"] for a in idp.users["sub-new"]["Attributes"]}["custom:tenant"] == "default"
+    with pytest.raises(Exception, match="already set up"):
+        state.team.enroll_demo("sub-new", "acme")                       # never re-assigned
+    with pytest.raises(Exception, match="already set up"):
+        state.team.enroll_demo(ADMIN_SUB, "acme")
+
+    body = client.get("/team").json()
+    assert [m["email"] for m in body["members"]] == [ADMIN_EMAIL]
+    assert [m["email"] for m in body["demo"]] == ["visitor@example.test"]
+
+    r = client.post("/team/sub-new/role", headers=ORIGIN, json={"role": "operator"})
+    assert r.status_code == 200 and idp.groups["sub-new"] == {"operator"}   # no longer a demo account
+    assert "visitor@example.test" in [m["email"] for m in client.get("/team").json()["members"]]

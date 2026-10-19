@@ -16,7 +16,7 @@ from __future__ import annotations
 import secrets
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -291,8 +291,10 @@ def make_app(state) -> TestClient:
 
 def test_routes_when_sign_in_is_off():
     client = make_app(State())
-    assert client.get("/auth/me").json() == {"enabled": False, "reason": "no user pool configured", "user": None}
+    assert client.get("/auth/me").json() == {"enabled": False, "reason": "no user pool configured", "user": None,
+                                             "signup": False}
     assert client.get("/auth/login").status_code == 404
+    assert client.get("/auth/signup").status_code == 404
     assert client.get("/auth/callback?code=x&state=y").status_code == 404
 
 
@@ -300,7 +302,11 @@ def test_sign_in_and_out_through_the_routes(provider, monkeypatch):
     monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
     flow, cognito, sessions, audit = setup(provider)
     client = make_app(State(flow, sessions))
-    assert client.get("/auth/me").json() == {"enabled": True, "reason": None, "user": None}
+    monkeypatch.delenv("CONTACT_LINKEDIN", raising=False)
+    monkeypatch.delenv("CONTACT_EMAIL", raising=False)
+    assert client.get("/auth/me").json() == {"enabled": True, "reason": None, "user": None, "signup": False,
+                                             "contact": {"linkedin": None, "email": None}}
+    assert client.get("/auth/signup").status_code == 404                     # sign-up is off here
 
     r = client.get("/auth/login?return=/integrations")
     assert r.status_code == 302 and r.headers["location"].startswith(f"{DOMAIN}/oauth2/authorize?")
@@ -335,3 +341,82 @@ def test_a_failed_callback_shows_a_page_and_sets_no_cookie(provider, monkeypatch
     assert "set-cookie" not in r.headers
     r = client.get("/auth/callback?error=access_denied&error_description=User+cancelled")
     assert r.status_code == 400 and "access_denied" in r.text
+
+
+# ------------------------------------------------------------ sign-up (ADR-0017)
+
+class Enroller:
+    """TeamAdmin.enroll_demo against the fake Cognito: sets what the admin API would."""
+
+    def __init__(self, cognito, fail=False):
+        self.cognito, self.fail, self.calls = cognito, fail, []
+
+    def __call__(self, username, tenant):
+        self.calls.append((username, tenant))
+        if self.fail:
+            raise RuntimeError("AccessDenied")
+        self.cognito.groups, self.cognito.tenant = ["viewer", "demo"], tenant
+
+
+def signup_setup(provider, fail=False, groups=(), tenant=None):
+    cognito = FakeCognito(groups=groups, tenant=tenant)
+    audit_store = FakeStore()
+    sessions = FakeSessionStore(audit_store.db)
+    enroll = Enroller(cognito, fail)
+    flow = LoginFlow(sessions, provider, cognito.client(), site_origin=SITE, enroll=enroll, signup_tenant="default")
+    return flow, cognito, sessions, audit_store, enroll
+
+
+def test_the_signup_url_is_cognitos_signup_page_with_the_same_guards(provider):
+    flow, *_ = signup_setup(provider)
+    url = flow.start("/", signup=True)
+    assert url.startswith(f"{DOMAIN}/signup?")
+    q = {k: v[0] for k, v in parse_qs(urlsplit(url).query).items()}
+    assert {"state", "nonce", "code_challenge"} <= set(q) and q["code_challenge_method"] == "S256"
+    off, *_ = setup(provider)
+    assert off.start("/", signup=True).startswith(f"{DOMAIN}/oauth2/authorize?")   # off: never the sign-up page
+
+
+def test_a_new_signup_becomes_a_demo_viewer_set_by_the_backend(provider):
+    flow, cognito, sessions, audit, enroll = signup_setup(provider)
+    done = signed_in(flow, cognito, "/")
+    s = done.session
+    assert enroll.calls == [(ADMIN_SUB, "default")]
+    assert (s.role, s.demo, s.tenant_id) == ("viewer", True, "default")
+    assert [a["event"] for a in audit.audit[-2:]] == ["signup", "login"]
+    assert audit.audit[-2]["detail"] == {"email": ADMIN_EMAIL, "role": "viewer", "demo": True}
+    assert s.public()["demo"] is True
+
+
+@pytest.mark.parametrize("groups,tenant", [((), "acme"), (("operator",), None), (("viewer",), "default")])
+def test_only_an_account_with_neither_tenant_nor_role_is_enrolled(provider, groups, tenant):
+    flow, cognito, sessions, audit, enroll = signup_setup(provider, groups=groups, tenant=tenant)
+    try:
+        signed_in(flow, cognito)
+    except LoginRefused:
+        pass
+    assert enroll.calls == []                                                   # never touched
+
+
+def test_a_failed_enrolment_creates_nothing_and_says_so(provider):
+    flow, cognito, sessions, audit, enroll = signup_setup(provider, fail=True)
+    with pytest.raises(LoginRefused) as e:
+        signed_in(flow, cognito)
+    assert e.value.code == "signup" and sessions.rows == {} and len(cognito.revoked) == 1
+    assert audit.audit[-1]["event"] == "login_refused" and "AccessDenied" not in str(e.value.reason)
+
+
+def test_signup_through_the_routes(provider, monkeypatch):
+    monkeypatch.setenv("PUBLIC_SITE_ORIGIN", SITE)
+    monkeypatch.setenv("CONTACT_LINKEDIN", "https://www.linkedin.com/in/someone")
+    monkeypatch.setenv("CONTACT_EMAIL", "someone@example.test")
+    flow, cognito, sessions, audit, enroll = signup_setup(provider)
+    client = make_app(State(flow, sessions))
+    me = client.get("/auth/me").json()
+    assert me["signup"] is True and me["contact"]["email"] == "someone@example.test"
+    r = client.get("/auth/signup?return=/")
+    assert r.status_code == 302 and r.headers["location"].startswith(f"{DOMAIN}/signup?")
+    code, state = cognito.sign_in(r.headers["location"])
+    assert client.get(f"/auth/callback?code={code}&state={state}").status_code == 303
+    user = client.get("/auth/me").json()["user"]
+    assert user["role"] == "viewer" and user["demo"] is True

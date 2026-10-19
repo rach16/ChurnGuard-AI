@@ -66,6 +66,7 @@ async function post(path: string, body?: unknown): Promise<Record<string, unknow
 function TeamPage() {
   const me = useMe();
   const [members, setMembers] = useState<Member[] | null>(null);
+  const [demo, setDemo] = useState<Member[]>([]);
   const [you, setYou] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -79,6 +80,7 @@ function TeamPage() {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `HTTP ${r.status}`);
         setMembers(data.members ?? []);
+        setDemo(data.demo ?? []);
         setYou(data.you ?? null);
         setError(null);
       })
@@ -256,6 +258,29 @@ function TeamPage() {
               </Table>
             </Card>
           )
+        )}
+
+        {/* Self sign-ups to the read-only demo (ADR-0017), kept apart from the team. */}
+        {demo.length > 0 && (
+          <details className="rounded-md border">
+            <summary className="cursor-pointer px-4 py-3 text-sm">
+              Demo sign-ups: {demo.length}
+              <span className="ml-2 text-xs text-muted-foreground">read-only, seeded data</span>
+            </summary>
+            <ul className="border-t">
+              {demo.map((m) => (
+                <li key={m.username} className="flex items-center gap-3 border-b px-4 py-2 last:border-b-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm">{m.email}</div>
+                    <div className="text-xs text-muted-foreground">Last sign-in {when(m.last_sign_in)}</div>
+                  </div>
+                  <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => remove(m)}>
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </div>
     </Shell>

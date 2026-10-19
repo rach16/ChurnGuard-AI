@@ -25,6 +25,7 @@ EVENTS = frozenset({
     "writeback", "writeback_enabled", "writeback_disabled",
     "assistant_question",
     "token_created", "token_revoked", "mcp_call",
+    "signup",
 })
 
 
