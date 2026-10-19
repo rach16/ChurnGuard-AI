@@ -410,3 +410,40 @@ def test_a_how_much_question_must_get_its_figure():
                       calls={"book": [[("find_accounts", {"limit": 5})]]}, findings={"book": findings}, revise=revise)
     out = Assistant(model, tools_for()).ask(q)
     assert out["revisions"] == 1 and out["answer"][0]["text"] == f"The five highest-risk accounts hold {shown} together."
+
+
+def test_a_play_named_without_its_record_fails_and_sources_carry_evidence():
+    s = starlight()
+    plays = tools_for().call("get_plays", {"account_id": s["id"]})
+    names = [r["name"] for r in builder(SALESFORCE).queue()]
+    first = plays["data"]["plays"][0]
+    key = " ".join(first["action"].split()[1:])
+    bare = check_claim(f"The recommended plays include creating an {key}.", [plays], names=names)
+    assert bare and bare[0].kind == "record" and f"renewed {first['renewed']} of {first['decided']}" in bare[0].detail
+    assert not check_claim(f"Creating an {key} renewed {first['renewed']} of {first['decided']}.", [plays], names=names)
+
+    model = FakeModel(plan={"agents": ["account"], "out_of_scope": False},
+                      calls={"account": [[("get_plays", {"account_id": s["id"]})]]},
+                      findings={"account": lambda res: [{"text": f"{first['action']} renewed {first['renewed']} of "
+                                                                 f"{first['decided']}.", "citations": ["T1"]}]})
+    out = Assistant(model, tools_for()).ask("What should we do about Starlight Freight Co?")
+    ev = out["evidence"]["T1"]
+    assert ev["kind"] == "plays" and ev["items"][0]["action"] == first["action"]
+    assert ev["items"][0]["renewed"] == first["renewed"] and ev["account_id"] == s["id"]
+
+
+def test_a_plays_sentence_missing_its_records_is_rewritten_by_code_keeping_every_play():
+    s = starlight()
+    plays = tools_for().call("get_plays", {"account_id": s["id"]})["data"]["plays"]
+    keys = [" ".join(p["action"].split()[1:]) for p in plays]
+    model = FakeModel(plan={"agents": ["account"], "out_of_scope": False},
+                      calls={"account": [[("get_plays", {"account_id": s["id"]})]]},
+                      findings={"account": lambda res: [{"text": "Recommended: " + ", ".join(f"an {k}" for k in keys) + ".",
+                                                         "citations": ["T1"]}]},
+                      revise=lambda listing: pytest.fail("records are written by code, not sent back to the model"))
+    out = Assistant(model, tools_for()).ask("What should we do about Starlight Freight Co?")
+    text = out["answer"][0]["text"]
+    assert out["revisions"] == 0 and text.startswith("Save plays recorded on similar accounts:")
+    for p in plays:
+        assert f"{p['action']} (renewed {p['renewed']} of {p['decided']})" in text
+    assert text.index(plays[0]["action"]) < text.index(plays[-1]["action"])      # the tool's order

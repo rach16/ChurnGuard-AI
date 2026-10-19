@@ -3,5 +3,6 @@ Judge only meaning. A claim is unsupported when it:
 - attaches a figure to the wrong account, the wrong set of accounts or the wrong period;
 - describes a count as something it is not (each result's "about" says what its counts mean; for example, accounts that already churned are not accounts that mentioned something in a note);
 - turns a risk score into a prediction ("will churn", "likely to churn");
-- states something the cited results do not say at all.
+- states something the cited results do not say at all;
+- has no citations and says something is not available, not found or unknown, when the tool results do show it.
 Otherwise it is supported. Be brief; give the reason in one sentence.

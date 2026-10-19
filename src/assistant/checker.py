@@ -206,6 +206,23 @@ def check_claim(text: str, cited: list[dict[str, Any]], *, names: Iterable[str],
         if not (_close(value, _decimals(token), pool.numbers) or _close(value, _decimals(token), allowed)):
             failures.append(Failure("number", token, "not in the cited results; numbers must come from a tool"))
 
+    # A play named without its record: the owner's staging test (2026-10-18)
+    # found "the recommended plays include creating an internal champions
+    # program…" with no outcomes, though get_plays returned them. A sentence
+    # that names a play must give its renewed-of-decided as the tool states it.
+    for r in cited:
+        for play in ((r.get("data") or {}).get("plays") or []) if r.get("ok") else []:
+            action = str(play.get("action", ""))
+            key = " ".join(action.split()[1:]).lower()             # "internal champions program"
+            if len(key.split()) < 2 or key not in text.lower():
+                continue
+            renewed, decided = play.get("renewed"), play.get("decided")
+            if renewed is None or decided is None:
+                continue
+            if not re.search(rf"\b{int(renewed)}\s*(of|/|out of)\s*{int(decided)}\b", text):
+                failures.append(Failure("record", action, f"name this play with its record: renewed {int(renewed)} "
+                                                          f"of {int(decided)}, as the tool gives it"))
+
     for n in mentioned:
         if _base(n).lower() not in pool.text:
             failures.append(Failure("name", n, "this account is not in the cited results"))
@@ -240,6 +257,24 @@ def missing_figure(question: str, claims: list[str]) -> Optional[str]:
         return None
     return ("the question asks " + m.group(0).lower() + "; add that figure exactly as the tool gives it "
             "(total_arr for every match, shown_arr for the rows listed, or count) and say what it covers")
+
+
+def plays_sentence(text: str, cited: list[dict[str, Any]]) -> Optional[str]:
+    """The plays a sentence names, rewritten by code with their records, in the
+    tool's order. Used when a sentence fails only for missing records: asked to
+    add them, the model kept the weakest play and dropped the two that worked
+    (real run, 2026-10-18). The records are the tool's, so code writes them."""
+    named: list[dict[str, Any]] = []
+    for r in cited:
+        for play in ((r.get("data") or {}).get("plays") or []) if r.get("ok") else []:
+            key = " ".join(str(play.get("action", "")).split()[1:]).lower()
+            if len(key.split()) >= 2 and key in text.lower() and play.get("decided") is not None:
+                named.append(play)
+    if not named:
+        return None
+    parts = [f"{p['action']} (renewed {int(p['renewed'])} of {int(p['decided'])})" for p in named]
+    lead = "Save plays recorded on similar accounts: " if len(parts) > 1 else "Save play recorded on similar accounts: "
+    return lead + "; ".join(parts) + "."
 
 
 def strip_refs(text: str) -> str:

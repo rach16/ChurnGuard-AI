@@ -26,6 +26,18 @@ import { BootGate, Shell } from '../shell';
 const API = '/api';
 
 interface Citation { ref: string; tool: string | null; args: Record<string, unknown> | null }
+interface EvidenceItem { [k: string]: string | number | null | undefined }
+interface Evidence {
+  kind: 'story' | 'plays' | 'accounts' | 'notes' | 'facts' | 'causes' | 'error';
+  account_id?: number;
+  name?: string;
+  headline?: string;
+  top_reason?: string;
+  text?: string;
+  summary?: string[];
+  competitors?: string[];
+  items?: EvidenceItem[];
+}
 interface Claim { text: string; citations: Citation[] }
 interface Answer {
   out_of_scope: boolean;
@@ -34,6 +46,7 @@ interface Answer {
   limitation: string | null;
   versions_note: string | null;
   fallback: { ref: string; tool: string; data: Record<string, unknown> }[] | null;
+  evidence?: Record<string, Evidence>;
   tool_calls: { ref: string; name: string; ok: boolean }[];
   seconds: number;
   revisions: number;
@@ -287,23 +300,7 @@ function AnswerView({ answer }: { answer: Answer }) {
         <p className="rounded-md border px-3 py-2 text-sm text-muted-foreground">{answer.limitation}</p>
       )}
       {answer.answer.map((c, i) => (
-        <div key={i}>
-          <p className="text-sm leading-relaxed">{c.text}</p>
-          {c.citations.length > 0 && (
-            <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-              {c.citations.map((s) => {
-                const id = s.args && typeof s.args.account_id === 'number' ? (s.args.account_id as number) : null;
-                return id !== null ? (
-                  <a key={s.ref} href={`/customer/${id}`} className="underline underline-offset-2 hover:text-foreground">
-                    {sourceLabel(s)}
-                  </a>
-                ) : (
-                  <span key={s.ref}>{sourceLabel(s)}</span>
-                );
-              })}
-            </p>
-          )}
-        </div>
+        <ClaimView key={i} claim={c} evidence={answer.evidence ?? {}} />
       ))}
       {answer.fallback && answer.fallback.length > 0 && <Fallback items={answer.fallback} />}
       {answer.versions_note && <p className="text-xs text-muted-foreground">{answer.versions_note}</p>}
@@ -331,6 +328,143 @@ function AnswerView({ answer }: { answer: Answer }) {
           {answer.tool_calls.filter((c) => c.ok).length === 1 ? '' : 's'} · {answer.seconds}s
           {answer.revisions ? ' · one correction' : ''}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One sentence and its sources. A source is a button that opens what the
+ * sentence rests on, under it; the account page is linked from inside the
+ * evidence, next to the account's name, not from every source.
+ */
+function ClaimView({ claim, evidence }: { claim: Claim; evidence: Record<string, Evidence> }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const shown = open ? evidence[open] : undefined;
+  return (
+    <div>
+      <p className="text-sm leading-relaxed">{claim.text}</p>
+      {claim.citations.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+          {claim.citations.map((s) => (
+            <button
+              key={s.ref}
+              onClick={() => setOpen((v) => (v === s.ref ? null : s.ref))}
+              aria-expanded={open === s.ref}
+              className={cn(
+                'inline-flex items-center gap-0.5 underline-offset-2 hover:text-foreground hover:underline',
+                open === s.ref && 'text-foreground underline',
+              )}
+            >
+              {sourceLabel(s)}
+              <ChevronDown className={cn('h-3 w-3 transition-transform', open === s.ref && 'rotate-180')} />
+            </button>
+          ))}
+        </p>
+      )}
+      {shown && <EvidenceView ev={shown} />}
+    </div>
+  );
+}
+
+function AccountLink({ id, name }: { id?: number | null; name?: string | null }) {
+  if (id === undefined || id === null) return <>{name}</>;
+  return (
+    <a href={`/customer/${id}`} className="underline underline-offset-2 hover:text-foreground">
+      {name}
+    </a>
+  );
+}
+
+function EvidenceView({ ev }: { ev: Evidence }) {
+  const items = ev.items ?? [];
+  return (
+    <div className="mt-2 border-l-2 pl-3 text-xs text-muted-foreground">
+      {ev.kind === 'error' && <p>{ev.text}</p>}
+      {ev.kind === 'story' && (
+        <>
+          <p className="mb-1">
+            <AccountLink id={ev.account_id} name={ev.name} />: signals on its record
+          </p>
+          <ul className="space-y-0.5">
+            {items.map((it, i) => (
+              <li key={i} className={cn(it.kind === 'adverse' && 'text-foreground')}>
+                {it.text}
+                <span className="text-muted-foreground">
+                  {' '}· {it.source}
+                  {it.date ? `, ${it.date}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {ev.kind === 'plays' && (
+        <>
+          <p className="mb-1">
+            Save plays recorded in Salesforce on accounts like <AccountLink id={ev.account_id} name={ev.name} />
+            {ev.top_reason ? ` (${String(ev.top_reason).toLowerCase()})` : ''}, and the renewal after each
+          </p>
+          <ul className="space-y-0.5">
+            {items.map((it, i) => (
+              <li key={i}>
+                <span className="text-foreground">{it.action}</span>: renewed {it.renewed} of {it.decided}
+                {it.pending ? `, ${it.pending} not decided yet` : ''}
+                {it.scope === 'any challenge' ? ' (across all challenges)' : ''}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {ev.kind === 'accounts' && (
+        <>
+          {(ev.summary ?? []).map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+          <table className="mt-1 w-full">
+            <tbody>
+              {items.map((it) => (
+                <tr key={String(it.account_id)} className="border-t">
+                  <td className="py-0.5 pr-2 text-foreground">
+                    <AccountLink id={Number(it.account_id)} name={String(it.name)} />
+                  </td>
+                  <td className="py-0.5 pr-2 text-right tabular">{it.arr}</td>
+                  <td className="py-0.5 pr-2 text-right tabular">{it.risk_score}</td>
+                  <td className="py-0.5 text-right tabular">
+                    {it.renewal_days !== null && it.renewal_days !== undefined ? `renews in ${it.renewal_days}d` : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {ev.kind === 'notes' && (
+        <ul className="space-y-1.5">
+          {items.map((it, i) => (
+            <li key={i}>
+              <span>
+                {it.date} · <AccountLink id={Number(it.account_id)} name={String(it.account)} /> · {it.source}
+              </span>
+              <span className="block text-foreground">{it.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {(ev.kind === 'facts' || ev.kind === 'causes') && (
+        <>
+          <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5">
+            {items.map((it, i) => (
+              <div key={i} className="contents">
+                <dt>{it.label}</dt>
+                <dd className="text-right tabular text-foreground">{it.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {ev.competitors && ev.competitors.length > 0 && (
+            <p className="mt-1">Competitors named by churned accounts: {ev.competitors.join(' · ')}</p>
+          )}
+        </>
       )}
     </div>
   );

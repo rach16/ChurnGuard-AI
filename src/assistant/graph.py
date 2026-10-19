@@ -40,7 +40,10 @@ from typing import Any, Callable, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from assistant.checker import check_claim, cited_results, compact, describe, missing_figure, strip_refs
+from assistant.evidence import evidence_for
+from assistant.checker import (
+    check_claim, cited_results, compact, describe, missing_figure, plays_sentence, strip_refs,
+)
 from assistant.model import Model, Reply, Structured, ToolCall, Usage
 from assistant.routing import (
     AGENTS, asks_for_action, asks_for_prediction, names_in, prediction_limitation, route,
@@ -246,16 +249,28 @@ class Assistant:
         self._step("checker", "Checking every figure against the data")
         failures: dict[int, str] = {}
         passed: list[int] = []
+        claims = [dict(c) for c in claims]
         for i in indexes:
             c = claims[i]
             cited = cited_results(c.get("citations") or [], self.results)
             unknown = [x for x in (c.get("citations") or []) if x not in self.results]
             found = check_claim(c["text"], cited, names=self._names, question=s["question"])
+            if found and all(f.kind == "record" for f in found):
+                # Only play records missing: code writes the sentence from the
+                # tool's records instead of asking the model again.
+                fixed = plays_sentence(c["text"], cited)
+                if fixed and not check_claim(fixed, cited, names=self._names, question=s["question"]):
+                    claims[i] = {**c, "text": fixed, "repaired_from": c["text"]}
+                    found = []
             if unknown:
                 failures[i] = f"cites {', '.join(unknown)}, which no tool returned"
             elif found:
                 failures[i] = describe(found)
-            elif cited:
+            elif cited or not c.get("citations"):
+                # Cited claims, and uncited ones that state a limitation: the
+                # judge checks those against everything the tools returned. A
+                # real run said the play records were "not available" right
+                # under the sentence that gave them (2026-10-18).
                 passed.append(i)
         failures.update(self._faithfulness(claims, passed))
         if not s.get("revisions") and claims:
@@ -266,7 +281,7 @@ class Assistant:
             if gap:
                 target = next((i for i, c in enumerate(claims) if c.get("citations")), 0)
                 failures[target] = (failures[target] + "; " if target in failures else "") + gap
-        return {"failures": failures, "pending": []}
+        return {"failures": failures, "pending": [], "claims": claims}
 
     def _revise(self, s: State) -> State:
         self._step("supervisor", "Correcting what could not be verified")
@@ -377,10 +392,16 @@ class Assistant:
     def _faithfulness(self, claims: list[dict[str, Any]], indexes: list[int]) -> dict[int, str]:
         if not indexes:
             return {}
-        listing = "\n\n".join(
-            f"[{i}] {claims[i]['text']}\n" + "\n".join(
-                f"{r}: {compact(self.results[r], 3000)}" for r in claims[i]["citations"] if r in self.results)
-            for i in indexes)
+        everything = "\n".join(f"{r}: {compact(v, 2000)}" for r, v in self.results.items() if v.get("ok"))
+
+        def evidence(i: int) -> str:
+            refs = [r for r in claims[i].get("citations", []) if r in self.results]
+            if refs:
+                return "\n".join(f"{r}: {compact(self.results[r], 3000)}" for r in refs)
+            return "(no citations: a statement that something is not available or not found; judge it against "\
+                   "everything the tools returned)\n" + everything
+
+        listing = "\n\n".join(f"[{i}] {claims[i]['text']}\n{evidence(i)}" for i in indexes)
         out = self._structured([{"role": "system", "content": prompt("faithfulness")},
                                 {"role": "user", "content": listing}], VERDICT_SCHEMA, judge=True, role="judge")
         if out.data is None:
@@ -404,7 +425,8 @@ class Assistant:
                 "model": getattr(self.model, "name", "model"), "judge": getattr(self.judge, "name", "model")}
         if plan["out_of_scope"]:
             return {**base, "out_of_scope": True, "answer": [{"text": OUT_OF_SCOPE, "citations": []}],
-                    "could_not_confirm": [], "fallback": None, "versions_note": None, "snapshot_ids": []}
+                    "could_not_confirm": [], "fallback": None, "versions_note": None, "snapshot_ids": [],
+                    "evidence": {}}
         failures = s.get("failures") or {}
         kept, removed = [], []
         for i, c in enumerate(s.get("claims") or []):
@@ -426,8 +448,15 @@ class Assistant:
         versions = set(snapshots) | {p for p in passages if p}
         note = (f"The figures and the notes come from different syncs ({', '.join(sorted(versions))})."
                 if len(versions) > 1 else None)
+        # What each cited source shows when opened, built by code from the tool's
+        # own result (evidence.py); only for refs a kept claim cites.
+        cited = {x["ref"] for c in kept for x in c["citations"]}
+        tools_by_ref = {x["ref"]: x["name"] for x in self.calls}
+        evidence = {r: evidence_for(tools_by_ref.get(r), self.results[r]) for r in sorted(cited)
+                    if r in self.results}
         return {**base, "out_of_scope": False, "answer": kept, "could_not_confirm": removed,
-                "fallback": fallback, "versions_note": note, "snapshot_ids": sorted(versions)}
+                "fallback": fallback, "versions_note": note, "snapshot_ids": sorted(versions),
+                "evidence": evidence}
 
     # --------------------------------------------------------------- plumbing
 
