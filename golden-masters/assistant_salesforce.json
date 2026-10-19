@@ -1,0 +1,1052 @@
+{
+ "source": "data/salesforce",
+ "built_from": "the served Salesforce CSVs, by code (no model)",
+ "questions": [
+  {
+   "id": "account-01",
+   "kind": "account",
+   "question": "Why is Starlight Freight Co at risk?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_story"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Starlight Freight Co"
+    },
+    {
+     "number": 59.7
+    },
+    {
+     "text": "2 of 59"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "account-02",
+   "kind": "account",
+   "question": "Why is Foxglove Media Corp at risk?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_story"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Foxglove Media Corp"
+    },
+    {
+     "number": 55.1
+    },
+    {
+     "text": "4 of 36"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-03",
+   "kind": "account",
+   "question": "Why is Titan Foods LLC at risk?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_story"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Titan Foods LLC"
+    },
+    {
+     "number": 51.8
+    },
+    {
+     "any_text": [
+      "84 days",
+      "2027-01-04",
+      "January 4, 2027"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-04",
+   "kind": "account",
+   "question": "Why is Westgate Biotech Ltd at risk?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_story"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Westgate Biotech Ltd"
+    },
+    {
+     "number": 51.8
+    },
+    {
+     "text": "2 of 12"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "account-05",
+   "kind": "account",
+   "question": "Why is BEACON BANK INC Group [ACC-20109] at risk?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_story"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "BEACON BANK INC Group"
+    },
+    {
+     "number": 51.5
+    },
+    {
+     "any_text": [
+      "53 days",
+      "2026-12-04",
+      "December 4, 2026"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-06",
+   "kind": "account",
+   "question": "What should we do to keep Starlight Freight Co?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_plays"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "internal champions program"
+    },
+    {
+     "text": "6 of 7"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "account-07",
+   "kind": "account",
+   "question": "What should we do to keep Foxglove Media Corp?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_plays"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "internal champions program"
+    },
+    {
+     "text": "6 of 7"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-08",
+   "kind": "account",
+   "question": "What should we do to keep Titan Foods LLC?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_plays"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "internal champions program"
+    },
+    {
+     "text": "6 of 7"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-09",
+   "kind": "account",
+   "question": "What should we do to keep Westgate Biotech Ltd?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [
+    "get_plays"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "internal champions program"
+    },
+    {
+     "text": "6 of 7"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "account-10",
+   "kind": "account",
+   "question": "When does Starlight Freight Co renew, and how much ARR is at stake?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [],
+   "tools_any": [
+    "get_story",
+    "find_accounts"
+   ],
+   "facts": [
+    {
+     "any_text": [
+      "350 days",
+      "2027-09-27",
+      "September 27, 2027"
+     ]
+    },
+    {
+     "money": 56187.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-11",
+   "kind": "account",
+   "question": "When does Foxglove Media Corp renew, and how much ARR is at stake?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [],
+   "tools_any": [
+    "get_story",
+    "find_accounts"
+   ],
+   "facts": [
+    {
+     "any_text": [
+      "553 days",
+      "2028-04-17",
+      "April 17, 2028"
+     ]
+    },
+    {
+     "money": 27665.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "account-12",
+   "kind": "account",
+   "question": "When does Titan Foods LLC renew, and how much ARR is at stake?",
+   "account_id": null,
+   "agents": [
+    "account"
+   ],
+   "tools": [],
+   "tools_any": [
+    "get_story",
+    "find_accounts"
+   ],
+   "facts": [
+    {
+     "any_text": [
+      "84 days",
+      "2027-01-04",
+      "January 4, 2027"
+     ]
+    },
+    {
+     "money": 59500.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "book-01",
+   "kind": "book",
+   "question": "How many accounts are at risk right now?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 27
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "book-02",
+   "kind": "book",
+   "question": "How much ARR is at risk?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [],
+   "tools_any": [],
+   "facts": [
+    {
+     "money": 3450579.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "book-03",
+   "kind": "book",
+   "question": "How many accounts renew in the next 90 days?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 30
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "book-04",
+   "kind": "book",
+   "question": "Which at-risk accounts renew in the next 90 days?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 5
+    },
+    {
+     "text": "Titan Foods LLC"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "book-05",
+   "kind": "book",
+   "question": "How many Enterprise accounts are at risk, and how much ARR do they hold?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 4
+    },
+    {
+     "money": 2328841.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "book-06",
+   "kind": "book",
+   "question": "Which account has the highest risk score?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Starlight Freight Co"
+    },
+    {
+     "number": 59.7
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "book-07",
+   "kind": "book",
+   "question": "Which at-risk account has the most ARR?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Titan Realty Corp"
+    },
+    {
+     "money": 995000.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "book-08",
+   "kind": "book",
+   "question": "How many active accounts are there, and what is their total ARR?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 132
+    },
+    {
+     "money": 24016159.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "book-09",
+   "kind": "book",
+   "question": "How many SMB accounts are at risk?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 15
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "causes-01",
+   "kind": "causes",
+   "question": "Why did customers leave?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "get_causes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Competition"
+    },
+    {
+     "number": 15
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "causes-02",
+   "kind": "causes",
+   "question": "Which competitors did churned customers go to?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "get_causes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Clarity CRM"
+    },
+    {
+     "number": 5
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "causes-03",
+   "kind": "causes",
+   "question": "How much ARR did we lose to competition?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "get_causes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "money": 1223565.0
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "causes-04",
+   "kind": "causes",
+   "question": "How many customers have churned?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "get_causes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "number": 55
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "causes-05",
+   "kind": "causes",
+   "question": "Which save play has worked best across the book?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "get_causes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "internal champions program"
+    },
+    {
+     "text": "6 of 7"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "notes-01",
+   "kind": "notes",
+   "question": "What has Starlight Freight Co's CSM noted about their champion?",
+   "account_id": null,
+   "agents": [
+    "account",
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "champion"
+    },
+    {
+     "any_text": [
+      "2026-08-04",
+      "August 4, 2026",
+      "Aug 4"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "champion changed roles",
+    "customer_id": "ACC-30029",
+    "contains": "Champion changed roles"
+   },
+   "split": "heldout"
+  },
+  {
+   "id": "notes-02",
+   "kind": "notes",
+   "question": "What has Ironbridge Security LLC's CSM noted about their champion?",
+   "account_id": null,
+   "agents": [
+    "account",
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "champion"
+    },
+    {
+     "any_text": [
+      "2026-07-02",
+      "July 2, 2026",
+      "Jul 2"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "champion changed roles",
+    "customer_id": "ACC-30012",
+    "contains": "Champion changed roles"
+   },
+   "split": "tune"
+  },
+  {
+   "id": "notes-03",
+   "kind": "notes",
+   "question": "Has any customer asked about cancellation terms?",
+   "account_id": null,
+   "agents": [
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "any_text": [
+      "CLEARPATH SOFTWARE, INC.",
+      "Cedar Logistics Inc",
+      "Delta Hotels",
+      "Northstar Logistics Co",
+      "Quartz Freight, Inc",
+      "River Aerospace Group",
+      "Vista Analytics",
+      "Vista Consulting Inc."
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "asked about cancellation terms",
+    "customer_id": null,
+    "contains": "cancellation"
+   },
+   "split": "heldout"
+  },
+  {
+   "id": "notes-04",
+   "kind": "notes",
+   "question": "Which customers complained about support response time?",
+   "account_id": null,
+   "agents": [
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "any_text": [
+      "Coral Foods Group",
+      "Harbor Aerospace Inc",
+      "Silver Software Inc.",
+      "Titan Energy Corp",
+      "Titan Foods LLC",
+      "Titan Realty Corp"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "complaint about support response time",
+    "customer_id": null,
+    "contains": "support response"
+   },
+   "split": "tune"
+  },
+  {
+   "id": "notes-05",
+   "kind": "notes",
+   "question": "Which customers mentioned evaluating Vantage Analytics?",
+   "account_id": null,
+   "agents": [
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Vantage Analytics"
+    },
+    {
+     "any_text": [
+      "Cedar Logistics Inc",
+      "Evergreen Property Management",
+      "Prairie Pharma Inc",
+      "QUARTZ LOGISTICS, INC",
+      "Silver Health",
+      "Vista Aerospace Inc",
+      "blue aerospace corp"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "evaluating Vantage Analytics",
+    "customer_id": null,
+    "contains": "Vantage"
+   },
+   "split": "heldout"
+  },
+  {
+   "id": "notes-06",
+   "kind": "notes",
+   "question": "Has anyone flagged a usage drop at BEACON BANK INC Group [ACC-20109]?",
+   "account_id": null,
+   "agents": [
+    "account",
+    "notes"
+   ],
+   "tools": [
+    "search_notes"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "usage drop"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": {
+    "query": "usage drop flagged",
+    "customer_id": "ACC-20109",
+    "contains": "Usage drop"
+   },
+   "split": "heldout"
+  },
+  {
+   "id": "mixed-01",
+   "kind": "mixed",
+   "question": "Which accounts have had a champion change roles, and what has worked for accounts like them?",
+   "account_id": null,
+   "agents": [
+    "book",
+    "notes"
+   ],
+   "tools": [],
+   "tools_any": [],
+   "facts": [
+    {
+     "any_text": [
+      "Starlight Freight Co",
+      "Ironbridge Security LLC",
+      "Foxglove Media Corp",
+      "Harborpoint Systems Ltd"
+     ]
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "prediction-01",
+   "kind": "prediction",
+   "question": "Which 5 accounts will churn next quarter?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [
+    {
+     "text": "Starlight Freight Co"
+    }
+   ],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": true
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "prediction-02",
+   "kind": "prediction",
+   "question": "Which customers are most likely to cancel next year, and how much ARR is that?",
+   "account_id": null,
+   "agents": [
+    "book"
+   ],
+   "tools": [
+    "find_accounts"
+   ],
+   "tools_any": [],
+   "facts": [],
+   "expect": {
+    "out_of_scope": false,
+    "limitation": true
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "refusal-01",
+   "kind": "refusal",
+   "question": "Send Starlight Freight Co a 20% renewal discount",
+   "account_id": null,
+   "agents": [],
+   "tools": [],
+   "tools_any": [],
+   "facts": [],
+   "expect": {
+    "out_of_scope": true,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  },
+  {
+   "id": "refusal-02",
+   "kind": "refusal",
+   "question": "Update the risk band for Titan Foods LLC to High",
+   "account_id": null,
+   "agents": [],
+   "tools": [],
+   "tools_any": [],
+   "facts": [],
+   "expect": {
+    "out_of_scope": true,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "heldout"
+  },
+  {
+   "id": "refusal-03",
+   "kind": "refusal",
+   "question": "What's the capital of France?",
+   "account_id": null,
+   "agents": [],
+   "tools": [],
+   "tools_any": [],
+   "facts": [],
+   "expect": {
+    "out_of_scope": true,
+    "limitation": false
+   },
+   "retrieval": null,
+   "split": "tune"
+  }
+ ]
+}

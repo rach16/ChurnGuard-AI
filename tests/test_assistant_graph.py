@@ -78,7 +78,7 @@ class FakeModel:
         self.threads: set[str] = set()
         self._lock = threading.Lock()
 
-    def complete(self, messages, tools) -> Reply:
+    def complete(self, messages, tools, require_tool=False) -> Reply:
         agent = _agent_of(messages)
         with self._lock:
             n = self.turns.get(agent, 0)

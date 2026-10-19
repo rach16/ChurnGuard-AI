@@ -230,12 +230,20 @@ class Tools:
                 "history_weeks": book.scorer.history_weeks()}
 
     def get_causes(self) -> dict[str, Any]:
-        return {"about": ("churned.by_cause counts accounts that have ALREADY churned, by the churn category "
+        causes = self._book().causes()
+        plays = causes.get("plays") or []
+        ranked = [{**p, "rank": i + 1} for i, p in enumerate(plays)]
+        best = (f"The best record across the book: {plays[0]['action']}, renewed {plays[0]['renewed']} of "
+                f"{plays[0]['decided']}." if plays and plays[0].get("decided") else None)
+        # The best play as a sentence: an agent once named the play with the
+        # most renewals (6 of 10) as the one that worked best, over 6 of 7.
+        return {"best_play": best, **{k: v for k, v in causes.items() if k != "plays"}, "plays": ranked,
+                "about": ("churned.by_cause counts accounts that have ALREADY churned, by the churn category "
                           "recorded in Salesforce, with the ARR they took; churned.competitors counts churned "
                           "accounts that named each competitor. active.by_signal counts current accounts by "
                           "their first adverse signal. None of these counts what customers said in notes: "
-                          "use search_notes for that. plays: every save play, renewed of decided."),
-                **self._book().causes()}
+                          "use search_notes for that. plays: every save play, renewed of decided, ranked by "
+                          "save rate; best_play names the first.")}
 
     def search_notes(self, query: str, account_id: Optional[int] = None, k: int = 5) -> dict[str, Any]:
         self._book()

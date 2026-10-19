@@ -55,7 +55,8 @@ class Structured:
 class Model(Protocol):
     name: str
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Reply: ...
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                 require_tool: bool = False) -> Reply: ...
 
     def structured(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> Structured: ...
 
@@ -94,8 +95,11 @@ class LangChainModel:
         self.chat = chat_model
         self.name = name or getattr(chat_model, "model_name", None) or getattr(chat_model, "model", "model")
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> Reply:
-        bound = self.chat.bind_tools([{"type": "function", "function": t} for t in tools]) if tools else self.chat
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                 require_tool: bool = False) -> Reply:
+        specs = [{"type": "function", "function": t} for t in tools]
+        bound = (self.chat.bind_tools(specs, tool_choice="required" if require_tool else "auto")
+                 if tools else self.chat)
         message = bound.invoke(_to_langchain(messages))
         calls = [ToolCall(id=c.get("id") or f"call_{i}", name=c["name"], args=dict(c.get("args") or {}))
                  for i, c in enumerate(getattr(message, "tool_calls", None) or [])]

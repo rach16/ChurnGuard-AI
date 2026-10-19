@@ -60,7 +60,11 @@ AGENT_TOOLS = {
     "book": ("find_accounts", "get_book_summary", "get_causes"),
     "notes": ("find_accounts", "search_notes"),
 }
-AGENT_LABEL = {"account": "Account analyst", "book": "Book analyst", "notes": "Notes researcher"}
+# The single-agent shape the golden set compares against (ADR-0016 section 2,
+# the architecture review's challenge): one agent, every tool, no supervisor.
+AGENT_TOOLS["single"] = tuple(dict.fromkeys(t for tools in AGENT_TOOLS.values() for t in tools))
+AGENT_LABEL = {"account": "Account analyst", "book": "Book analyst", "notes": "Notes researcher",
+               "single": "Assistant"}
 OUT_OF_SCOPE = ("I can only answer questions about this customer book: accounts, their risk and renewals, "
                 "why customers left, what has worked, and what customers said. I can't take actions.")
 
@@ -136,7 +140,8 @@ class Assistant:
     def __init__(self, model: Model, tools: Tools, *, judge: Optional[Model] = None,
                  predictions_available: bool = False,
                  on_event: Optional[Callable[[dict[str, Any]], None]] = None,
-                 cancel: Optional[threading.Event] = None, tracer: Optional[Tracer] = None):
+                 cancel: Optional[threading.Event] = None, tracer: Optional[Tracer] = None,
+                 mode: str = "multi"):
         self.model = model
         self.judge = judge or model
         self.tools = tools
@@ -147,6 +152,10 @@ class Assistant:
         self.results: dict[str, dict[str, Any]] = {}
         self.calls: list[dict[str, Any]] = []
         self.usage = Usage()
+        self.usage_by_model: dict[str, Usage] = {}
+        if mode not in ("multi", "single"):
+            raise ValueError(f"mode must be multi or single, not {mode!r}")
+        self.mode = mode
         self.model_calls = 0
         self._lock = threading.Lock()
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="assistant")
@@ -188,6 +197,10 @@ class Assistant:
     # ---------------------------------------------------------------- nodes
 
     def _plan(self, s: State) -> State:
+        if self.mode == "single":
+            out_of_scope = asks_for_action(s["question"])
+            return {"plan": {"agents": [] if out_of_scope else ["single"], "rules": [], "out_of_scope": out_of_scope,
+                             "source": "single-agent mode", "instructions": {"single": ""}, "named": []}}
         self._step("supervisor", "Planning")
         named = names_in(s["question"], self._names)
         rules = route(s["question"], named_accounts=named, account_on_screen=s.get("account_id") is not None)
@@ -310,8 +323,11 @@ class Assistant:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": prompt(agent, as_of=self.tools.ctx.as_of)},
             {"role": "user", "content": f"Question: {s['question']}\n{self.account_line}\nYour task: {task}"}]
-        for _ in range(MAX_TURNS):
-            reply = self._complete(messages, tools, role=agent)
+        for turn in range(MAX_TURNS):
+            # The first turn must call a tool: on held-out questions an agent
+            # once answered from nothing and cited lookups it never made
+            # (2026-10-19). Grounding is required, not requested.
+            reply = self._complete(messages, tools, role=agent, require_tool=turn == 0)
             if not reply.tool_calls:
                 break
             messages.append({"role": "assistant", "content": reply.content,
@@ -421,6 +437,9 @@ class Assistant:
                 "revisions": s.get("revisions", 0), "limitation": limitation,
                 "tool_calls": self.calls, "model_calls": self.model_calls,
                 "usage": {"input_tokens": self.usage.input_tokens, "output_tokens": self.usage.output_tokens},
+                "usage_by_model": {m: {"input_tokens": u.input_tokens, "output_tokens": u.output_tokens}
+                                   for m, u in self.usage_by_model.items()},
+                "mode": self.mode,
                 "seconds": round(seconds, 2), "prompt_version": PROMPT_VERSION,
                 "model": getattr(self.model, "name", "model"), "judge": getattr(self.judge, "name", "model")}
         if plan["out_of_scope"]:
@@ -467,15 +486,17 @@ class Assistant:
     def _step(self, agent: str, text: str) -> None:
         self.on_event({"type": "step", "agent": agent, "text": text})
 
-    def _complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, role: str) -> Reply:
+    def _complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, role: str,
+                  require_tool: bool = False) -> Reply:
         self._cancelled()
         handle = self.tracer.start("generation", role, model=getattr(self.model, "name", "model"),
                                    tools=[t["name"] for t in tools])
-        reply = self.model.complete(messages, tools)
+        reply = self.model.complete(messages, tools, require_tool=require_tool)
         self.tracer.end(handle, usage=reply.usage, tool_calls=[c.name for c in reply.tool_calls])
         with self._lock:
             self.model_calls += 1
             self.usage.add(reply.usage)
+            self.usage_by_model.setdefault(getattr(self.model, "name", "model"), Usage()).add(reply.usage)
         return reply
 
     def _structured(self, messages: list[dict[str, Any]], schema: dict[str, Any], *, judge: bool = False,
@@ -495,4 +516,5 @@ class Assistant:
         with self._lock:
             self.model_calls += 1
             self.usage.add(out.usage)
+            self.usage_by_model.setdefault(getattr(model, "name", "model"), Usage()).add(out.usage)
         return out

@@ -124,7 +124,7 @@ def test_a_failing_model_is_a_sentence_not_a_crash(site):
         def structured(self, messages, schema):
             raise ConnectionError("provider unreachable")
 
-        def complete(self, messages, tools):
+        def complete(self, messages, tools, require_tool=False):
             raise ConnectionError("provider unreachable")
 
     holder["model"] = Down(plan=None, calls={}, findings={})

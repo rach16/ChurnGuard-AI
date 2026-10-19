@@ -171,3 +171,14 @@ def test_story_queue_and_causes_routes(api_on):
     api._init_health_scorer()
     asyncio.run(api.get_book_queue())
     assert api.state.story is not before
+
+
+def test_a_scheduled_save_play_is_not_contact():
+    # Seven save plays on the org are dated after the as-of date (scheduled).
+    # They once made "last contact" negative; found by the assistant's evals.
+    b = builder_for(SALESFORCE)
+    assert all(c["last_engagement_days"] >= 0 for c in b.scorer.score_active_customers())
+    for r in b.queue():
+        contact = next((s for s in b.story(r["id"])["signals"] if s["key"] == "contact"), None)
+        if contact and contact["text"].startswith("Last contact"):
+            assert int(contact["text"].split()[2]) >= 0, (r["name"], contact["text"])

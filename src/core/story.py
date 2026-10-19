@@ -123,8 +123,10 @@ class StoryBuilder:
 
         # Contact.
         inter = s.interactions[s.interactions["customer_id"] == cid]
-        if not inter.empty:
-            last = inter["interaction_date"].max()
+        # Contact that has happened; a save play dated after as-of is scheduled.
+        past = inter[inter["interaction_date"] <= s.as_of]
+        if not past.empty:
+            last = past["interaction_date"].max()
             days = int((s.as_of - last).days)
             text = f"Last contact {days} days ago"
             out.append(Signal("contact", "adverse" if days > CONTACT_STALE_DAYS else "good",

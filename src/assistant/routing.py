@@ -25,7 +25,8 @@ AGENTS = ("account", "book", "notes")
 _BOOK = re.compile(
     r"\b(which|what) (accounts|customers|companies)\b|\b(list|rank|top|most|least|largest|biggest|how many|"
     r"total|sum|count|all (the )?accounts|segment|enterprise|commercial|smb|portfolio|book|across|renew(al|als|s|ing)? "
-    r"(in|within|next)|why (did|do) (customers|accounts|they) (leave|churn)|cause|causes|lost to|competitors?)\b",
+    r"(in|within|next)|why (did|do) (customers|accounts|they) (leave|churn)|cause|causes|lost to|competitors?|"
+    r"arr|revenue|lose|lost|churned|churn rate|save plays?|worked best)\b",
     re.IGNORECASE)
 _NOTES = re.compile(
     r"\b(said|say|says|saying|mention(ed|s)?|complain(ed|s|t|ts)?|told|asked|ask(ed)? about|note|notes|"

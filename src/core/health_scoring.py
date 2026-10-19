@@ -136,7 +136,10 @@ class CustomerHealthScorer:
         mean_csat = cust_tickets["csat_score"].mean()
         csat = None if pd.isna(mean_csat) else float(mean_csat)
 
-        cust_interactions = self.interactions[self.interactions["customer_id"] == cid]
+        # Contact that has happened: a task dated after as-of is a scheduled
+        # save play, not contact (matches customer_health_score.sql).
+        cust_interactions = self.interactions[(self.interactions["customer_id"] == cid)
+                                              & (self.interactions["interaction_date"] <= self.as_of)]
         if not cust_interactions.empty:
             last_contact = cust_interactions["interaction_date"].max()
             last_engagement_days = int((self.as_of - last_contact).days)

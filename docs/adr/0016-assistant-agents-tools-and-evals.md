@@ -238,13 +238,13 @@ that produced it.
 
 | Concern | Decision |
 |---|---|
-| Model | The provider factory's default chat model with tool calling (`gpt-4o-mini`) for planning, agents, drafting and revision. **The faithfulness judge uses a stronger model** (`gpt-4o` on OpenAI, `ASSISTANT_JUDGE_MODEL` to change it): decided by the owner 2026-10-18 after real runs showed `gpt-4o-mini` as judge removing a correct claim in one of two runs and passing a figure attached to the wrong set of accounts. About $0.01 a question instead of $0.0015, measured at 4.6.4 |
-| Cost | Measured, not assumed, on the golden set before launch; expected about $0.001–0.003 a question. The existing caps hold: 10 questions per person per hour, 200 per deployment per day (2.7), the OpenAI dashboard cap |
+| Model | The provider factory's default chat model with tool calling (`gpt-4o-mini`) for planning, agents, drafting and revision. **The faithfulness judge uses a stronger model** (`gpt-4o` on OpenAI, `ASSISTANT_JUDGE_MODEL` to change it): decided by the owner 2026-10-18 after real runs showed `gpt-4o-mini` as judge removing a correct claim in one of two runs and passing a figure attached to the wrong set of accounts. About ~~$0.01~~ $0.0067 a question (measured at 4.6.4, §9) instead of $0.0015 |
+| Cost | Measured, not assumed, on the golden set before launch; expected about $0.001–0.003 a question; measured $0.0067 on the held-out set with the gpt-4o judge (§9). The existing caps hold: 10 questions per person per hour, 200 per deployment per day (2.7), the OpenAI dashboard cap |
 | Steps | At most 6 tool calls and 1 revision per question; the graph stops and answers with what it has |
 | Latency | Targets, measured at 4.6.4: answer starts streaming within 3 s (the plan and the first tool call), full answer within 15 s at p95; tool calls time out at 5 s, model calls at 20 s, one retry each with backoff |
 | Streaming *(review)* | Server-sent events (`Cache-Control: no-cache, no-transform`, or a compressing proxy holds them back: found with the Next.js proxy) stream the **steps** as they happen ("Looking up Starlight Freight…", "Searching notes…"). The **answer is held until the checker passes** and then sent whole: no number reaches the page unchecked |
 | Failure modes *(review)* | A tool error is returned to the agent as a result it can work around; a timed-out tool is reported in the answer. The model provider down: the page says the assistant is unavailable and the rest of the site is untouched. At most 4 assistant requests run at once per instance (the free instance has 512 MB); a fifth waits or is refused with a retry hint. A closed page cancels the graph and its remaining calls |
-| Load | A load test of 20 concurrent questions against staging at 4.6.4, recording p50/p95 latency, errors and cost |
+| Load | A load test of 20 concurrent questions ~~against staging~~ in process, through the route's own concurrency limit with the real model, at 4.6.4, recording p50/p95 latency, errors and cost (amended 2026-10-19: a staging run needs a signed-in session a script cannot create; the network hop to Render is not what the limit protects). Result in §9, Measured |
 | Tracing | Every graph step, tool call, token count, latency and cost, with the prompt version, sent to **Langfuse** (free cloud tier; self-hostable) through its LangChain callback, off when no key is set. OpenTelemetry was considered (3.3) and stays the route to a customer's own collector |
 | Audit | One `assistant_question` audit event per question: who, which tools, tokens, cost, outcome, never the answer text |
 
@@ -276,9 +276,59 @@ plausible one. Three layers:
 against the model when the repository secret is present, failing the build if
 fact recall, tool accuracy or faithfulness drops more than 5 points against the
 stored baseline, numeric exact-match falls below 100%, p95 latency exceeds the
-target, or any red-team case fails. About $0.10 a run (measured at
+target, or any red-team case fails. About ~~$0.10~~ $0.20 a run (measured at
 build). The baseline and every run's scores are committed, like the retrieval
 benchmark (3.2a).
+
+### Measured at 4.6.4 (2026-10-19 UTC)
+
+`scripts/eval_assistant.py` on the Salesforce data, `gpt-4o-mini` agents and a
+`gpt-4o` judge; the set from `scripts/build_assistant_golden.py` (38 questions
+derived by code: 15 tune, 23 held out) and `golden-masters/assistant_redteam.json`
+(8 attacks: two planted injection notes, two other-tenant questions, two action
+requests, a forecast, a prompt leak). Files: `metrics/assistant_eval_*.json`.
+
+| | Tune, three agents | **Held out, three agents** (the baseline) | Held out, one agent |
+|---|---|---|---|
+| Fact recall | 1.00 | **0.97** | 0.95 |
+| Numeric recall | 1.00 | **0.92** | 0.92 |
+| Numbers shown that the cited result does not hold | 0 | **0** | 0 |
+| Tool selection | 1.00 | **0.91** | 0.91 |
+| Routing | 1.00 | **0.95** | n/a |
+| Refusals right / prediction limitation given | 1.00 / n/a | **1.00 / 1.00** | 1.00 / 1.00 |
+| Notes retrieval recall at 5 | 1.00 | **1.00** | 1.00 |
+| Red team passed | 8 of 8 | **8 of 8** | 8 of 8 |
+| Latency p50 / p95 | 7.0 s / 11.8 s | **6.3 s / 11.0 s** | 4.7 s / 7.7 s |
+| Cost a question | $0.0077 | **$0.0067** | $0.0057 |
+
+- **Single against multi.** One agent with every tool was 25% faster and 15%
+  cheaper, with one fact fewer of 38 and the same numbers. **The owner kept
+  three agents** (2026-10-19): the routing is itself scored and explains the
+  answer, and the gap is small enough to revisit. `Assistant(mode="single")`
+  stays as an eval-only option (`--mode single`), not served.
+- **Gate as built** (`assistant.evals.gate`): any of tool selection, routing,
+  fact recall, numeric recall, refusals, the limitation or retrieval more than
+  5 points below the baseline; any number shown that its cited result does not
+  hold (this is the "numeric exact-match at 100%": a missed figure lowers
+  numeric recall, a wrong one fails outright); any red-team case failing; p95
+  over 20 s (the 15 s target with room for shared CI runners). Faithfulness is
+  enforced per answer by the judge inside the graph rather than scored after it.
+  Unit-tested without a model (`tests/test_assistant_evals.py`). Runs on a push
+  to `main` that touches the assistant, its data or its sets, and by hand, with
+  its own key (`OPENAI_API_KEY_EVALS`); skips without it.
+- **Held-out discipline.** Fixes from held-out misses were limited to code that
+  is not about one question: routing words (*lose*, *ARR*, *churn rate*), a
+  tool call required on an agent's first turn (agents had answered from
+  nothing), a best-play sentence written by the tool. The one miss that only a
+  prompt edit would fix (book-09, SMB at-risk count answered as 27, the whole
+  book's) is left as a recorded miss rather than tuned away.
+- **Found by the run, fixed:** "last contact" read negative on 7 accounts,
+  because future-dated scheduled save plays counted as contact; live on
+  production since 8.5. Contact is now interactions on or before the as-of date
+  in the scorer, the story and the SQL model (dbt 83/83, 0 negative values).
+- **Load** (`scripts/load_assistant.py`, `metrics/assistant_load.json`): 20
+  questions fired at once at one instance: 4 answered (4.7–9.9 s), 16 refused
+  at once with the retry hint, 0 errors, $0.019.
 
 ## 10. MCP and A2A
 
