@@ -43,8 +43,6 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(ROOT / ".env")
 
 from core.rag_retrievers import ChurnRAGRetriever
-from agents.churn_agent import CustomerChurnAgent
-from agents.multi_agent_system import MultiAgentChurnSystem
 from core.health_scoring import CustomerHealthScorer
 from core.exposure import ExposureModel
 from core.plays import PlaybookEngine
@@ -68,9 +66,15 @@ from integrations.sync import SyncEngine, attention as sync_attention
 from integrations.sync_store import Snapshot, SyncStore
 from integrations.tokens import TokenService
 from integrations.writeback import WriteBackEngine
+from assistant.notes_index import IndexBuildFailed, NotesIndex, documents_from
 import auth_routes
 import connections_routes
 import team_routes
+import assistant_routes
+import token_routes
+from integrations.access_tokens import TokenAuth, TokenStore
+from mcp_server import McpEndpoint, PATH as MCP_PATH
+from starlette.routing import Route
 from session_gate import SessionGate
 import security
 from model.survival import ChurnSurvivalModel
@@ -100,11 +104,11 @@ class ServiceState:
 
     def __init__(self) -> None:
         self.rag_retriever: Optional[ChurnRAGRetriever] = None
-        self.churn_agent: Optional[CustomerChurnAgent] = None
-        self.multi_agent_system: Optional[MultiAgentChurnSystem] = None
         self.health_scorer: Optional[CustomerHealthScorer] = None
         self.playbook: Optional[PlaybookEngine] = None
         self.story: Optional[StoryBuilder] = None
+        # The assistant's notes-and-cases index (ADR-0016 section 4), versioned per snapshot.
+        self.notes_index: Optional[NotesIndex] = None
         self.survival: Optional[ChurnSurvivalModel] = None
         self.survival_frame = None
         self.evidence: Optional[CustomerEvidence] = None
@@ -128,6 +132,8 @@ class ServiceState:
         self.scheduler: Optional[GitHubOidcVerifier] = None
         # The Team page (2.6.5): invites and roles through Cognito's admin API.
         self.team: Optional[TeamAdmin] = None
+        # Access tokens for MCP clients (4.6.5, ADR-0016 §10a): need sign-in's team check.
+        self.tokens: Optional[TokenAuth] = None
         self.last_sign_ins = None
         self.errors: dict[str, str] = {}
         # Components off on purpose for this data source, with the reason. Not a
@@ -166,7 +172,7 @@ class ServiceState:
         checks the join that has to hold, so this property means what its name
         claims.
         """
-        if self.multi_agent_system is None or self.rag_retriever is None:
+        if self.rag_retriever is None:
             return False
         return self.retrieval_problem() is None
 
@@ -212,14 +218,13 @@ class ServiceState:
     def components(self) -> dict:
         return {
             "health_scorer": self.health_scorer is not None,
+            "notes_index": self.notes_index is not None,
             "playbook": self.playbook is not None,
             "survival_model": self.survival is not None,
             "exposure": self.exposure is not None,
             "evidence": self.evidence is not None,
             "rag_retriever": self.rag_retriever is not None,
             "retrieval_join": self.retrieval_problem() is None,
-            "churn_agent": self.churn_agent is not None,
-            "multi_agent_system": self.multi_agent_system is not None,
             "connections": self.connections is not None,
             "sync": self.sync is not None,
             "login": self.login is not None,
@@ -314,7 +319,7 @@ def _init_survival() -> None:
         logger.info("Exposure: no playbook, so no recovery estimate")
 
 
-AI_COMPONENTS = ("rag_retriever", "churn_agent", "multi_agent_system")
+AI_COMPONENTS = ("rag_retriever",)
 
 
 def _ai_unavailable(reason: str) -> None:
@@ -323,8 +328,52 @@ def _ai_unavailable(reason: str) -> None:
         state.unavailable(component, reason)
 
 
+def _init_notes_index() -> None:
+    """The assistant's index (ADR-0016 section 4): needs an embedding provider and
+    Qdrant. Without them notes search reports itself unavailable; nothing else
+    changes. Built here only as an object: the build itself runs per snapshot."""
+    if not os.getenv("QDRANT_URL"):
+        state.switched_off("notes_index", "QDRANT_URL is not set")
+        return
+    try:
+        from core.llm import embedding_model
+
+        embedder = embedding_model()
+        client = ChurnRAGRetriever._make_client(os.environ["QDRANT_URL"])
+        state.notes_index = NotesIndex(client, embedder.embed_documents, embedder.embed_query,
+                                       tenant=(serving_info() or {}).get("tenant_id", "default"))
+    except Exception as e:  # noqa: BLE001 - a missing key is a configuration, not a fault
+        state.notes_index = None
+        state.switched_off("notes_index", f"notes search is off: {type(e).__name__}: {e}"[:300])
+
+
+def _refresh_notes_index() -> None:
+    """Make the index match the served snapshot: a no-op when it already does, an
+    alias move on a rollback to a kept snapshot, a full build otherwise. In a
+    thread, so a promotion or a start is never held for it. A failure leaves the
+    previous index serving and is named on /health."""
+    index, scorer = state.notes_index, state.health_scorer
+    if index is None or scorer is None:
+        return
+    info = serving_info() or {}
+    snapshot_id = info.get("snapshot_id") or f"pull-{scorer.as_of.date().isoformat()}"
+
+    def run() -> None:
+        try:
+            result = index.build(snapshot_id, documents_from(scorer))
+            state.errors.pop("notes_index", None)
+            logger.info(f"notes index: {result['action']} {result['collection']} ({result['documents']} documents)")
+        except IndexBuildFailed as e:
+            state.unavailable("notes_index", f"the notes index for snapshot {snapshot_id[:8]} failed to build "
+                                             f"({e}); the previous one is still serving")
+        except Exception as e:  # noqa: BLE001
+            state.unavailable("notes_index", f"{type(e).__name__}: {e}"[:300])
+
+    threading.Thread(target=run, name="notes-index", daemon=True).start()
+
+
 def _init_ai_stack() -> None:
-    """Bring up the RAG retriever and agents. Any failure leaves the API degraded."""
+    """Bring up the RAG retriever behind /ask. Any failure leaves the API degraded."""
     if not _env_flag("ENABLE_RAG", True):
         _ai_unavailable("disabled via ENABLE_RAG=false")
         return
@@ -355,20 +404,6 @@ def _init_ai_stack() -> None:
         state.rag_retriever = None
         _ai_unavailable(f"{type(e).__name__}: {e}")
         return
-
-    use_tavily = bool(os.getenv("TAVILY_API_KEY"))
-    for name, factory, attr in (
-        ("churn_agent", CustomerChurnAgent, "churn_agent"),
-        ("multi_agent_system", MultiAgentChurnSystem, "multi_agent_system"),
-    ):
-        try:
-            setattr(state, attr, factory(
-                rag_retriever=state.rag_retriever,
-                use_tavily=use_tavily,
-            ))
-            logger.info(f"✓ {name} initialized")
-        except Exception as e:
-            state.unavailable(name, f"{type(e).__name__}: {e}")
 
 
 def _init_connections() -> None:
@@ -442,6 +477,7 @@ def _init_login(database, provider) -> None:
     state.sessions = SessionStore(database)
     state.login = LoginFlow(state.sessions, provider, CognitoClient(config), site_origin=origin)
     state.team = TeamAdmin(config.user_pool_id)
+    state.tokens = TokenAuth(TokenStore(database), state.team)
 
     def _last_sign_ins(tenant: str) -> dict:
         with database.connection() as conn:
@@ -478,10 +514,12 @@ def _serve_snapshot(snapshot: Snapshot, reload: bool = True) -> None:
     set_serving(str(folder), {
         "kind": "sync", "snapshot_id": snapshot.id, "run_id": snapshot.run_id,
         "as_of": snapshot.as_of.isoformat(), "row_counts": snapshot.row_counts,
+        "tenant_id": snapshot.tenant_id,
         "created_at": snapshot.created_at.isoformat(),
     })
     if reload:
         _init_health_scorer()
+        _refresh_notes_index()
     logger.info(f"✓ serving snapshot {snapshot.id[:8]} (run {snapshot.run_id[:8]}, as of {snapshot.as_of})")
 
 
@@ -533,6 +571,8 @@ async def lifespan(app: FastAPI):
     _restore_serving()
     _init_health_scorer()
     _init_ai_stack()
+    _init_notes_index()
+    _refresh_notes_index()
 
     if state.ai_ready:
         logger.info("✅ Fully initialized -- AI endpoints available")
@@ -544,7 +584,8 @@ async def lifespan(app: FastAPI):
     else:
         logger.error(f"❌ Nothing initialized. Reasons: {state.errors}")
 
-    yield
+    async with mcp_endpoint.running():
+        yield
     logger.info("Shutting down")
     if state.database is not None:
         state.database.close()
@@ -595,7 +636,28 @@ security.install(app)
 # is why it takes a getter: the subsystem comes up in lifespan, after this line.
 app.include_router(connections_routes.build_router(lambda: state))
 app.include_router(auth_routes.build_router(lambda: state))
+app.include_router(token_routes.build_router(lambda: state))
 app.include_router(team_routes.build_router(lambda: state))
+# The assistant (4.6, ADR-0016). require_story is defined below; the lambda reads it at request time.
+app.include_router(assistant_routes.build_router(lambda: state, lambda: require_story()))
+
+
+def _mcp_context(tenant: str):
+    """The tools' context for an MCP caller: the same as the assistant's. With
+    nothing served, a context the tools answer "No data is served" from."""
+    try:
+        builder = require_story()
+    except HTTPException:
+        from assistant.tools import ToolContext
+        return ToolContext(tenant=tenant, served_tenant="", builder=None, snapshot_id=None, as_of="")
+    return assistant_routes.tool_context(state, builder, tenant)
+
+
+# MCP (4.6.5, ADR-0016 §10a): the six read-only tools for Claude Desktop or Code,
+# authenticated by a personal access token. A raw ASGI route, not a mount, so
+# /mcp answers without a redirect to /mcp/.
+mcp_endpoint = McpEndpoint(lambda: state, _mcp_context)
+app.router.routes.append(Route(MCP_PATH, endpoint=mcp_endpoint, methods=["GET", "POST", "DELETE"]))
 
 
 def require_ai(component: str):
@@ -632,15 +694,6 @@ def require_health_scorer() -> CustomerHealthScorer:
 MAX_QUESTION_CHARS = int(os.getenv("MAX_QUESTION_CHARS", 2000))
 
 
-class ChurnAnalysisRequest(BaseModel):
-    """Request model for churn analysis"""
-    customer_id: Optional[str] = Field(None, max_length=64, description="Customer ID to analyze")
-    query: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
-                       description="Question about churn analysis")
-    include_recommendations: bool = Field(True, description="Include retention recommendations")
-    max_response_length: int = Field(2000, ge=100, le=4000)
-
-
 class AskRequest(BaseModel):
     """Request model for general questions"""
     question: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
@@ -650,14 +703,6 @@ class AskRequest(BaseModel):
         description="Retrieval method: 'hybrid' (default, measured best), 'naive', 'multi_query', 'parent_document', 'contextual_compression'"
     )
     max_response_length: int = Field(2000, ge=100, le=4000)
-
-
-class MultiAgentRequest(BaseModel):
-    """Request model for multi-agent analysis"""
-    query: str = Field(..., min_length=1, max_length=MAX_QUESTION_CHARS,
-                       description="Question for comprehensive multi-agent analysis")
-    include_background: bool = Field(True, description="Include background context from research team")
-    include_citations: bool = Field(True, description="Include detailed citations")
 
 
 class HealthResponse(BaseModel):
@@ -672,31 +717,6 @@ class HealthResponse(BaseModel):
     source: str = ""
     llm: dict = {}
     security: dict = {}
-
-
-class ChurnAnalysisResponse(BaseModel):
-    """Response model for churn analysis"""
-    answer: str
-    customer_id: Optional[str]
-    churn_risk_score: Optional[float]
-    recommendations: Optional[list[str]]
-    sources: list[dict]
-    metrics: dict
-
-
-class MultiAgentResponse(BaseModel):
-    """Response model for multi-agent analysis"""
-    query: str
-    query_type: Optional[str]
-    response: str
-    background_context: Optional[str]
-    key_insights: list[str]
-    citations: list[dict]
-    style_notes: list[str]
-    confidence_score: float
-    processing_stages: list[str]
-    total_sources: int
-    errors: list[str]
 
 
 def _sync_errors() -> dict:
@@ -808,89 +828,6 @@ async def readiness_check(require_ai_stack: bool = False):
     if not ready:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=payload)
     return payload
-
-
-# Main analysis endpoint
-@app.post("/analyze-churn", response_model=ChurnAnalysisResponse)
-async def analyze_churn(request: ChurnAnalysisRequest):
-    """
-    Analyze customer churn risk and provide recommendations using LangGraph agent
-    
-    Uses the CustomerChurnAgent for intelligent multi-step reasoning,
-    tool selection, and comprehensive churn analysis.
-    """
-    logger.info(f"Churn analysis request: {request.customer_id or 'general'}")
-    
-    # Check if agent is initialized
-    churn_agent = require_ai("churn_agent")
-    
-    start_time = time.time()
-    
-    try:
-        # Run agent analysis
-        logger.info("🤖 Running agent analysis...")
-        # LangGraph's run() is synchronous and takes seconds. Awaiting it directly
-        # from an async handler blocks the event loop, so a single worker serialises
-        # every request behind it. Hand it to a thread instead.
-        result = await run_in_threadpool(
-            churn_agent.run,
-            query=request.query,
-            customer_id=request.customer_id,
-        )
-        
-        # Extract recommendations if requested
-        recommendations = None
-        if request.include_recommendations and "recommendations" in result:
-            recommendations = result["recommendations"]
-            if isinstance(recommendations, str):
-                # Parse string recommendations into list
-                recommendations = [r.strip() for r in recommendations.split("\n") if r.strip()]
-            elif isinstance(recommendations, list):
-                # Convert dict recommendations to strings
-                formatted_recommendations = []
-                for rec in recommendations:
-                    if isinstance(rec, dict):
-                        # Format dict as string
-                        rec_str = rec.get("Recommendation", str(rec))
-                        if "Priority" in rec:
-                            rec_str = f"[{rec['Priority']}] {rec_str}"
-                        formatted_recommendations.append(rec_str)
-                    else:
-                        formatted_recommendations.append(str(rec))
-                recommendations = formatted_recommendations
-        
-        # Calculate metrics
-        response_time = int((time.time() - start_time) * 1000)
-        
-        logger.info(f"✅ Analysis completed in {response_time}ms")
-        
-        return ChurnAnalysisResponse(
-            answer=result.get("analysis", "Analysis completed but no detailed response generated."),
-            customer_id=request.customer_id,
-            churn_risk_score=result.get("confidence_score", None),
-            recommendations=recommendations,
-            sources=[
-                {
-                    "document": doc.metadata.get("source", "unknown"),
-                    "relevance_score": doc.metadata.get("score", 0.0),
-                    "content": doc.page_content[:200] + ("..." if len(doc.page_content) > 200 else "")
-                }
-                for doc in result.get("documents", [])[:5]  # Limit to top 5 sources
-            ],
-            metrics={
-                "response_time_ms": response_time,
-                "tokens_used": result.get("metrics", {}).get("tokens_used", 0),
-                "retrieval_method": result.get("retrieval_method", "agent-selected"),
-                "agent_steps": len(result.get("errors", [])) + 1  # Rough estimate
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in churn analysis: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Churn analysis failed: {str(e)}"
-        )
 
 
 # General question endpoint
@@ -1011,65 +948,6 @@ Answer:""")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Question answering failed: {str(e)}"
-        )
-
-
-# Multi-Agent Analysis endpoint
-@app.post("/multi-agent-analyze", response_model=MultiAgentResponse)
-async def multi_agent_analyze(request: MultiAgentRequest):
-    """
-    Comprehensive churn analysis using multi-agent system
-    
-    Uses two specialized agent teams:
-    - Team 1 (Research Team): Gathers background context using RAG and Tavily search
-    - Team 2 (Writing Team): Generates detailed response with 5 sub-agents
-      (Writer, Editor, Note Taker, Empathy Editor, Style Guide)
-    
-    This endpoint provides the most comprehensive analysis with:
-    - High-level background context
-    - Specific use cases
-    - Empathetic, well-cited responses
-    - Style compliance
-    """
-    logger.info(f"Multi-agent analysis request: {request.query[:50]}...")
-    
-    # Check if multi-agent system is initialized
-    multi_agent_system = require_ai("multi_agent_system")
-    
-    start_time = time.time()
-    
-    try:
-        # Run multi-agent analysis
-        logger.info("🤖 Running multi-agent analysis...")
-        result = await run_in_threadpool(multi_agent_system.analyze, query=request.query)
-        
-        # Calculate metrics
-        response_time = int((time.time() - start_time) * 1000)
-        
-        logger.info(f"✅ Multi-agent analysis completed in {response_time}ms")
-        
-        # Build response
-        response_data = {
-            "query": result.get("query", request.query),
-            "query_type": result.get("query_type"),
-            "response": result.get("response", ""),
-            "background_context": result.get("background_context", "") if request.include_background else None,
-            "key_insights": result.get("key_insights", []),
-            "citations": result.get("citations", []) if request.include_citations else [],
-            "style_notes": result.get("style_notes", []),
-            "confidence_score": result.get("confidence_score", 0.0),
-            "processing_stages": result.get("processing_stages", []),
-            "total_sources": result.get("total_sources", 0),
-            "errors": result.get("errors", [])
-        }
-        
-        return MultiAgentResponse(**response_data)
-        
-    except Exception as e:
-        logger.error(f"Error in multi-agent analysis: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multi-agent analysis failed: {str(e)}"
         )
 
 
@@ -1714,9 +1592,8 @@ async def root():
         "docs": "/docs",
         "health": "/health",
         "endpoints": {
-            "analyze_churn": "/analyze-churn - Single agent analysis",
             "ask": "/ask - General Q&A with RAG",
-            "multi_agent": "/multi-agent-analyze - Comprehensive multi-agent analysis",
+            "assistant": "/assistant/ask - The assistant: three tool-calling agents, checked answers",
             "evaluation": "/evaluation-results - RAGAS evaluation metrics",
             "at_risk_customers": "/at-risk-customers - Get at-risk customer list",
             "dashboard_stats": "/dashboard-stats - Dashboard statistics",
@@ -1724,12 +1601,10 @@ async def root():
             "customer_analysis": "/customer/{customer_id}/detailed-analysis - Get detailed customer analysis"
         },
         "features": [
-            "Multi-Agent System (Research Team + Writing Team)",
+            "Assistant: supervisor and three tool-calling agents (ADR-0016)",
             "LangGraph Agents",
             "RAG with Multiple Retrieval Strategies",
             "Knowledge Graph Integration",
-            "Tavily Search",
-            "Empathetic Response Generation",
             "RAGAS Evaluation Metrics",
             "Customer Health Scoring",
             "Predictive Churn Risk Analysis"

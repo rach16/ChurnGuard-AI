@@ -31,6 +31,10 @@ PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
      re.compile(r"(?<![A-Z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}(?![A-Z0-9])"), "[REDACTED aws_key]"),
     ("bearer",
      re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._\-!]{16,}"), "Bearer [REDACTED]"),
+    # ChurnGuard's own access tokens (ADR-0016 §10a). The page's display prefix
+    # (cg_pat_ and four characters) is too short to match.
+    ("churnguard_access_token",
+     re.compile(r"cg_pat_[A-Za-z0-9_\-]{16,}"), "[REDACTED access token]"),
     # code= is the OAuth authorisation code; a short value (status code=200) is
     # not one and is left alone.
     ("oauth_code",

@@ -67,39 +67,6 @@ export interface AskResponse {
   metrics: Metrics;
 }
 
-export interface ChurnAnalysisResponse {
-  answer: string;
-  customer_id?: string;
-  churn_risk_score?: number;
-  recommendations?: string[];
-  sources: Source[];
-  metrics: Metrics;
-}
-
-export interface MultiAgentResponse {
-  query: string;
-  query_type?: string;
-  response: string;
-  background_context?: string;
-  key_insights: string[];
-  citations: Array<{
-    citation_id?: string;
-    type?: string;
-    customer?: string;
-    segment?: string;
-    churn_reason?: string;
-    arr_lost?: string;
-    title?: string;
-    url?: string;
-    relevance?: string;
-  }>;
-  style_notes: string[];
-  confidence_score: number;
-  processing_stages: string[];
-  total_sources: number;
-  errors: string[];
-}
-
 export interface HealthResponse {
   status: string;
   timestamp: string;
@@ -163,71 +130,6 @@ export const apiClient = {
         response.status,
         response.statusText,
         errorData.detail || 'Failed to get answer'
-      );
-    }
-
-    return response.json();
-  },
-
-  /**
-   * Analyze customer churn with agent-based reasoning
-   */
-  async analyzeChurn(
-    query: string,
-    customerId?: string,
-    includeRecommendations: boolean = true
-  ): Promise<ChurnAnalysisResponse> {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/analyze-churn`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        customer_id: customerId,
-        include_recommendations: includeRecommendations,
-        max_response_length: 2000,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new APIError(
-        response.status,
-        response.statusText,
-        errorData.detail || 'Churn analysis failed'
-      );
-    }
-
-    return response.json();
-  },
-
-  /**
-   * Multi-Agent Analysis with Research Team + Writing Team
-   */
-  async multiAgentAnalyze(
-    query: string,
-    includeBackground: boolean = true,
-    includeCitations: boolean = true
-  ): Promise<MultiAgentResponse> {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/multi-agent-analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        include_background: includeBackground,
-        include_citations: includeCitations,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new APIError(
-        response.status,
-        response.statusText,
-        errorData.detail || 'Multi-agent analysis failed'
       );
     }
 

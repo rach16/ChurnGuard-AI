@@ -46,9 +46,9 @@ def db():
         admin.execute(f"create schema {schema}")
     database = Database(URL, schema=schema).open()
     try:
-        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback"]
+        assert database.migrate() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback", "0007_access_tokens"]
         assert database.migrate() == []                     # idempotent
-        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback"]
+        assert database.applied_migrations() == ["0001_connections", "0002_sync", "0003_snapshots", "0004_serving", "0005_login", "0006_writeback", "0007_access_tokens"]
         yield database
     finally:
         database.close()
@@ -364,6 +364,36 @@ def test_sessions_round_trip_hashed_and_expiring(db, provider):
                             sealed_refresh=crypto.seal(provider, i, "rt", purpose=crypto.SESSION_PURPOSE),
                             now=NOW)
         assert sessions.delete_for_user(conn, "sub-2") == 2
+
+
+@needs_db
+def test_access_tokens_round_trip_hashed_and_revocable(db):
+    from datetime import timedelta
+
+    from integrations.access_tokens import TokenStore, hash_token, new_token
+
+    tokens = TokenStore(db)
+    value = new_token()
+    with db.connection() as conn:
+        made = tokens.create(conn, value=value, name="Claude Code", tenant_id="default", user_sub="sub-t",
+                             email="t@example.test", days=90, now=NOW)
+        stored = conn.execute("select token_hash, prefix from access_tokens where id = %s", (made.id,)).fetchone()
+    assert bytes(stored["token_hash"]) == hash_token(value) and stored["prefix"] == value[:11]
+    assert made.expires_at == NOW + timedelta(days=90) and made.live(NOW)
+
+    got = tokens.by_value(value)
+    assert got.id == made.id and got.tenant_id == "default" and tokens.by_value(new_token()) is None
+    with db.connection() as conn:
+        tokens.used(conn, made.id, now=NOW + timedelta(minutes=3), confirmed=True)
+        assert [t.id for t in tokens.live_for(conn, "sub-t", NOW)] == [made.id]
+        assert tokens.live_for(conn, "sub-t", NOW + timedelta(days=91)) == []          # expired
+        assert tokens.revoke(conn, made.id, user_sub="someone-else", reason="x", now=NOW) is None
+        tokens.create(conn, value=new_token(), name="second", tenant_id="default", user_sub="sub-t",
+                      email="t@example.test", days=30, now=NOW)
+        assert tokens.revoke(conn, made.id, user_sub="sub-t", reason="revoked by its owner", now=NOW).revoked_at
+        assert tokens.revoke_for_user(conn, "sub-t", reason="removed from the team", now=NOW) == 1
+        assert tokens.live_for(conn, "sub-t", NOW) == []
+    assert tokens.by_value(value).checked_at == NOW + timedelta(minutes=3)
 
 
 @needs_db

@@ -1,0 +1,17 @@
+{
+ "fired_at_once": 20,
+ "limit": 4,
+ "answered": 4,
+ "refused_with_retry_hint": 16,
+ "errors": [],
+ "answered_seconds": [
+  4.7,
+  4.76,
+  4.8,
+  9.94
+ ],
+ "slowest_refusal_ms": 0.0,
+ "wall_seconds": 10.6,
+ "cost": 0.0188,
+ "measured": "2026-10-19"
+}

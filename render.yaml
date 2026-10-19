@@ -107,8 +107,11 @@ services:
         value: "10"
       - key: LLM_DAILY_BUDGET
         value: "200"
-      # Deliberately absent on staging: OPENAI_API_KEY. Everything except the AI
-      # question box works without it, and staging should not be able to spend.
+      # OPENAI_API_KEY on staging since 2026-10-18 (ADR-0016, decision 4): the
+      # assistant is built and proven here first. Set by hand in the dashboard;
+      # spend is bounded by the two limits above and the OpenAI dashboard cap.
+      - key: OPENAI_API_KEY
+        sync: false
 
       # Log in with Salesforce (1.9, ADR-0012). All set by hand in the dashboard.
       # Staging only until the live-site decision; production has none of these,

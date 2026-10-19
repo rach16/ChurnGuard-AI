@@ -45,8 +45,12 @@ tickets as (
 ),
 
 last_contact as (
+    -- Contact that has happened: a save play scheduled after the as-of date is
+    -- planned work, not contact (7 such tasks on the Salesforce org gave a
+    -- negative "last contact"; found by the assistant's evals, 2026-10-19).
     select customer_id, max(interaction_date) as last_interaction_date
     from {{ ref('sl_interactions') }}
+    where interaction_date <= (select as_of_date from as_of)
     group by customer_id
 ),
 

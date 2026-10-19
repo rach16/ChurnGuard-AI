@@ -1,0 +1,77 @@
+# The assistant's quality gate (ADR-0016 section 9, 4.6.4).
+#
+# Asks the real model the held-out golden questions and the red-team attacks,
+# on the Salesforce data committed in the repository, and fails the build when
+# a metric falls more than 5 points below metrics/assistant_eval_baseline.json,
+# when any shown number is not in its cited result, when any attack gets
+# through, or when p95 latency passes 20 s. The scored run is kept as an
+# artifact, so a failure can be read question by question.
+#
+# Runs on pushes to main that touch the assistant, its prompts, its data or its
+# sets, and by hand. It spends money: about $0.20 a run at the 2026-10-19
+# measurement (31 questions at ~$0.0067, gpt-4o-mini agents and a gpt-4o
+# judge), on a key kept for this workflow alone (OPENAI_API_KEY_EVALS, its own
+# OpenAI project with a monthly budget). Without the secret it skips, like the
+# database tests.
+
+name: Assistant eval
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/assistant/**"
+      - "src/core/story.py"
+      - "src/core/health_scoring.py"
+      - "src/core/plays.py"
+      - "data/salesforce/**"
+      - "golden-masters/assistant_*.json"
+      - "scripts/eval_assistant.py"
+      - "metrics/assistant_eval_baseline.json"
+      - ".github/workflows/assistant-eval.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: assistant-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  eval:
+    name: Held-out questions and red team
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Run the eval against the baseline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_EVALS }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY_EVALS is not set: skipping the assistant eval."
+            exit 0
+          fi
+          uv run --extra model python scripts/eval_assistant.py \
+            --split heldout --mode multi --gate metrics/assistant_eval_baseline.json
+
+      - name: Keep the scored run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-eval
+          path: metrics/assistant_eval_heldout_multi.json
+          if-no-files-found: ignore
