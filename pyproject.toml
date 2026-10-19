@@ -30,7 +30,6 @@ dependencies = [
     "qdrant-client>=1.19,<2",
     "langchain-qdrant>=0.2.0",
     # Search & Retrieval
-    "tavily-python>=0.5.0", # agents/churn_agent.py web search, when TAVILY_API_KEY is set
     "rank-bm25>=0.2.2", # core/rag_retrievers.hybrid_retrieval
     # Data
     "numpy>=2.2.2",
@@ -46,6 +45,7 @@ dependencies = [
     # Verifying Cognito ID tokens and GitHub OIDC tokens (ADR-0013).
     "pyjwt[crypto]>=2.8",
     "langfuse>=3,<4",
+    "mcp>=1.12,<2",
 ]
 
 

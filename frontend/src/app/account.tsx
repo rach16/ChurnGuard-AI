@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { LogIn, LogOut } from 'lucide-react';
+import { KeyRound, LogIn, LogOut } from 'lucide-react';
 
 export interface Me {
   enabled: boolean;
@@ -75,6 +75,14 @@ export function AccountMenu() {
           {me.user.role}
         </span>
       )}
+      <a
+        href="/tokens"
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Access tokens for Claude Code and Claude Desktop"
+      >
+        <KeyRound className="h-3.5 w-3.5" />
+        <span className="sr-only sm:not-sr-only">Tokens</span>
+      </a>
       <form method="post" action="/api/auth/logout">
         <button
           type="submit"

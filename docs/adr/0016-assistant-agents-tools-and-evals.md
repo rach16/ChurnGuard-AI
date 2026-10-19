@@ -332,10 +332,30 @@ requests, a forecast, a prompt leak). Files: `metrics/assistant_eval_*.json`.
 
 ## 10. MCP and A2A
 
-- **MCP**: the six tools are also served by an MCP server (`src/mcp/`,
-  streamable HTTP, behind the same sign-in), so Claude Desktop or any MCP client
+- **MCP**: the six tools are also served by an MCP server ~~(`src/mcp/`, streamable HTTP, behind the same sign-in)~~, so Claude Desktop or any MCP client
   can query ChurnGuard's book directly. One definition of each tool serves both
   the agents and MCP.
+
+### 10a. How an MCP client signs in (decided 2026-10-19, 4.6.5)
+
+A browser session cannot be handed to Claude Desktop or Claude Code, so the
+owner chose **personal access tokens** over a laptop-only stdio server (never
+sees the served snapshot) and OAuth through Cognito (the MCP clients expect
+dynamic client registration, which Cognito does not offer; 2–3 days of
+workaround).
+
+| Concern | Decision |
+|---|---|
+| Endpoint | `POST /mcp` (`/api/mcp` through the site), streamable HTTP, stateless, JSON responses; the Python MCP SDK's low-level server. Package `src/mcp_server/`, because a package named `mcp` would shadow the SDK |
+| Tools | The six in `assistant.tools.SPECS`, read-only, nothing else: no model is called and no money is spent. Each call builds the same `ToolContext` the assistant gets, from the token's tenant, so tenant and account checks are the same code |
+| Credential | `Authorization: Bearer cg_pat_…`: 32 random bytes, shown once at creation, only its SHA-256 stored (like the session cookie). A session cookie is **not** accepted on `/mcp` |
+| Who | Any signed-in person creates tokens for themselves from the Access tokens page; the token reads as that person, in their tenant. At most 5 live tokens a person; 30 or 90 days, never longer. Creating and revoking are actions (site origin, Cognito re-check) |
+| Ending | Revoked by its owner, at expiry, or when the person is removed on the Team page (their tokens are deleted with their sessions). Each use re-confirms the person with Cognito at most every 2 minutes (as 2.6.6): a disabled or removed person's token is revoked at its next use. Cognito unreachable: the last confirmation stands, as for reads |
+| Audit | `token_created`, `token_revoked` (with who and why), and one `mcp_call` per tool call with the tool, the outcome and the result's size, never the arguments or the result |
+| Limits | The general per-caller rate limit, keyed by the token; no LLM budget, because nothing here calls a model |
+| Off | Where sign-in or the database is not configured, `/mcp` answers 404 and says why |
+| Using it | Claude Code: `claude mcp add --transport http churnguard <site>/api/mcp --header "Authorization: Bearer <token>"`. Claude Desktop: the `mcp-remote` bridge with the same header. Shown on the page next to the new token |
+
 - **A2A**: not built. It is for agents of different systems to delegate to one
   another; there is no second agent system here. Recorded so it is a decision.
 
@@ -350,7 +370,9 @@ requests, a forecast, a prompt leak). Files: `metrics/assistant_eval_*.json`.
 - **Local models**: the provider factory already supports Ollama (4.2). A
   documented run of the golden set against a local model records its tool-call
   accuracy and latency next to the hosted one, so a customer who cannot send
-  data out knows what they give up.
+  data out knows what they give up. **Deferred 2026-10-19** by the owner: no customer
+  needs it yet; `scripts/eval_assistant.py` with `LLM_PROVIDER=ollama` is the
+  run when one does.
 
 ## 12. The page
 
@@ -364,7 +386,7 @@ opens it with the account set. Monochrome, like 8.5.
 
 | Removed | Added |
 |---|---|
-| The old pipeline agents (`src/agents/churn_agent.py`, `multi_agent_system.py`, `research_team.py`, `writing_team.py`) and their routes (`/analyze-churn`, `/multi-agent-analyze`), after the new route ships | `src/assistant/` (graph, agents, tools, checker, prompts), `src/mcp/`, `POST /assistant/ask` (SSE), the notes index hook, `golden-masters/assistant_salesforce.csv`, `tests/test_assistant*.py`, an eval workflow |
+| The old pipeline agents (`src/agents/churn_agent.py`, `multi_agent_system.py`, `research_team.py`, `writing_team.py`) and their routes (`/analyze-churn`, `/multi-agent-analyze`), after the new route ships | `src/assistant/` (graph, agents, tools, checker, prompts), ~~`src/mcp/`~~ `src/mcp_server/` and access tokens (§10a), `POST /assistant/ask` (SSE), the notes index hook, `golden-masters/assistant_salesforce.csv`, `tests/test_assistant*.py`, an eval workflow |
 | The synthetic corpus from the assistant's path (the corpus stays for the retrieval benchmark until 1.12) | |
 
 ## 14. Delivery
@@ -375,7 +397,7 @@ opens it with the account set. Monochrome, like 8.5.
 | **4.6.2** | The graph: supervisor, routing rules, fast path, three agents, structured findings, the per-claim checker and its fallback, caps, cancellation; fake-model tests | pytest |
 | **4.6.3** | `POST /assistant/ask` streaming steps and the checked answer, audit, Langfuse tracing, the concurrency limit; the `/ask` page | Staging, with an OpenAI key added there |
 | **4.6.4** | Golden set (tuning and held-out) and red-team set, judge, baseline, CI gate; single-agent against multi-agent compared; load test; cost and latency measured | CI on `main` |
-| **4.6.5** | MCP server; the local-model run recorded; old agents removed; record; merge | Production |
+| **4.6.5** | MCP server with access tokens (§10a); ~~the local-model run recorded~~ (deferred 2026-10-19 by the owner: no customer needs it, the provider factory already supports Ollama); old agents removed; record; merge | Production |
 
 Effort about 7–9 days (the review added versioned indexes, the load test and the comparison). Cost: model calls under the existing daily cap; about
 $0.10 per CI eval run; Langfuse free tier.

@@ -16,6 +16,10 @@ One machine caller passes without a session: the daily sync workflow, on
 verifies it as GitHub's OIDC token for this repository's workflow on main
 (2.6.3, ADR-0013 §5) and refuses anything else, so the check lives in one place.
 The shared operator key this replaced is gone.
+
+MCP clients (4.6.5, ADR-0016 §10a) pass without a session on ``/mcp`` only,
+carrying a personal access token; the endpoint verifies it, and refuses a
+session cookie, so here too the check lives in one place.
 """
 
 from __future__ import annotations
@@ -32,6 +36,8 @@ from connections_routes import bearer_token
 
 # The scheduler's one route, reachable with a bearer token instead of a session.
 SCHEDULER_PATH = "/connections/sync-due"
+# MCP clients' one route, reachable with an access token instead of a session.
+MCP_PATH = "/mcp"
 
 OPEN_PATHS = frozenset({
     # Probes and documentation (ADR-0010): an orchestrator cannot sign in.
@@ -69,6 +75,8 @@ class SessionGate(BaseHTTPMiddleware):
 
         if (request.url.path == SCHEDULER_PATH and request.method == "POST"
                 and bearer_token(request) is not None):
+            return await call_next(request)
+        if request.url.path == MCP_PATH:
             return await call_next(request)
 
         return JSONResponse({"detail": "Sign in required.", "sign_in": "/api/auth/login"},

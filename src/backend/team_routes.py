@@ -4,7 +4,7 @@ HTTP for the Team page (2.6.5, ADR-0013 §3a). Admins only.
 - ``GET  /team``                      the tenant's people, role, status, last sign-in
 - ``POST /team/invite``               {email, role}: create, set role and tenant, email
 - ``POST /team/{username}/role``      {role}
-- ``POST /team/{username}/remove``    disable, sign out everywhere, delete sessions
+- ``POST /team/{username}/remove``    disable, sign out everywhere, delete sessions, revoke tokens
 
 Every change is audited with the admin who made it. Rules (last admin, no
 self-removal, one tenant) live in ``integrations.team`` and come back as 409
@@ -102,12 +102,17 @@ def build_router(get_state: Callable[[], object]) -> APIRouter:
 
         def end_sessions():
             state = get_state()
+            tokens = getattr(state, "tokens", None)
             with state.sessions.db.connection() as conn:
-                return state.sessions.delete_for_user(conn, member.username)
+                ended = state.sessions.delete_for_user(conn, member.username)
+                revoked = (tokens.revoke_for_user(conn, member.username, tenant_id=session.tenant_id, actor=actor,
+                                                  reason="removed from the team") if tokens is not None else 0)
+            return ended, revoked
 
-        ended = await run_in_threadpool(end_sessions)
+        ended, revoked = await run_in_threadpool(end_sessions)
         await run_in_threadpool(record, request, "member_removed", actor,
-                                {"email": member.email, "role": member.role, "sessions_ended": ended})
-        return {"removed": member.email, "sessions_ended": ended}
+                                {"email": member.email, "role": member.role, "sessions_ended": ended,
+                                 "tokens_revoked": revoked})
+        return {"removed": member.email, "sessions_ended": ended, "tokens_revoked": revoked}
 
     return router

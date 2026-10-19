@@ -56,7 +56,7 @@ RATE_WINDOW_SECONDS = 60
 # model and costs nothing per request, so the general limit above is about abuse
 # rather than spend. These are different: each call is a paid API request, and a
 # public deployment hands that bill to anyone who finds the URL.
-LLM_PATHS = frozenset({"/ask", "/analyze-churn", "/multi-agent-analyze", "/assistant/ask"})
+LLM_PATHS = frozenset({"/ask", "/assistant/ask"})
 
 # The sign-in session cookie (ADR-0013, integrations/sessions.py).
 SESSION_COOKIE = "__Host-cg_session"
@@ -204,6 +204,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     content={"error": "invalid_api_key", "detail": "Key not recognised."},
                 )
             caller = f"key:{caller_id(presented)}"
+        elif (request.url.path == "/mcp"
+              and request.headers.get("authorization", "").lower().startswith("bearer cg_pat_")):
+            # An MCP client (ADR-0016 §10a): limit the token. The endpoint verifies it.
+            caller = f"token:{caller_id(request.headers['authorization'][7:].strip())}"
         elif request.cookies.get(SESSION_COOKIE):
             # Signed in (ADR-0013): limit the person, not the address. Behind the
             # Vercel rewrite every visitor can share one client address, which

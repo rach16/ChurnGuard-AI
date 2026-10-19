@@ -48,6 +48,15 @@ class AskRequest(BaseModel):
     account_id: Optional[int] = Field(None, ge=0)
 
 
+def tool_context(state: Any, builder: Any, tenant: str) -> ToolContext:
+    """What a caller in ``tenant`` may read: the served snapshot, its notes index.
+    The assistant and the MCP server (ADR-0016 §10a) build it the same way."""
+    info = serving_info() or {}
+    return ToolContext(tenant=tenant, served_tenant=info.get("tenant_id", DEFAULT_TENANT), builder=builder,
+                       snapshot_id=info.get("snapshot_id") or f"pull-{builder.scorer.as_of.date().isoformat()}",
+                       as_of=builder.scorer.as_of.date().isoformat(), notes=getattr(state, "notes_index", None))
+
+
 def _sse(kind: str, payload: Any) -> str:
     return f"event: {kind}\ndata: {json.dumps(payload, default=str)}\n\n"
 
@@ -76,12 +85,7 @@ def build_router(get_state: Callable[[], Any], get_builder: Callable[[], Any]) -
         return session.tenant_id if session is not None else DEFAULT_TENANT
 
     def context(tenant: str) -> ToolContext:
-        state = get_state()
-        info = serving_info() or {}
-        builder = get_builder()
-        return ToolContext(tenant=tenant, served_tenant=info.get("tenant_id", DEFAULT_TENANT), builder=builder,
-                           snapshot_id=info.get("snapshot_id") or f"pull-{builder.scorer.as_of.date().isoformat()}",
-                           as_of=builder.scorer.as_of.date().isoformat(), notes=getattr(state, "notes_index", None))
+        return tool_context(get_state(), get_builder(), tenant)
 
     def record(request: Request, tenant: str, detail: dict[str, Any]) -> None:
         db = getattr(getattr(get_state(), "connections", None), "db", None)
