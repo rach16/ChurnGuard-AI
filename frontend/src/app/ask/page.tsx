@@ -288,20 +288,68 @@ function Steps({ steps, pending }: { steps: string[]; pending: boolean }) {
   );
 }
 
-function sourceLabel(c: Citation): string {
-  return (c.tool && SOURCE[c.tool]) || c.tool || c.ref;
+function sourceLabel(c: Citation, ev?: Evidence): string {
+  const base = (c.tool && SOURCE[c.tool]) || c.tool || c.ref;
+  // Two lookups of the same kind are told apart by the account they were about.
+  return ev?.name && (c.tool === 'get_story' || c.tool === 'get_plays') ? `${base}: ${ev.name}` : base;
 }
 
 function AnswerView({ answer }: { answer: Answer }) {
   const [showRemoved, setShowRemoved] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  // Each source once, numbered in the order the answer first cites it (the
+  // owner, on staging: "account story" under every sentence was repetitive).
+  const sources: Citation[] = [];
+  for (const c of answer.answer) {
+    for (const s of c.citations) if (!sources.some((x) => x.ref === s.ref)) sources.push(s);
+  }
+  const number = (ref: string) => sources.findIndex((x) => x.ref === ref) + 1;
+  const evidence = answer.evidence ?? {};
+  const toggle = (ref: string) => setOpen((v) => (v === ref ? null : ref));
   return (
     <div className="space-y-3">
       {answer.limitation && (
         <p className="rounded-md border px-3 py-2 text-sm text-muted-foreground">{answer.limitation}</p>
       )}
       {answer.answer.map((c, i) => (
-        <ClaimView key={i} claim={c} evidence={answer.evidence ?? {}} />
+        <p key={i} className="text-sm leading-relaxed">
+          {c.text}
+          {c.citations.map((s) => (
+            <button
+              key={s.ref}
+              onClick={() => toggle(s.ref)}
+              aria-label={`Source ${number(s.ref)}: ${sourceLabel(s, evidence[s.ref])}`}
+              className={cn(
+                'ml-0.5 align-super text-[10px] text-muted-foreground hover:text-foreground',
+                open === s.ref && 'text-foreground underline',
+              )}
+            >
+              {number(s.ref)}
+            </button>
+          ))}
+        </p>
       ))}
+      {sources.length > 0 && (
+        <div className="border-t pt-2 text-xs text-muted-foreground">
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-medium text-foreground">Sources</span>
+            {sources.map((s) => (
+              <button
+                key={s.ref}
+                onClick={() => toggle(s.ref)}
+                aria-expanded={open === s.ref}
+                className={cn('inline-flex items-center gap-0.5 hover:text-foreground',
+                  open === s.ref && 'text-foreground underline underline-offset-2')}
+              >
+                <span className="align-super text-[10px]">{number(s.ref)}</span>
+                {sourceLabel(s, evidence[s.ref])}
+                <ChevronDown className={cn('h-3 w-3 transition-transform', open === s.ref && 'rotate-180')} />
+              </button>
+            ))}
+          </p>
+          {open && evidence[open] && <EvidenceView ev={evidence[open]} />}
+        </div>
+      )}
       {answer.fallback && answer.fallback.length > 0 && <Fallback items={answer.fallback} />}
       {answer.versions_note && <p className="text-xs text-muted-foreground">{answer.versions_note}</p>}
       {answer.could_not_confirm.length > 0 && (
@@ -329,40 +377,6 @@ function AnswerView({ answer }: { answer: Answer }) {
           {answer.revisions ? ' · one correction' : ''}
         </p>
       )}
-    </div>
-  );
-}
-
-/**
- * One sentence and its sources. A source is a button that opens what the
- * sentence rests on, under it; the account page is linked from inside the
- * evidence, next to the account's name, not from every source.
- */
-function ClaimView({ claim, evidence }: { claim: Claim; evidence: Record<string, Evidence> }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const shown = open ? evidence[open] : undefined;
-  return (
-    <div>
-      <p className="text-sm leading-relaxed">{claim.text}</p>
-      {claim.citations.length > 0 && (
-        <p className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-          {claim.citations.map((s) => (
-            <button
-              key={s.ref}
-              onClick={() => setOpen((v) => (v === s.ref ? null : s.ref))}
-              aria-expanded={open === s.ref}
-              className={cn(
-                'inline-flex items-center gap-0.5 underline-offset-2 hover:text-foreground hover:underline',
-                open === s.ref && 'text-foreground underline',
-              )}
-            >
-              {sourceLabel(s)}
-              <ChevronDown className={cn('h-3 w-3 transition-transform', open === s.ref && 'rotate-180')} />
-            </button>
-          ))}
-        </p>
-      )}
-      {shown && <EvidenceView ev={shown} />}
     </div>
   );
 }
