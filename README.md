@@ -42,6 +42,7 @@ The repository's synthetic data is for tests. Set `CHURNGUARD_DATA_DIR=data/sale
 
 ## Read more
 
+- [System walkthrough](docs/walkthrough.html): the diagram, clickable, before and after; open the file in a browser
 - [Architecture](docs/ARCHITECTURE.md)
 - [Design decisions](docs/adr/): 17 ADRs, one per major choice
 
